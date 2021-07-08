@@ -5,7 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded" Background="Transparent" ShowInTaskbar="False">
+        Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
+        LocationChanged="location_Save"
+        Background="Transparent" ShowInTaskbar="False">
     <Grid Width="780" Height="600">
         <Label Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
         <DataGrid x:Name="task1" HorizontalAlignment="Left" Height="270" Margin="5,25,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
