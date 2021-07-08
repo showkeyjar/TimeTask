@@ -5,11 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="时间管理" Height="610" Width="810" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded" Background="Transparent" ShowInTaskbar="False">
-    <Grid Width="780" Height="570">
-        <DataGrid x:Name="task1" HorizontalAlignment="Left" Height="270" Margin="5,10,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
-        <DataGrid x:Name="task2" HorizontalAlignment="Left" Height="270" Margin="395,10,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task2_SelectionChanged"/>
-        <DataGrid x:Name="task3" HorizontalAlignment="Left" Height="270" Margin="5,290,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task3_SelectionChanged"/>
-        <DataGrid x:Name="task4" HorizontalAlignment="Left" Height="270" Margin="395,290,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task4_SelectionChanged"/>
+        Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded" Background="Transparent" ShowInTaskbar="False">
+    <Grid Width="780" Height="600">
+        <Label Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <DataGrid x:Name="task1" HorizontalAlignment="Left" Height="270" Margin="5,25,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
+        <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="395,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <DataGrid x:Name="task2" HorizontalAlignment="Left" Height="270" Margin="395,25,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task2_SelectionChanged"/>
+        <Label Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,295,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <DataGrid x:Name="task3" HorizontalAlignment="Left" Height="270" Margin="5,320,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task3_SelectionChanged"/>
+        <Label Content="不重要不紧急" HorizontalAlignment="Left" Margin="395,295,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <DataGrid x:Name="task4" HorizontalAlignment="Left" Height="270" Margin="395,320,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task4_SelectionChanged"/>
     </Grid>
 </Window>

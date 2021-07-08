@@ -20,16 +20,21 @@ namespace TimeTask
             {
                 return null;
             }
-            var allLines = File.ReadAllLines(filepath);
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg));
             var result =
-                from line in allLines.Skip(1).Take(allLines.Length - 1)
+                from line in allLines.Skip(1).Take(allLines.Count() - 1)
                 let temparry = line.Split(',')
-                let isSkip =
-                    temparry.Length > 2
-                    && temparry[2] != null
-                    && temparry[2] == "True"
+                let isSkip = temparry.Length > 2 && temparry[2] != null && temparry[2] == "True"
                 select new ItemGrid { ItemName = temparry[0], ItemScore = temparry[1], ItemValue = !isSkip };
-            return result.ToList();
+            var result_list = new List<ItemGrid>();
+            try
+            {
+                result_list = result.ToList();
+            }
+            catch {
+                result_list.Add(new ItemGrid { ItemName = "csv文件缺失", ItemScore = "0", ItemValue = false });
+            }
+            return result_list;
         }
 
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
