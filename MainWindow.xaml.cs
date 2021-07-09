@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
@@ -75,12 +75,14 @@ namespace TimeTask
         [DllImport("user32.dll")]
         static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
+        string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
         public void loadDataGridView()
         {
-            task1.ItemsSource = HelperClass.ReadCsv(@"data/1.csv");
-            task2.ItemsSource = HelperClass.ReadCsv(@"data/2.csv");
-            task3.ItemsSource = HelperClass.ReadCsv(@"data/3.csv");
-            task4.ItemsSource = HelperClass.ReadCsv(@"data/4.csv");
+            task1.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/1.csv");
+            task2.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/2.csv");
+            task3.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/3.csv");
+            task4.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/4.csv");
         }
 
         public MainWindow()
@@ -99,7 +101,7 @@ namespace TimeTask
                 if (task1.Items[i] is ItemGrid)
                     temp.Add((ItemGrid)task1.Items[i]);
             }
-            HelperClass.WriteCsv(temp, @"data/1.csv");
+            HelperClass.WriteCsv(temp, currentPath + "/data/1.csv");
         }
 
         private void task2_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -110,7 +112,7 @@ namespace TimeTask
                 if (task2.Items[i] is ItemGrid)
                     temp.Add((ItemGrid)task2.Items[i]);
             }
-            HelperClass.WriteCsv(temp, @"data/2.csv");
+            HelperClass.WriteCsv(temp, currentPath + "/data/2.csv");
         }
 
         private void task3_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -121,7 +123,7 @@ namespace TimeTask
                 if (task3.Items[i] is ItemGrid)
                     temp.Add((ItemGrid)task3.Items[i]);
             }
-            HelperClass.WriteCsv(temp, @"data/3.csv");
+            HelperClass.WriteCsv(temp, currentPath + "/data/3.csv");
         }
 
         private void task4_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -132,7 +134,7 @@ namespace TimeTask
                 if (task4.Items[i] is ItemGrid)
                     temp.Add((ItemGrid)task4.Items[i]);
             }
-            HelperClass.WriteCsv(temp, @"data/4.csv");
+            HelperClass.WriteCsv(temp, currentPath + "/data/4.csv");
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
