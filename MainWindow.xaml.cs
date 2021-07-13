@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Linq;
@@ -80,9 +81,13 @@ namespace TimeTask
         public void loadDataGridView()
         {
             task1.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/1.csv");
+            task1.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
             task2.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/2.csv");
+            task2.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
             task3.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/3.csv");
+            task3.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
             task4.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/4.csv");
+            task4.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
         }
 
         public MainWindow()

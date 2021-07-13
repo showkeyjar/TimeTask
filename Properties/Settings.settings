@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="Top" Type="System.Double" Scope="User">
-      <Value Profile="(Default)">180</Value>
+      <Value Profile="(Default)">80</Value>
     </Setting>
     <Setting Name="Left" Type="System.Double" Scope="User">
       <Value Profile="(Default)">640</Value>
