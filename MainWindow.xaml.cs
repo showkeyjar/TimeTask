@@ -27,9 +27,9 @@ namespace TimeTask
             var result =
                 from line in allLines.Skip(1).Take(allLines.Count() - 1)
                 let temparry = line.Split(',')
-                let isSkip = temparry.Length > 2 && temparry[2] != null && temparry[2] == "True"
-                let parse = int.TryParse(temparry[1],out parseScore)
-                select new ItemGrid { Task = temparry[0], Score = parseScore, Done = !isSkip };
+                let parse = int.TryParse(temparry[1], out parseScore)
+                let isSkip = temparry.Length > 2 && temparry[3] != null && temparry[3] == "True"
+                select new ItemGrid { Task = temparry[0], Score = parseScore, Result=temparry[2], Done = !isSkip };
             var result_list = new List<ItemGrid>();
             try
             {
