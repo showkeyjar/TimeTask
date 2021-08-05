@@ -163,5 +163,41 @@ namespace TimeTask
             Properties.Settings.Default.Left = this.Left;
             Properties.Settings.Default.Save();
         }
+
+        private void del1_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = task1.SelectedItem;
+            if (selectedItem != null)
+            {
+                task1.Items.Remove(selectedItem);
+            }
+        }
+
+        private void del2_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = task2.SelectedItem;
+            if (selectedItem != null)
+            {
+                task2.Items.Remove(selectedItem);
+            }
+        }
+
+        private void del3_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = task3.SelectedItem;
+            if (selectedItem != null)
+            {
+                task3.Items.Remove(selectedItem);
+            }
+        }
+
+        private void del4_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = task4.SelectedItem;
+            if (selectedItem != null)
+            {
+                task4.Items.Remove(selectedItem);
+            }
+        }
     }
 }
