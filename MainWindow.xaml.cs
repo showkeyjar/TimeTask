@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 
@@ -78,6 +80,11 @@ namespace TimeTask
 
         string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
+        int task1_selected_indexs = -1;
+        int task2_selected_indexs = -1;
+        int task3_selected_indexs = -1;
+        int task4_selected_indexs = -1;
+
         public void loadDataGridView()
         {
             task1.ItemsSource = HelperClass.ReadCsv(currentPath + "/data/1.csv");
@@ -98,48 +105,38 @@ namespace TimeTask
             loadDataGridView();
         }
 
+        private void update_csv(DataGrid dgv, string number) {
+            var temp = new List<ItemGrid>();
+            for (int i = 0; i < dgv.Items.Count; i++)
+            {
+                if (dgv.Items[i] is ItemGrid)
+                    temp.Add((ItemGrid)dgv.Items[i]);
+            }
+            HelperClass.WriteCsv(temp, currentPath + "/data/" + number + ".csv");
+        }
+
         private void task1_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < task1.Items.Count; i++)
-            {
-                if (task1.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)task1.Items[i]);
-            }
-            HelperClass.WriteCsv(temp, currentPath + "/data/1.csv");
+            task1_selected_indexs = task1.SelectedIndex;
+            update_csv(task1, "1");
         }
 
         private void task2_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < task2.Items.Count; i++)
-            {
-                if (task2.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)task2.Items[i]);
-            }
-            HelperClass.WriteCsv(temp, currentPath + "/data/2.csv");
+            task2_selected_indexs = task2.SelectedIndex;
+            update_csv(task2, "2");
         }
 
         private void task3_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < task3.Items.Count; i++)
-            {
-                if (task3.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)task3.Items[i]);
-            }
-            HelperClass.WriteCsv(temp, currentPath + "/data/3.csv");
+            task3_selected_indexs = task3.SelectedIndex;
+            update_csv(task3, "3");
         }
 
         private void task4_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < task4.Items.Count; i++)
-            {
-                if (task4.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)task4.Items[i]);
-            }
-            HelperClass.WriteCsv(temp, currentPath + "/data/4.csv");
+            task4_selected_indexs = task4.SelectedIndex;
+            update_csv(task4, "4");
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -166,37 +163,41 @@ namespace TimeTask
 
         private void del1_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItem = task1.SelectedItem;
-            if (selectedItem != null)
+            if (task1_selected_indexs >= 0)
             {
-                task1.Items.Remove(selectedItem);
+                var itemList = (List<ItemGrid>)task1.ItemsSource;
+                itemList.RemoveAt(task1_selected_indexs);
+                task1.ItemsSource = itemList;
             }
         }
 
         private void del2_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItem = task2.SelectedItem;
+            DataRowView selectedItem = task2.SelectedItem as DataRowView;
             if (selectedItem != null)
             {
-                task2.Items.Remove(selectedItem);
+                DataView dataView = task2.ItemsSource as DataView;
+                dataView.Table.Rows.Remove(selectedItem.Row);
             }
         }
 
         private void del3_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItem = task3.SelectedItem;
+            DataRowView selectedItem = task3.SelectedItem as DataRowView;
             if (selectedItem != null)
             {
-                task3.Items.Remove(selectedItem);
+                DataView dataView = task3.ItemsSource as DataView;
+                dataView.Table.Rows.Remove(selectedItem.Row);
             }
         }
 
         private void del4_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItem = task4.SelectedItem;
+            DataRowView selectedItem = task4.SelectedItem as DataRowView;
             if (selectedItem != null)
             {
-                task4.Items.Remove(selectedItem);
+                DataView dataView = task4.ItemsSource as DataView;
+                dataView.Table.Rows.Remove(selectedItem.Row);
             }
         }
     }
