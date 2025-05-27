@@ -5,11 +5,11 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
 
-// Betalgo.OpenAI.GPT3 specific using statements
-using Betalgo.OpenAI.GPT3; // General namespace
-using Betalgo.OpenAI.GPT3.Interfaces; // For IOpenAIService
-using Betalgo.OpenAI.GPT3.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
-using Betalgo.OpenAI.GPT3.ObjectModels; // For StaticValues.Models (or specific model classes)
+// Using statements for Betalgo.OpenAI.GPT3
+using Betalgo.OpenAI.GPT3.Interfaces;
+using Betalgo.OpenAI.GPT3.ObjectModels; // For StaticValues.Models or direct model classes
+using Betalgo.OpenAI.GPT3.ObjectModels.RequestModels;
+// Betalgo.OpenAI.GPT3 (general namespace) is implicitly covered by the above.
 
 namespace TimeTask
 {
@@ -29,7 +29,7 @@ namespace TimeTask
 
     public class LlmService
     {
-        private IOpenAIService _openAiService; // Changed type to interface
+        private IOpenAIService _openAiService; // Changed to IOpenAIService
         private string _apiKey;
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
 
@@ -97,7 +97,6 @@ namespace TimeTask
             InitializeOpenAiService();
         }
 
-        // Parsing methods and FormatTimeSpan remain unchanged as they work on strings
         internal string FormatTimeSpan(TimeSpan ts)
         {
             if (ts.TotalDays >= 7)
@@ -123,8 +122,8 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(llmResponse)) return (reminder, suggestions);
             try
             {
-                llmResponse = llmResponse.Replace("\r\n", "\n").Replace("\r", "\n");
-                string[] lines = llmResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                // Corrected Split call: using char array for clarity, though Split(char) is fine.
+                string[] lines = llmResponse.Replace("\r\n", "\n").Replace("\r", "\n").Split(new char[] {'\n'}, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string line in lines)
                 {
                     string trimmedLine = line.Trim();
@@ -185,7 +184,7 @@ namespace TimeTask
                     if (subtasksHeaderIndex != -1)
                     {
                         string subtasksSection = llmResponse.Substring(subtasksHeaderIndex + "Subtasks:".Length);
-                        string[] lines = subtasksSection.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                        string[] lines = subtasksSection.Split(new char[] {'\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                         foreach (string line in lines)
                         {
                             string trimmedLine = line.Trim();
@@ -283,7 +282,7 @@ namespace TimeTask
                 string importance = "Unknown";
                 string urgency = "Unknown";
                 string normalizedResponse = llmResponse.Trim();
-                string[] parts = normalizedResponse.Split(',');
+                string[] parts = normalizedResponse.Split(','); // Default split by comma
                 if (parts.Length == 2)
                 {
                     string importancePart = parts[0].Trim();
@@ -341,9 +340,11 @@ namespace TimeTask
         private void InitializeOpenAiService()
         {
             // Use Betalgo.OpenAI.GPT3's OpenAIServiceBuilder
-            _openAiService = new OpenAIServiceBuilder()
-                .WithApiKey(_apiKey)
-                .Build();
+            // Note: Betalgo.OpenAI.GPT3.OpenAIService is the concrete class for IOpenAIService
+            _openAiService = new Betalgo.OpenAI.GPT3.OpenAIService(new Betalgo.OpenAI.GPT3.Models.OpenAiOptions() 
+            {
+                ApiKey = _apiKey
+            });
         }
         
         public void Init()
@@ -362,29 +363,28 @@ namespace TimeTask
 
             try
             {
-                // Use Betalgo.OpenAI.GPT3's chat completion
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
-                    Messages = new List<ChatMessage> // Betalgo uses List<ChatMessage>
+                    Messages = new List<ChatMessage> 
                     {
-                        ChatMessage.FromUser(prompt) // This helper should still work or be easily adaptable
+                        ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.ChatGpt3_5Turbo, // Use model from Betalgo.OpenAI.GPT3.ObjectModels.Models
+                    Model = Models.ChatGpt3_5Turbo, 
                     MaxTokens = 150 
                 });
 
                 if (completionResult.Successful)
                 {
-                    return completionResult.Choices.FirstOrDefault()?.Message.Content; // Adapted to FirstOrDefault() for safety
+                    return completionResult.Choices.FirstOrDefault()?.Message.Content; 
                 }
                 else
                 {
                     if (completionResult.Error == null)
                     {
-                        // Consider logging the full response or specific details if available
                         Console.WriteLine("LLM API Error: Unknown error structure from Betalgo library.");
                         throw new Exception("Unknown LLM Error");
                     }
+                    // Log more details if available, e.g., completionResult.Error.Code, completionResult.Error.Type
                     Console.WriteLine($"LLM API Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})");
                     return $"Error from LLM: {completionResult.Error.Message}";
                 }
