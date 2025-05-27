@@ -1,0 +1,149 @@
+using System;
+using System.Collections.Generic;
+using System.Windows;
+
+namespace TimeTask
+{
+using System.Threading.Tasks; // For async operations
+
+namespace TimeTask
+{
+    public partial class AddTaskWindow : Window
+    {
+        private LlmService _llmService;
+        private bool _isClarificationRound = false; // State for clarification
+        private string _originalTaskDescription = string.Empty; // To store original task if clarification is needed
+
+        public string TaskDescription { get; private set; }
+        public int SelectedListIndex { get; private set; } // 0-indexed
+        public bool IsTaskAdded { get; private set; } = false;
+        public ItemGrid NewTask { get; private set; } // The newly created task object
+
+        public AddTaskWindow(LlmService llmService)
+        {
+            InitializeComponent();
+            _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
+
+            // Populate ComboBox
+            ListSelectorComboBox.ItemsSource = new List<string> { "List 1", "List 2", "List 3", "List 4" };
+            ListSelectorComboBox.SelectedIndex = 0; // Default to List 1
+        }
+
+        private void AddTaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            TaskDescription = TaskDescriptionTextBox.Text.Trim();
+            SelectedListIndex = ListSelectorComboBox.SelectedIndex; // This is 0-indexed
+
+            if (string.IsNullOrWhiteSpace(TaskDescription))
+            {
+                MessageBox.Show("Task description cannot be empty.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (SelectedListIndex < 0) // Should not happen if populated and default selected
+            {
+                MessageBox.Show("Please select a list.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // For now, just show a MessageBox. Later, LLM calls and actual task creation will happen here.
+            string message = $"Task: {TaskDescription}\nList: {ListSelectorComboBox.SelectedItem} (Index: {SelectedListIndex + 1})";
+            MessageBox.Show(message, "Task to be Added (Placeholder)", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            IsTaskAdded = true; // Indicate that the user intends to add the task
+            this.DialogResult = true; // Set DialogResult to true for MainWindow to check
+            this.Close();
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.DialogResult = false;
+            this.Close();
+        }
+
+        private void ResetClarificationButton_Click(object sender, RoutedEventArgs e)
+        {
+            TaskDescriptionTextBox.Text = _originalTaskDescription; // Restore original text
+            ClarificationPromptText.Visibility = Visibility.Collapsed;
+            ResetClarificationButton.Visibility = Visibility.Collapsed;
+            AddTaskButton.Content = "Add Task";
+            _isClarificationRound = false;
+            TaskDescriptionTextBox.Focus(); // Set focus back to the textbox
+        }
+
+        private async void AddTaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            string currentTaskDescription = TaskDescriptionTextBox.Text.Trim();
+            SelectedListIndex = ListSelectorComboBox.SelectedIndex;
+
+            if (string.IsNullOrWhiteSpace(currentTaskDescription))
+            {
+                MessageBox.Show("Task description cannot be empty.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (SelectedListIndex < 0)
+            {
+                MessageBox.Show("Please select a list.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Disable buttons during processing
+            AddTaskButton.IsEnabled = false;
+            CancelButton.IsEnabled = false;
+
+            try
+            {
+                if (!_isClarificationRound)
+                {
+                    // Initial Submission: Analyze Clarity
+                    _originalTaskDescription = currentTaskDescription; // Save for potential reset
+                    var (status, question) = await _llmService.AnalyzeTaskClarityAsync(currentTaskDescription);
+
+                    if (status == ClarityStatus.NeedsClarification)
+                    {
+                        ClarificationPromptText.Text = question;
+                        ClarificationPromptText.Visibility = Visibility.Visible;
+                        ResetClarificationButton.Visibility = Visibility.Visible;
+                        AddTaskButton.Content = "Submit Clarified Task";
+                        _isClarificationRound = true;
+                        TaskDescriptionTextBox.Focus(); // Focus on textbox for user to edit
+                        return; // Wait for user to clarify
+                    }
+                    // If Clear or Unknown, proceed directly to prioritization
+                }
+
+                // Prioritization & Task Creation (either directly or after clarification)
+                TaskDescription = currentTaskDescription; // Final task description
+                var (importance, urgency) = await _llmService.GetTaskPriorityAsync(TaskDescription);
+
+                NewTask = new ItemGrid
+                {
+                    Task = TaskDescription,
+                    Importance = importance,
+                    Urgency = urgency,
+                    Score = 0, // Default score
+                    IsActive = true,
+                    CreatedDate = DateTime.Now,
+                    LastModifiedDate = DateTime.Now,
+                    Result = string.Empty
+                };
+
+                IsTaskAdded = true;
+                this.DialogResult = true;
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // Consider how to handle state if error occurs mid-process
+                // For now, re-enable buttons and let user retry or cancel
+            }
+            finally
+            {
+                AddTaskButton.IsEnabled = true;
+                CancelButton.IsEnabled = true;
+            }
+        }
+    }
+}
