@@ -461,7 +461,7 @@ namespace TimeTask
                     {
                         ChatMessage.FromUser(prompt)
                     },
-                    Model = OpenAI.ObjectModels.Models.Gpt_3_5_Turbo, 
+                    Model = "gpt-3.5-turbo", // Changed to string literal for broader compatibility
                     MaxTokens = 150 
                 });
 
