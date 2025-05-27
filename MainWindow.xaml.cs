@@ -86,7 +86,7 @@ namespace TimeTask
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-using System.Threading.Tasks; // Added for Task.Delay and async operations
+// using System.Threading.Tasks; // Moved to top
 
 namespace TimeTask
 {
@@ -367,4 +367,4 @@ namespace TimeTask
             }
         }
     }
-}
+} // Closing brace for namespace TimeTask

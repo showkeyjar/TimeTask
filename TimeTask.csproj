@@ -53,7 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenAI-DotNet">
-      <Version>6.8.0</Version>
+      <Version>6.7.0</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>

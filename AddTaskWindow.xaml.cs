@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Windows;
-
-namespace TimeTask
-{
 using System.Threading.Tasks; // For async operations
 
 namespace TimeTask
 {
+    // Removed duplicate namespace declaration
     public partial class AddTaskWindow : Window
     {
         private LlmService _llmService;
@@ -29,31 +27,7 @@ namespace TimeTask
             ListSelectorComboBox.SelectedIndex = 0; // Default to List 1
         }
 
-        private void AddTaskButton_Click(object sender, RoutedEventArgs e)
-        {
-            TaskDescription = TaskDescriptionTextBox.Text.Trim();
-            SelectedListIndex = ListSelectorComboBox.SelectedIndex; // This is 0-indexed
-
-            if (string.IsNullOrWhiteSpace(TaskDescription))
-            {
-                MessageBox.Show("Task description cannot be empty.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (SelectedListIndex < 0) // Should not happen if populated and default selected
-            {
-                MessageBox.Show("Please select a list.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            // For now, just show a MessageBox. Later, LLM calls and actual task creation will happen here.
-            string message = $"Task: {TaskDescription}\nList: {ListSelectorComboBox.SelectedItem} (Index: {SelectedListIndex + 1})";
-            MessageBox.Show(message, "Task to be Added (Placeholder)", MessageBoxButton.OK, MessageBoxImage.Information);
-
-            IsTaskAdded = true; // Indicate that the user intends to add the task
-            this.DialogResult = true; // Set DialogResult to true for MainWindow to check
-            this.Close();
-        }
+        // Removed older synchronous AddTaskButton_Click method. The async version below is used.
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
@@ -146,4 +120,4 @@ namespace TimeTask
             }
         }
     }
-}
+} // Closing brace for namespace TimeTask
