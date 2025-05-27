@@ -6,14 +6,10 @@ using System.Collections.Generic;
 using System.Linq;
 
 // Using statements for Betalgo.Ranul.OpenAI
-using Betalgo.Ranul.OpenAI.Interfaces;
-using Betalgo.Ranul.OpenAI.ObjectModels; // For Models enum/static class
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-using Betalgo.Ranul.OpenAI.Extensions; // For CreateDefault()
-using Betalgo.Ranul.OpenAI.Builders;   // For OpenAIServiceBuilder
-
-// Betalgo.Ranul.OpenAI (general namespace) is implicitly covered by the above if OpenAIServiceBuilder is directly under it.
-// Otherwise, specific builder namespace might be needed. Assuming Betalgo.Ranul.OpenAI.Builders for now.
+using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
+using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
+using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo)
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
 
 namespace TimeTask
 {
@@ -342,10 +338,12 @@ namespace TimeTask
 
         private void InitializeOpenAiService()
         {
-            // Updated for Betalgo.Ranul.OpenAI v9.0.4 using OpenAIServiceBuilder
-            _openAiService = OpenAIServiceBuilder.CreateDefault()
-                                                 .WithApiKey(_apiKey)
-                                                 .Build();
+            // Using direct instantiation as per Betalgo.Ranul.OpenAI v9.0.4 examples
+            _openAiService = new Betalgo.Ranul.OpenAI.OpenAIService(new Betalgo.Ranul.OpenAI.OpenAIOptions() 
+            {
+                ApiKey = _apiKey
+            });
+            Console.WriteLine("LlmService: Initialized with Betalgo.Ranul.OpenAI.OpenAIService (direct instantiation).");
         }
         
         public void Init()
@@ -370,7 +368,8 @@ namespace TimeTask
                     {
                         ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.Gpt_3_5_Turbo, 
+                    Model = Models.Gpt_3_5_Turbo, // Ensure this model identifier is correct for v9.0.4
+                                                  // Common alternatives: Models.ChatGpt3_5Turbo, Models.Gpt3_5Turbo
                     MaxTokens = 150 
                 });
 
