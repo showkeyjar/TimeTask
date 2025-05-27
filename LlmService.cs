@@ -7,9 +7,13 @@ using System.Linq;
 
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI.Interfaces;
-using Betalgo.Ranul.OpenAI.ObjectModels; // For Models
+using Betalgo.Ranul.OpenAI.ObjectModels; // For Models enum/static class
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-// Betalgo.Ranul.OpenAI (general namespace) is implicitly covered by the above.
+using Betalgo.Ranul.OpenAI.Extensions; // For CreateDefault()
+using Betalgo.Ranul.OpenAI.Builders;   // For OpenAIServiceBuilder
+
+// Betalgo.Ranul.OpenAI (general namespace) is implicitly covered by the above if OpenAIServiceBuilder is directly under it.
+// Otherwise, specific builder namespace might be needed. Assuming Betalgo.Ranul.OpenAI.Builders for now.
 
 namespace TimeTask
 {
@@ -338,11 +342,10 @@ namespace TimeTask
 
         private void InitializeOpenAiService()
         {
-            // Updated for Betalgo.Ranul.OpenAI
-            _openAiService = new Betalgo.Ranul.OpenAI.OpenAIService(new Betalgo.Ranul.OpenAI.Models.OpenAiOptions() 
-            {
-                ApiKey = _apiKey
-            });
+            // Updated for Betalgo.Ranul.OpenAI v9.0.4 using OpenAIServiceBuilder
+            _openAiService = OpenAIServiceBuilder.CreateDefault()
+                                                 .WithApiKey(_apiKey)
+                                                 .Build();
         }
         
         public void Init()
@@ -361,14 +364,13 @@ namespace TimeTask
 
             try
             {
-                // Updated for Betalgo.Ranul.OpenAI
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
                     {
                         ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.Gpt_3_5_Turbo, // Using model from Betalgo.Ranul.OpenAI.ObjectModels.Models
+                    Model = Models.Gpt_3_5_Turbo, 
                     MaxTokens = 150 
                 });
 
