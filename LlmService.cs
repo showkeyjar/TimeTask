@@ -1,12 +1,15 @@
 using System;
-using System.Configuration; // Added for ConfigurationManager
+using System.Configuration;
 using System.Threading.Tasks;
-using OpenAI; 
-using OpenAI.Managers; 
-using OpenAI.ObjectModels.RequestModels; 
-using System.Text.RegularExpressions; 
-using System.Collections.Generic; // For List<string>
-using System.Linq; // For Any()
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using System.Linq;
+
+// Betalgo.OpenAI.GPT3 specific using statements
+using Betalgo.OpenAI.GPT3; // General namespace
+using Betalgo.OpenAI.GPT3.Interfaces; // For IOpenAIService
+using Betalgo.OpenAI.GPT3.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
+using Betalgo.OpenAI.GPT3.ObjectModels; // For StaticValues.Models (or specific model classes)
 
 namespace TimeTask
 {
@@ -26,10 +29,11 @@ namespace TimeTask
 
     public class LlmService
     {
-        private OpenAIService _openAiService;
+        private IOpenAIService _openAiService; // Changed type to interface
         private string _apiKey;
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
 
+        // Prompts remain the same
         private const string PrioritizationSystemPrompt = 
             "Analyze the following task description and determine its importance and urgency. " +
             "Return your answer strictly in the format: \"Importance: [High/Medium/Low], Urgency: [High/Medium/Low]\". " +
@@ -86,14 +90,15 @@ namespace TimeTask
             "Suggestion1: Ready to complete it now?\n" +
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
-
+        
         public LlmService()
         {
             LoadApiKeyFromConfig();
             InitializeOpenAiService();
         }
 
-        internal string FormatTimeSpan(TimeSpan ts) // Made internal for testing
+        // Parsing methods and FormatTimeSpan remain unchanged as they work on strings
+        internal string FormatTimeSpan(TimeSpan ts)
         {
             if (ts.TotalDays >= 7)
             {
@@ -115,42 +120,20 @@ namespace TimeTask
         {
             var suggestions = new List<string>();
             string reminder = string.Empty;
-
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                return (reminder, suggestions);
-            }
-
+            if (string.IsNullOrWhiteSpace(llmResponse)) return (reminder, suggestions);
             try
             {
                 llmResponse = llmResponse.Replace("\r\n", "\n").Replace("\r", "\n");
                 string[] lines = llmResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
                 foreach (string line in lines)
                 {
                     string trimmedLine = line.Trim();
-                    if (trimmedLine.StartsWith("Reminder:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        reminder = trimmedLine.Substring("Reminder:".Length).Trim();
-                    }
-                    else if (trimmedLine.StartsWith("Suggestion1:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        suggestions.Add(trimmedLine.Substring("Suggestion1:".Length).Trim());
-                    }
-                    else if (trimmedLine.StartsWith("Suggestion2:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        suggestions.Add(trimmedLine.Substring("Suggestion2:".Length).Trim());
-                    }
-                    else if (trimmedLine.StartsWith("Suggestion3:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        suggestions.Add(trimmedLine.Substring("Suggestion3:".Length).Trim());
-                    }
+                    if (trimmedLine.StartsWith("Reminder:", StringComparison.OrdinalIgnoreCase)) reminder = trimmedLine.Substring("Reminder:".Length).Trim();
+                    else if (trimmedLine.StartsWith("Suggestion1:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion1:".Length).Trim());
+                    else if (trimmedLine.StartsWith("Suggestion2:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion2:".Length).Trim());
+                    else if (trimmedLine.StartsWith("Suggestion3:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion3:".Length).Trim());
                 }
-
-                if (string.IsNullOrWhiteSpace(reminder) && !suggestions.Any())
-                {
-                    Console.WriteLine($"Could not parse reminder or suggestions from LLM response: '{llmResponse}'.");
-                }
+                if (string.IsNullOrWhiteSpace(reminder) && !suggestions.Any()) Console.WriteLine($"Could not parse reminder or suggestions from LLM response: '{llmResponse}'.");
                 return (reminder, suggestions);
             }
             catch (Exception ex)
@@ -162,18 +145,10 @@ namespace TimeTask
         
         public async Task<(string reminder, List<string> suggestions)> GenerateTaskReminderAsync(string taskDescription, TimeSpan timeSinceLastModified)
         {
-            if (string.IsNullOrWhiteSpace(taskDescription))
-            {
-                return (string.Empty, new List<string>());
-            }
-
+            if (string.IsNullOrWhiteSpace(taskDescription)) return (string.Empty, new List<string>());
             string formattedAge = FormatTimeSpan(timeSinceLastModified);
-            string fullPrompt = TaskReminderSystemPrompt
-                                .Replace("{taskDescription}", taskDescription)
-                                .Replace("{taskAge}", formattedAge);
-            
+            string fullPrompt = TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
             string llmResponse = await GetCompletionAsync(fullPrompt);
-
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
                 Console.WriteLine($"LLM did not provide a valid reminder for '{taskDescription}'. Response: {llmResponse}");
@@ -185,16 +160,11 @@ namespace TimeTask
         internal static (DecompositionStatus status, List<string> subtasks) ParseDecompositionResponse(string llmResponse)
         {
             var subtasks = new List<string>();
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                return (DecompositionStatus.Unknown, subtasks);
-            }
-
+            if (string.IsNullOrWhiteSpace(llmResponse)) return (DecompositionStatus.Unknown, subtasks);
             try
             {
                 DecompositionStatus status = DecompositionStatus.Unknown;
                 var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Sufficient|NeedsDecomposition)", RegexOptions.IgnoreCase);
-
                 if (statusMatch.Success)
                 {
                     string statusStr = statusMatch.Groups[1].Value;
@@ -209,7 +179,6 @@ namespace TimeTask
                     Console.WriteLine($"Could not find 'Status:' for decomposition in LLM response: '{llmResponse}'.");
                     return (DecompositionStatus.Unknown, subtasks);
                 }
-
                 if (status == DecompositionStatus.NeedsDecomposition)
                 {
                     int subtasksHeaderIndex = llmResponse.IndexOf("Subtasks:", StringComparison.OrdinalIgnoreCase);
@@ -220,19 +189,10 @@ namespace TimeTask
                         foreach (string line in lines)
                         {
                             string trimmedLine = line.Trim();
-                            if (trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*"))
-                            {
-                                trimmedLine = trimmedLine.Substring(1).Trim();
-                            }
-                            if (!string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.Equals("N/A", StringComparison.OrdinalIgnoreCase))
-                            {
-                                subtasks.Add(trimmedLine);
-                            }
+                            if (trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*")) trimmedLine = trimmedLine.Substring(1).Trim();
+                            if (!string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.Equals("N/A", StringComparison.OrdinalIgnoreCase)) subtasks.Add(trimmedLine);
                         }
-                        if (!subtasks.Any())
-                        {
-                            Console.WriteLine($"Decomposition status is NeedsDecomposition but no valid subtasks found in response: '{llmResponse}'.");
-                        }
+                        if (!subtasks.Any()) Console.WriteLine($"Decomposition status is NeedsDecomposition but no valid subtasks found in response: '{llmResponse}'.");
                     }
                     else
                     {
@@ -251,14 +211,9 @@ namespace TimeTask
 
         public async Task<(DecompositionStatus status, List<string> subtasks)> DecomposeTaskAsync(string taskDescription)
         {
-            if (string.IsNullOrWhiteSpace(taskDescription))
-            {
-                return (DecompositionStatus.Unknown, new List<string>());
-            }
-
+            if (string.IsNullOrWhiteSpace(taskDescription)) return (DecompositionStatus.Unknown, new List<string>());
             string fullPrompt = TaskDecompositionSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
                 Console.WriteLine($"LLM did not provide a valid decomposition for '{taskDescription}'. Response: {llmResponse}");
@@ -269,55 +224,35 @@ namespace TimeTask
 
         internal static (ClarityStatus status, string question) ParseClarityResponse(string llmResponse)
         {
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                 return (ClarityStatus.Unknown, "LLM response was empty.");
-            }
-
+            if (string.IsNullOrWhiteSpace(llmResponse)) return (ClarityStatus.Unknown, "LLM response was empty.");
             try
             {
                 ClarityStatus status = ClarityStatus.Unknown;
                 string question = "Failed to parse clarity analysis.";
-
                 var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Clear|NeedsClarification)", RegexOptions.IgnoreCase);
                 var questionMatch = Regex.Match(llmResponse, @"Question:\s*(.*)", RegexOptions.IgnoreCase);
-
                 if (statusMatch.Success)
                 {
                     string statusStr = statusMatch.Groups[1].Value;
-                    if (Enum.TryParse(statusStr, true, out ClarityStatus parsedStatus))
-                    {
-                        status = parsedStatus;
-                    }
+                    if (Enum.TryParse(statusStr, true, out ClarityStatus parsedStatus)) status = parsedStatus;
                     else
                     {
                         Console.WriteLine($"Could not parse status value '{statusStr}' from LLM response: '{llmResponse}'.");
                         status = ClarityStatus.Unknown; 
                     }
                 }
-                else
-                {
-                    Console.WriteLine($"Could not find 'Status:' line in LLM response: '{llmResponse}'.");
-                }
-
+                else Console.WriteLine($"Could not find 'Status:' line in LLM response: '{llmResponse}'.");
                 if (questionMatch.Success)
                 {
                     question = questionMatch.Groups[1].Value.Trim();
-                    if (status == ClarityStatus.Clear && (string.IsNullOrWhiteSpace(question) || question.Equals("N/A", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        question = string.Empty; 
-                    }
+                    if (status == ClarityStatus.Clear && (string.IsNullOrWhiteSpace(question) || question.Equals("N/A", StringComparison.OrdinalIgnoreCase))) question = string.Empty; 
                 }
                 else
                 {
                     Console.WriteLine($"Could not find 'Question:' line in LLM response: '{llmResponse}'.");
                     if (status != ClarityStatus.Unknown) question = "Question not found in response.";
                 }
-                
-                if (status == ClarityStatus.Unknown && !statusMatch.Success)
-                {
-                    question = "Failed to parse status and question from LLM response.";
-                }
+                if (status == ClarityStatus.Unknown && !statusMatch.Success) question = "Failed to parse status and question from LLM response.";
                 return (status, question);
             }
             catch (Exception ex)
@@ -329,14 +264,9 @@ namespace TimeTask
 
         public async Task<(ClarityStatus status, string question)> AnalyzeTaskClarityAsync(string taskDescription)
         {
-            if (string.IsNullOrWhiteSpace(taskDescription))
-            {
-                return (ClarityStatus.Unknown, "Task description cannot be empty.");
-            }
-
+            if (string.IsNullOrWhiteSpace(taskDescription)) return (ClarityStatus.Unknown, "Task description cannot be empty.");
             string fullPrompt = ClarityAnalysisSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
                 Console.WriteLine($"LLM did not provide a valid clarity analysis for '{taskDescription}'. Response: {llmResponse}");
@@ -347,38 +277,24 @@ namespace TimeTask
 
         internal static (string Importance, string Urgency) ParsePriorityResponse(string llmResponse)
         {
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                return ("Unknown", "Unknown");
-            }
+            if (string.IsNullOrWhiteSpace(llmResponse)) return ("Unknown", "Unknown");
             try
             {
                 string importance = "Unknown";
                 string urgency = "Unknown";
                 string normalizedResponse = llmResponse.Trim();
                 string[] parts = normalizedResponse.Split(',');
-
                 if (parts.Length == 2)
                 {
                     string importancePart = parts[0].Trim();
                     string urgencyPart = parts[1].Trim();
-
-                    if (importancePart.StartsWith("Importance:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        importance = importancePart.Substring("Importance:".Length).Trim();
-                    }
-                    if (urgencyPart.StartsWith("Urgency:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        urgency = urgencyPart.Substring("Urgency:".Length).Trim();
-                    }
+                    if (importancePart.StartsWith("Importance:", StringComparison.OrdinalIgnoreCase)) importance = importancePart.Substring("Importance:".Length).Trim();
+                    if (urgencyPart.StartsWith("Urgency:", StringComparison.OrdinalIgnoreCase)) urgency = urgencyPart.Substring("Urgency:".Length).Trim();
                 }
-
                 string[] validPriorities = { "High", "Medium", "Low" };
                 var validPrioritySet = new HashSet<string>(validPriorities, StringComparer.OrdinalIgnoreCase);
-
                 if (!validPrioritySet.Contains(importance)) importance = "Unknown";
                 if (!validPrioritySet.Contains(urgency)) urgency = "Unknown";
-                
                 if (importance == "Unknown" && urgency == "Unknown" && 
                     !(normalizedResponse.IndexOf("Importance:", StringComparison.OrdinalIgnoreCase) >= 0 && 
                       normalizedResponse.IndexOf("Urgency:", StringComparison.OrdinalIgnoreCase) >= 0))
@@ -396,14 +312,9 @@ namespace TimeTask
 
         public async Task<(string Importance, string Urgency)> GetTaskPriorityAsync(string taskDescription)
         {
-            if (string.IsNullOrWhiteSpace(taskDescription))
-            {
-                return ("Unknown", "Unknown");
-            }
-
+            if (string.IsNullOrWhiteSpace(taskDescription)) return ("Unknown", "Unknown");
             string fullPrompt = PrioritizationSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
                 Console.WriteLine($"LLM did not provide a valid priority response for '{taskDescription}'. Response: {llmResponse}");
@@ -414,16 +325,12 @@ namespace TimeTask
         
         private void LoadApiKeyFromConfig()
         {
-            try
-            {
-                _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
-            }
+            try { _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"]; }
             catch (ConfigurationErrorsException ex)
             {
                 Console.WriteLine($"Error reading App.config: {ex.Message}");
                 _apiKey = null; 
             }
-
             if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == PlaceholderApiKey)
             {
                 Console.WriteLine("Warning: LLM Service initialized using placeholder or missing API key from App.config. Please configure a valid OpenAIApiKey in App.config.");
@@ -433,10 +340,10 @@ namespace TimeTask
 
         private void InitializeOpenAiService()
         {
-            _openAiService = new OpenAIService(new OpenAI.OpenAiOptions()
-            {
-                ApiKey = _apiKey
-            });
+            // Use Betalgo.OpenAI.GPT3's OpenAIServiceBuilder
+            _openAiService = new OpenAIServiceBuilder()
+                .WithApiKey(_apiKey)
+                .Build();
         }
         
         public void Init()
@@ -455,27 +362,30 @@ namespace TimeTask
 
             try
             {
+                // Use Betalgo.OpenAI.GPT3's chat completion
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
-                    Messages = new[]
+                    Messages = new List<ChatMessage> // Betalgo uses List<ChatMessage>
                     {
-                        ChatMessage.FromUser(prompt)
+                        ChatMessage.FromUser(prompt) // This helper should still work or be easily adaptable
                     },
-                    Model = "gpt-3.5-turbo", // Changed to string literal for broader compatibility
+                    Model = Models.ChatGpt3_5Turbo, // Use model from Betalgo.OpenAI.GPT3.ObjectModels.Models
                     MaxTokens = 150 
                 });
 
                 if (completionResult.Successful)
                 {
-                    return completionResult.Choices.First().Message.Content;
+                    return completionResult.Choices.FirstOrDefault()?.Message.Content; // Adapted to FirstOrDefault() for safety
                 }
                 else
                 {
                     if (completionResult.Error == null)
                     {
-                        throw new Exception("Unknown Error");
+                        // Consider logging the full response or specific details if available
+                        Console.WriteLine("LLM API Error: Unknown error structure from Betalgo library.");
+                        throw new Exception("Unknown LLM Error");
                     }
-                    Console.WriteLine($"LLM API Error: {completionResult.Error.Message}");
+                    Console.WriteLine($"LLM API Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})");
                     return $"Error from LLM: {completionResult.Error.Message}";
                 }
             }

@@ -88,8 +88,7 @@ namespace TimeTask
     /// </summary>
 // using System.Threading.Tasks; // Moved to top
 
-namespace TimeTask
-{
+// Removed redundant nested namespace TimeTask
     public partial class MainWindow : Window
     {
         private LlmService _llmService;
@@ -367,4 +366,4 @@ namespace TimeTask
             }
         }
     }
-} // Closing brace for namespace TimeTask
+// Removed redundant closing brace for nested namespace
