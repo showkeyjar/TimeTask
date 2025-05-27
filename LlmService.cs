@@ -5,11 +5,11 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
 
-// Using statements for Betalgo.OpenAI.GPT3
-using Betalgo.OpenAI.GPT3.Interfaces;
-using Betalgo.OpenAI.GPT3.ObjectModels; // For StaticValues.Models or direct model classes
-using Betalgo.OpenAI.GPT3.ObjectModels.RequestModels;
-// Betalgo.OpenAI.GPT3 (general namespace) is implicitly covered by the above.
+// Using statements for Betalgo.Ranul.OpenAI
+using Betalgo.Ranul.OpenAI.Interfaces;
+using Betalgo.Ranul.OpenAI.ObjectModels; // For Models
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+// Betalgo.Ranul.OpenAI (general namespace) is implicitly covered by the above.
 
 namespace TimeTask
 {
@@ -29,7 +29,7 @@ namespace TimeTask
 
     public class LlmService
     {
-        private IOpenAIService _openAiService; // Changed to IOpenAIService
+        private IOpenAIService _openAiService; 
         private string _apiKey;
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
 
@@ -122,7 +122,6 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(llmResponse)) return (reminder, suggestions);
             try
             {
-                // Corrected Split call: using char array for clarity, though Split(char) is fine.
                 string[] lines = llmResponse.Replace("\r\n", "\n").Replace("\r", "\n").Split(new char[] {'\n'}, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string line in lines)
                 {
@@ -282,7 +281,7 @@ namespace TimeTask
                 string importance = "Unknown";
                 string urgency = "Unknown";
                 string normalizedResponse = llmResponse.Trim();
-                string[] parts = normalizedResponse.Split(','); // Default split by comma
+                string[] parts = normalizedResponse.Split(','); 
                 if (parts.Length == 2)
                 {
                     string importancePart = parts[0].Trim();
@@ -339,9 +338,8 @@ namespace TimeTask
 
         private void InitializeOpenAiService()
         {
-            // Use Betalgo.OpenAI.GPT3's OpenAIServiceBuilder
-            // Note: Betalgo.OpenAI.GPT3.OpenAIService is the concrete class for IOpenAIService
-            _openAiService = new Betalgo.OpenAI.GPT3.OpenAIService(new Betalgo.OpenAI.GPT3.Models.OpenAiOptions() 
+            // Updated for Betalgo.Ranul.OpenAI
+            _openAiService = new Betalgo.Ranul.OpenAI.OpenAIService(new Betalgo.Ranul.OpenAI.Models.OpenAiOptions() 
             {
                 ApiKey = _apiKey
             });
@@ -363,13 +361,14 @@ namespace TimeTask
 
             try
             {
+                // Updated for Betalgo.Ranul.OpenAI
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
                     {
                         ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.ChatGpt3_5Turbo, 
+                    Model = Models.Gpt_3_5_Turbo, // Using model from Betalgo.Ranul.OpenAI.ObjectModels.Models
                     MaxTokens = 150 
                 });
 
@@ -381,10 +380,9 @@ namespace TimeTask
                 {
                     if (completionResult.Error == null)
                     {
-                        Console.WriteLine("LLM API Error: Unknown error structure from Betalgo library.");
+                        Console.WriteLine("LLM API Error: Unknown error structure from Betalgo.Ranul.OpenAI library.");
                         throw new Exception("Unknown LLM Error");
                     }
-                    // Log more details if available, e.g., completionResult.Error.Code, completionResult.Error.Type
                     Console.WriteLine($"LLM API Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})");
                     return $"Error from LLM: {completionResult.Error.Message}";
                 }
