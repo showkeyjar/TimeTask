@@ -8,18 +8,27 @@
         Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
         LocationChanged="location_Save"
         Background="Transparent" ShowInTaskbar="False">
-    <Grid x:Name="TaskGrid" Width="780" Height="600">
-        <Label Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button x:Name="del1" Content="-" HorizontalAlignment="Left" Margin="365,3,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del1_Click"/>
-        <DataGrid x:Name="task1" HorizontalAlignment="Left" Height="270" Margin="5,25,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
-        <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="395,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button x:Name="del2" Content="-" HorizontalAlignment="Left" Margin="755,3,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del2_Click"/>
-        <DataGrid x:Name="task2" HorizontalAlignment="Left" Height="270" Margin="395,25,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task2_SelectionChanged"/>
-        <Label Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,295,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button x:Name="del3" Content="-" HorizontalAlignment="Left" Margin="365,298,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del3_Click"/>
-        <DataGrid x:Name="task3" HorizontalAlignment="Left" Height="270" Margin="5,320,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task3_SelectionChanged"/>
-        <Label Content="不重要不紧急" HorizontalAlignment="Left" Margin="395,295,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button x:Name="del4" Content="-" HorizontalAlignment="Left" Margin="755,298,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del4_Click"/>
-        <DataGrid x:Name="task4" HorizontalAlignment="Left" Height="270" Margin="395,320,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task4_SelectionChanged"/>
+    <Grid x:Name="TaskGrid" Width="780" Height="630"> <!-- Adjusted height for new button row -->
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Row 0 for labels and delete buttons for row 1 of datagrids -->
+            <RowDefinition Height="*"/>    <!-- Row 1 for first row of datagrids -->
+            <RowDefinition Height="Auto"/> <!-- Row 2 for labels and delete buttons for row 2 of datagrids -->
+            <RowDefinition Height="*"/>    <!-- Row 3 for second row of datagrids -->
+            <RowDefinition Height="Auto"/> <!-- Row 4 for the new Add Task button -->
+        </Grid.RowDefinitions>
+        <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <Button Grid.Row="0" x:Name="del1" Content="-" HorizontalAlignment="Left" Margin="365,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del1_Click"/>
+        <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Left" Margin="5,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
+        <Label Grid.Row="0" Content="重要不紧急" HorizontalAlignment="Left" Margin="395,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <Button Grid.Row="0" x:Name="del2" Content="-" HorizontalAlignment="Left" Margin="755,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del2_Click"/>
+        <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Left" Margin="395,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task2_SelectionChanged"/>
+        <Label Grid.Row="2" Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <Button Grid.Row="2" x:Name="del3" Content="-" HorizontalAlignment="Left" Margin="365,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del3_Click"/>
+        <DataGrid Grid.Row="3" x:Name="task3" HorizontalAlignment="Left" Margin="5,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task3_SelectionChanged"/>
+        <Label Grid.Row="2" Content="不重要不紧急" HorizontalAlignment="Left" Margin="395,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+        <Button Grid.Row="2" x:Name="del4" Content="-" HorizontalAlignment="Left" Margin="755,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del4_Click"/>
+        <DataGrid Grid.Row="3" x:Name="task4" HorizontalAlignment="Left" Margin="395,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task4_SelectionChanged"/>
+        
+        <Button Grid.Row="4" x:Name="AddNewTaskButton" Content="Add New Task" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="30" Click="AddNewTaskButton_Click" Margin="0,10,0,10" FontWeight="SemiBold"/>
     </Grid>
 </Window>
