@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Threading.Tasks; // Added for Task.Delay and async/await
 
 namespace TimeTask
 {
@@ -86,10 +87,9 @@ namespace TimeTask
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-using System.Threading.Tasks; // Added for Task.Delay and async operations
+// using System.Threading.Tasks; // Moved to top
 
-namespace TimeTask
-{
+// Removed redundant nested namespace TimeTask
     public partial class MainWindow : Window
     {
         private LlmService _llmService;
@@ -367,4 +367,4 @@ namespace TimeTask
             }
         }
     }
-}
+} // Closing brace for namespace TimeTask
