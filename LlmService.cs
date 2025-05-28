@@ -339,7 +339,7 @@ namespace TimeTask
         private void InitializeOpenAiService()
         {
             // Using direct instantiation as per Betalgo.Ranul.OpenAI v9.0.4 examples
-            _openAiService = new Betalgo.Ranul.OpenAI.OpenAIService(new Betalgo.Ranul.OpenAI.OpenAIOptions() 
+            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(new Betalgo.Ranul.OpenAI.OpenAIOptions()
             {
                 ApiKey = _apiKey
             });
