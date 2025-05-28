@@ -93,10 +93,39 @@ namespace TimeTask
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
         
+        private bool _disposed = false;
+
         public LlmService()
         {
             LoadApiKeyFromConfig();
             InitializeOpenAiService();
+        }
+
+        ~LlmService()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    if (_openAiService is IDisposable disposableService)
+                    {
+                        disposableService.Dispose();
+                    }
+                }
+                _openAiService = null;
+                _disposed = true;
+            }
         }
 
         internal string FormatTimeSpan(TimeSpan ts)
@@ -160,24 +189,29 @@ namespace TimeTask
         internal static (DecompositionStatus status, List<string> subtasks) ParseDecompositionResponse(string llmResponse)
         {
             var subtasks = new List<string>();
-            if (string.IsNullOrWhiteSpace(llmResponse)) return (DecompositionStatus.Unknown, subtasks);
+            if (string.IsNullOrWhiteSpace(llmResponse)) 
+            {
+                Console.WriteLine("Empty response received for task decomposition");
+                return (DecompositionStatus.Unknown, subtasks);
+            }
+            
             try
             {
                 DecompositionStatus status = DecompositionStatus.Unknown;
-                var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Sufficient|NeedsDecomposition)", RegexOptions.IgnoreCase);
-                if (statusMatch.Success)
+                var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Sufficient|NeedsDecomposition|Unknown)", RegexOptions.IgnoreCase);
+                
+                if (!statusMatch.Success)
                 {
-                    string statusStr = statusMatch.Groups[1].Value;
-                    if (!Enum.TryParse(statusStr, true, out status))
-                    {
-                        status = DecompositionStatus.Unknown;
-                        Console.WriteLine($"Could not parse decomposition status value '{statusStr}' from LLM response: '{llmResponse}'.");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"Could not find 'Status:' for decomposition in LLM response: '{llmResponse}'.");
+                    Console.WriteLine($"Could not find valid 'Status:' in LLM response. Response: '{llmResponse}'");
                     return (DecompositionStatus.Unknown, subtasks);
+                }
+
+                string statusStr = statusMatch.Groups[1].Value;
+                if (!Enum.TryParse(statusStr, true, out status))
+                {
+                    Console.WriteLine($"Invalid status value '{statusStr}' in LLM response. Defaulting to Unknown.");
+                    status = DecompositionStatus.Unknown;
+                    return (status, subtasks);
                 }
                 if (status == DecompositionStatus.NeedsDecomposition)
                 {
@@ -325,56 +359,52 @@ namespace TimeTask
         
         private void LoadApiKeyFromConfig()
         {
-            try { _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"]; }
+            try 
+            { 
+                _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"]?.Trim();
+                if (string.IsNullOrEmpty(_apiKey))
+                {
+                    Console.WriteLine("Warning: OpenAIApiKey is not configured in App.config.");
+                }
+            }
             catch (ConfigurationErrorsException ex)
             {
                 Console.WriteLine($"Error reading App.config: {ex.Message}");
                 _apiKey = null; 
             }
+            
             if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == PlaceholderApiKey)
             {
-                Console.WriteLine("Warning: LLM Service initialized using placeholder or missing API key from App.config. Please configure a valid OpenAIApiKey in App.config.");
-                _apiKey = PlaceholderApiKey; 
+                string warningMsg = "Warning: LLM Service initialized with an invalid or placeholder API key. " +
+                                  "Please configure a valid OpenAIApiKey in App.config under <appSettings> section.";
+                Console.WriteLine(warningMsg);
+                _apiKey = PlaceholderApiKey;
             }
         }
 
         private void InitializeOpenAiService()
         {
-            // Try-catch block for instantiation as per subtask
-            try 
+            if (string.IsNullOrEmpty(_apiKey) || _apiKey == "YOUR_API_KEY_GOES_HERE")
             {
-                // Option 1: Try OpenAIOptions under Betalgo.Ranul.OpenAI.ObjectModels
-                _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(
-                                     new Betalgo.Ranul.OpenAI.ObjectModels.OpenAiOptions() { ApiKey = _apiKey }
-                                 );
-                Console.WriteLine("LlmService: Initialized with OpenAIOptions from Betalgo.Ranul.OpenAI.ObjectModels");
-            } 
-            catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException ex1) // Catching specific exception if known
-            {
-                 Console.WriteLine($"LlmService: Failed with OpenAIOptions from .ObjectModels: {ex1.GetType().FullName} - {ex1.Message}. Trying .OpenAiOptions from root Betalgo.Ranul.OpenAI namespace...");
-                // Option 2: Try OpenAIOptions directly under Betalgo.Ranul.OpenAI
-                try
-                {
-                    _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(
-                                     new Betalgo.Ranul.OpenAI.OpenAiOptions() { ApiKey = _apiKey } // Assuming OpenAiOptions might be in root
-                                 );
-                     Console.WriteLine("LlmService: Initialized with OpenAIOptions from Betalgo.Ranul.OpenAI");
-                }
-                catch (System.Exception ex2) // Catch general exception for the second attempt
-                {
-                    Console.WriteLine($"LlmService: Failed with OpenAIOptions from root namespace: {ex2.GetType().FullName} - {ex2.Message}. Initialization failed.");
-                     _openAiService = null; 
-                     throw new InvalidOperationException("Failed to initialize OpenAI service with any known OpenAiOptions variant.", ex2);
-                }
+                Console.WriteLine("LlmService: API key is missing or is a placeholder.");
+                _openAiService = null;
+                return;
             }
-            catch (System.Exception e) // Catch any other potential errors during the first instantiation attempt
+            try
             {
-                 Console.WriteLine($"An unexpected error occurred during OpenAIService instantiation (first attempt): {e.GetType().FullName} - {e.Message}");
-                 _openAiService = null; // Ensure it's null if initialization fails
-                 throw; // Rethrow to indicate failure
+                _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(
+                                     new Betalgo.Ranul.OpenAI.OpenAIOptions() { ApiKey = _apiKey }
+                                 );
+                Console.WriteLine("LlmService: Initialized with OpenAIService and OpenAiOptions from Betalgo.Ranul.OpenAI.Managers");
+            }
+            catch (System.Exception ex)
+            {
+                Console.WriteLine($"LlmService: Failed to initialize with OpenAiOptions from Betalgo.Ranul.OpenAI.Managers: {ex.GetType().FullName} - {ex.Message}.");
+                _openAiService = null;
+                throw new InvalidOperationException("Failed to initialize OpenAI service. Check library version and API usage.", ex);
             }
         }
-        
+
         public void Init()
         {
             LoadApiKeyFromConfig();
@@ -383,15 +413,20 @@ namespace TimeTask
 
         public async Task<string> GetCompletionAsync(string prompt)
         {
-            if (_openAiService == null || _apiKey == PlaceholderApiKey || string.IsNullOrWhiteSpace(_apiKey))
+            if (string.IsNullOrWhiteSpace(prompt))
             {
-                Console.WriteLine("LLM Service not properly initialized. Returning dummy response.");
-                return await Task.FromResult($"LLM dummy response for: {prompt}");
+                throw new ArgumentException("Prompt cannot be null or empty", nameof(prompt));
+            }
+
+            if (_openAiService == null || string.IsNullOrWhiteSpace(_apiKey) || _apiKey == PlaceholderApiKey)
+            {
+                string errorMsg = "LLM Service not properly initialized. Please check your API key configuration.";
+                Console.WriteLine(errorMsg);
+                return $"Error: {errorMsg}";
             }
 
             try
             {
-                // Types are now resolved via specific using statements for Betalgo.Ranul.OpenAI
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
@@ -399,22 +434,26 @@ namespace TimeTask
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = Models.Gpt_3_5_Turbo, 
-                    MaxTokens = 150 
+                    MaxTokens = 150,
+                    Temperature = 0.7f
                 });
 
                 if (completionResult.Successful)
                 {
-                    return completionResult.Choices.FirstOrDefault()?.Message.Content; 
+                    var firstChoice = completionResult.Choices?.FirstOrDefault();
+                    if (firstChoice?.Message?.Content != null)
+                    {
+                        return firstChoice.Message.Content.Trim();
+                    }
+                    throw new InvalidOperationException("Received empty or invalid response from the model");
                 }
                 else
                 {
-                    if (completionResult.Error == null)
-                    {
-                        Console.WriteLine("LLM API Error: Unknown error structure from Betalgo.Ranul.OpenAI library.");
-                        throw new Exception("Unknown LLM Error");
-                    }
-                    Console.WriteLine($"LLM API Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})");
-                    return $"Error from LLM: {completionResult.Error.Message}";
+                    string errorMessage = completionResult.Error?.Message ?? "Unknown error occurred";
+                    string errorCode = completionResult.Error?.Code ?? "NoErrorCode";
+                    string errorType = completionResult.Error?.Type ?? "Unknown";
+                    Console.WriteLine($"LLM API Error ({errorCode}, Type: {errorType}): {errorMessage}");
+                    return $"Error from LLM: {errorMessage}";
                 }
             }
             catch (Exception ex)

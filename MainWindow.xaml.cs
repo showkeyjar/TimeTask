@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -90,10 +90,42 @@ namespace TimeTask
 // using System.Threading.Tasks; // Moved to top
 
 // Removed redundant nested namespace TimeTask
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, IDisposable
     {
+        #region IDisposable Implementation
+        private bool _disposed = false;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _llmService?.Dispose();
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        ~MainWindow()
+        {
+            Dispose(false);
+        }
+        #endregion
         private LlmService _llmService;
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
+
+        private int task1_selected_indexs;
+        private int task2_selected_indexs;
+        private int task3_selected_indexs;
+        private int task4_selected_indexs;
 
         [DllImport("user32.dll", SetLastError = true)]
         static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
@@ -109,10 +141,22 @@ namespace TimeTask
 
         // taskX_selected_indexs fields removed as they are no longer needed.
 
-        public async void loadDataGridView()
+        public async Task LoadDataGridViewAsync()
         {
+            if (task1 == null || task2 == null || task3 == null || task4 == null)
+            {
+                Console.WriteLine("One or more DataGrid controls are not initialized");
+                return;
+            }
+
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            
+            if (csvFiles.Length != dataGrids.Length)
+            {
+                Console.WriteLine("Mismatch between CSV files and DataGrids count");
+                return;
+            }
 
             for (int i = 0; i < csvFiles.Length; i++)
             {
@@ -221,51 +265,144 @@ namespace TimeTask
 
         public MainWindow()
         {
-            InitializeComponent();
-            _llmService = LlmService.Create(); // Instantiate LlmService
-            this.Top = (double)Properties.Settings.Default.Top;
-            this.Left = (double)Properties.Settings.Default.Left;
-            loadDataGridView();
-        }
-
-        private void update_csv(DataGrid dgv, string number) {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < dgv.Items.Count; i++)
+            try
             {
-                if (dgv.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)dgv.Items[i]);
+                InitializeComponent();
+                _llmService = new LlmService();
+                this.Top = Properties.Settings.Default.Top;
+                this.Left = Properties.Settings.Default.Left;
+                
+                // Start loading data asynchronously
+                _ = LoadDataGridViewAsync().ContinueWith(task => 
+                {
+                    if (task.IsFaulted)
+                    {
+                        Console.WriteLine($"Error loading data: {task.Exception?.Flatten().Message}");
+                    }
+                }, TaskScheduler.FromCurrentSynchronizationContext());
             }
-            HelperClass.WriteCsv(temp, currentPath + "/data/" + number + ".csv");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing MainWindow: {ex.Message}");
+                throw;
+            }
         }
 
-        private void task1_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void UpdateCsv(DataGrid dataGrid, string number)
         {
-            task1_selected_indexs = task1.SelectedIndex;
-            update_csv(task1, "1");
+            if (dataGrid == null || string.IsNullOrEmpty(number))
+            {
+                Console.WriteLine("Invalid parameters for UpdateCsv");
+                return;
+            }
+
+            try
+            {
+                var items = dataGrid.ItemsSource as IList<ItemGrid> ?? 
+                            dataGrid.Items.Cast<object>()
+                                         .Where(item => item is ItemGrid)
+                                         .Cast<ItemGrid>()
+                                         .ToList();
+
+                string directoryPath = Path.Combine(currentPath, "data");
+                string filePath = Path.Combine(directoryPath, $"{number}.csv");
+
+                // Ensure directory exists
+                Directory.CreateDirectory(directoryPath);
+                
+                // Update last modified date for active items
+                foreach (var item in items.Where(i => i.IsActive))
+                {
+                    item.LastModifiedDate = DateTime.Now;
+                }
+
+                HelperClass.WriteCsv(items, filePath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating CSV for list {number}: {ex.Message}");
+                // Consider showing a user-friendly message
+            }
         }
 
-        private void task2_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void task1_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            task2_selected_indexs = task2.SelectedIndex;
-            update_csv(task2, "2");
+            try
+            {
+                if (task1 != null)
+                {
+                    task1_selected_indexs = task1.SelectedIndex;
+                    UpdateCsv(task1, "1");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Task1_SelectionChanged: {ex.Message}");
+            }
         }
 
-        private void task3_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void task2_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            task3_selected_indexs = task3.SelectedIndex;
-            update_csv(task3, "3");
+            try
+            {
+                if (task2 != null)
+                {
+                    task2_selected_indexs = task2.SelectedIndex;
+                    UpdateCsv(task2, "2");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Task2_SelectionChanged: {ex.Message}");
+            }
         }
 
-        private void task4_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void task3_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            task4_selected_indexs = task4.SelectedIndex;
-            update_csv(task4, "4");
+            try
+            {
+                if (task3 != null)
+                {
+                    task3_selected_indexs = task3.SelectedIndex;
+                    UpdateCsv(task3, "3");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Task3_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void task4_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (task4 != null)
+                {
+                    task4_selected_indexs = task4.SelectedIndex;
+                    UpdateCsv(task4, "4");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Task4_SelectionChanged: {ex.Message}");
+            }
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            base.OnMouseLeftButtonDown(e);
-            this.DragMove();
+            try
+            {
+                base.OnMouseLeftButtonDown(e);
+                if (e.LeftButton == MouseButtonState.Pressed)
+                {
+                    this.DragMove();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling window drag: {ex.Message}");
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -279,9 +416,16 @@ namespace TimeTask
 
         private void location_Save(object sender, EventArgs e)
         {
-            Properties.Settings.Default.Top = this.Top;
-            Properties.Settings.Default.Left = this.Left;
-            Properties.Settings.Default.Save();
+            try
+            {
+                Properties.Settings.Default.Top = this.Top;
+                Properties.Settings.Default.Left = this.Left;
+                Properties.Settings.Default.Save();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving window location: {ex.Message}");
+            }
         }
 
         private void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
