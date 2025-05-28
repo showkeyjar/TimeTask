@@ -107,10 +107,7 @@ namespace TimeTask
 
         string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-        int task1_selected_indexs = -1;
-        int task2_selected_indexs = -1;
-        int task3_selected_indexs = -1;
-        int task4_selected_indexs = -1;
+        // taskX_selected_indexs fields removed as they are no longer needed.
 
         public async void loadDataGridView()
         {
@@ -327,43 +324,37 @@ namespace TimeTask
             // No need to call loadDataGridView() anymore, as we're updating the specific list.
         }
 
-        private void del1_Click(object sender, RoutedEventArgs e)
-        {
-            if (task1_selected_indexs >= 0)
-            {
-                var itemList = (List<ItemGrid>)task1.ItemsSource;
-                itemList.RemoveAt(task1_selected_indexs);
-                task1.ItemsSource = itemList;
-            }
-        }
+        // Old delX_Click methods removed.
 
-        private void del2_Click(object sender, RoutedEventArgs e)
+        private void DeleteSelectedTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            DataRowView selectedItem = task2.SelectedItem as DataRowView;
-            if (selectedItem != null)
-            {
-                DataView dataView = task2.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
-            }
-        }
+            DataGrid activeGrid = null;
+            string csvNumber = null;
+            List<ItemGrid> items = null;
+            int selectedIndex = -1;
 
-        private void del3_Click(object sender, RoutedEventArgs e)
-        {
-            DataRowView selectedItem = task3.SelectedItem as DataRowView;
-            if (selectedItem != null)
-            {
-                DataView dataView = task3.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
-            }
-        }
+            if (task1.SelectedItem != null) { activeGrid = task1; csvNumber = "1"; selectedIndex = task1.SelectedIndex; }
+            else if (task2.SelectedItem != null) { activeGrid = task2; csvNumber = "2"; selectedIndex = task2.SelectedIndex; }
+            else if (task3.SelectedItem != null) { activeGrid = task3; csvNumber = "3"; selectedIndex = task3.SelectedIndex; }
+            else if (task4.SelectedItem != null) { activeGrid = task4; csvNumber = "4"; selectedIndex = task4.SelectedIndex; }
 
-        private void del4_Click(object sender, RoutedEventArgs e)
-        {
-            DataRowView selectedItem = task4.SelectedItem as DataRowView;
-            if (selectedItem != null)
+            if (activeGrid != null && selectedIndex >= 0)
             {
-                DataView dataView = task4.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
+                items = (List<ItemGrid>)activeGrid.ItemsSource;
+                if (items != null && selectedIndex < items.Count)
+                {
+                    items.RemoveAt(selectedIndex);
+                    HelperClass.WriteCsv(items, System.IO.Path.Combine(currentPath, "data", csvNumber + ".csv"));
+                    activeGrid.ItemsSource = null; // To refresh
+                    activeGrid.ItemsSource = items;
+                    // Re-apply sort descriptions
+                    activeGrid.Items.SortDescriptions.Clear(); // Clear existing before adding
+                    activeGrid.Items.SortDescriptions.Add(new System.ComponentModel.SortDescription("Score", System.ComponentModel.ListSortDirection.Descending));
+                }
+            }
+            else
+            {
+                MessageBox.Show("Please select a task to delete.", "No Task Selected", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
     }

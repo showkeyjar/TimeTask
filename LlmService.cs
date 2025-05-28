@@ -1,15 +1,17 @@
+// TEST COMMENT - VISIBILITY CHECK - JULES WAS HERE
 using System;
 using System.Configuration;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Generic; // Keep for List<T>
+using System.Linq; // Keep for FirstOrDefault()
 
 // Using statements for Betalgo.Ranul.OpenAI
-using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
 using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
-using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo)
+using Betalgo.Ranul.OpenAI.Managers;   // For OpenAIService concrete class
+using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo) AND potentially OpenAiOptions
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
+// Betalgo.Ranul.OpenAI (root namespace) might be needed for OpenAiOptions if not in ObjectModels
 
 namespace TimeTask
 {
@@ -29,7 +31,7 @@ namespace TimeTask
 
     public class LlmService
     {
-        private IOpenAIService _openAiService; 
+        private Betalgo.Ranul.OpenAI.Interfaces.IOpenAIService _openAiService; 
         private string _apiKey;
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
 
@@ -338,12 +340,39 @@ namespace TimeTask
 
         private void InitializeOpenAiService()
         {
-            // Using direct instantiation as per Betalgo.Ranul.OpenAI v9.0.4 examples
-            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(new Betalgo.Ranul.OpenAI.OpenAIOptions()
+            // Try-catch block for instantiation as per subtask
+            try 
             {
-                ApiKey = _apiKey
-            });
-            Console.WriteLine("LlmService: Initialized with Betalgo.Ranul.OpenAI.OpenAIService (direct instantiation).");
+                // Option 1: Try OpenAIOptions under Betalgo.Ranul.OpenAI.ObjectModels
+                _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(
+                                     new Betalgo.Ranul.OpenAI.ObjectModels.OpenAiOptions() { ApiKey = _apiKey }
+                                 );
+                Console.WriteLine("LlmService: Initialized with OpenAIOptions from Betalgo.Ranul.OpenAI.ObjectModels");
+            } 
+            catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException ex1) // Catching specific exception if known
+            {
+                 Console.WriteLine($"LlmService: Failed with OpenAIOptions from .ObjectModels: {ex1.GetType().FullName} - {ex1.Message}. Trying .OpenAiOptions from root Betalgo.Ranul.OpenAI namespace...");
+                // Option 2: Try OpenAIOptions directly under Betalgo.Ranul.OpenAI
+                try
+                {
+                    _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(
+                                     new Betalgo.Ranul.OpenAI.OpenAiOptions() { ApiKey = _apiKey } // Assuming OpenAiOptions might be in root
+                                 );
+                     Console.WriteLine("LlmService: Initialized with OpenAIOptions from Betalgo.Ranul.OpenAI");
+                }
+                catch (System.Exception ex2) // Catch general exception for the second attempt
+                {
+                    Console.WriteLine($"LlmService: Failed with OpenAIOptions from root namespace: {ex2.GetType().FullName} - {ex2.Message}. Initialization failed.");
+                     _openAiService = null; 
+                     throw new InvalidOperationException("Failed to initialize OpenAI service with any known OpenAiOptions variant.", ex2);
+                }
+            }
+            catch (System.Exception e) // Catch any other potential errors during the first instantiation attempt
+            {
+                 Console.WriteLine($"An unexpected error occurred during OpenAIService instantiation (first attempt): {e.GetType().FullName} - {e.Message}");
+                 _openAiService = null; // Ensure it's null if initialization fails
+                 throw; // Rethrow to indicate failure
+            }
         }
         
         public void Init()
@@ -362,14 +391,14 @@ namespace TimeTask
 
             try
             {
+                // Types are now resolved via specific using statements for Betalgo.Ranul.OpenAI
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
                     {
                         ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.Gpt_3_5_Turbo, // Ensure this model identifier is correct for v9.0.4
-                                                  // Common alternatives: Models.ChatGpt3_5Turbo, Models.Gpt3_5Turbo
+                    Model = Models.Gpt_3_5_Turbo, 
                     MaxTokens = 150 
                 });
 
