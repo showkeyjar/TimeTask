@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="时间管理" Width="1280" Height="900" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
+        Title="时间管理" Width="1280" Height="900" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="MainWindow_Loaded"
         LocationChanged="location_Save"
         Background="Transparent" ShowInTaskbar="False" WindowStartupLocation="CenterScreen">
     <Grid x:Name="TaskGrid" Width="1240" Height="860">
@@ -91,12 +91,51 @@
         </DataGrid>
         
         <!-- Buttons Row -->
-        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Button x:Name="AddNewTaskButton" Content="添加新任务" Width="180" Height="40" 
-                    Click="AddNewTaskButton_Click" FontWeight="SemiBold" FontSize="14" Margin="10,0"/>
-            <Button x:Name="DeleteSelectedTaskButton" Content="删除选中任务" Width="180" Height="40" 
-                    Click="DeleteSelectedTaskButton_Click" FontWeight="SemiBold" FontSize="14" Margin="10,0"/>
-        </StackPanel>
+        <Grid Grid.Row="4" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <Button x:Name="AddNewTaskButton" Content="添加新任务" Width="160" Height="40" 
+                    Click="AddNewTaskButton_Click" FontWeight="SemiBold" FontSize="14" 
+                    Grid.Column="1" Margin="5,0"/>
+                    
+            <Button x:Name="AnalyzeTaskButton" Content="分析任务" Width="120" Height="40"
+                    Click="AnalyzeTaskButton_Click" FontWeight="SemiBold" FontSize="14"
+                    Grid.Column="2" Margin="5,0"/>
+                    
+            <Button x:Name="DeleteSelectedTaskButton" Content="删除选中任务" Width="160" Height="40" 
+                    Click="DeleteSelectedTaskButton_Click" FontWeight="SemiBold" FontSize="14"
+                    Grid.Column="3" Margin="5,0"/>
+        </Grid>
+        
+        <!-- Task Analysis Panel -->
+        <Border Grid.Row="5" Grid.ColumnSpan="2" x:Name="AnalysisPanel" 
+                Background="#252526" BorderBrush="#505050" BorderThickness="1" 
+                Margin="20,10,20,20" Padding="15" CornerRadius="5"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="任务分析" FontSize="16" FontWeight="Bold" Foreground="White" 
+                           Margin="0,0,0,10"/>
+                           
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
+                    <TextBlock x:Name="AnalysisTextBlock" TextWrapping="Wrap" 
+                               Foreground="#CCCCCC" TextAlignment="Left"/>
+                </ScrollViewer>
+                
+                <Button Grid.Row="2" Content="关闭" Width="80" Height="30" 
+                        HorizontalAlignment="Right" Click="CloseAnalysisPanel_Click"
+                        Style="{StaticResource {x:Type Button}}"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

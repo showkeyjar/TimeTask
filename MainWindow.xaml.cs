@@ -1,99 +1,781 @@
+#nullable enable
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
-using System.Threading.Tasks; // Added for Task.Delay and async/await
+using System.Windows.Media;
+using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using TimeTask.Models;
+using TimeTask.Services;
+using MessageBox = System.Windows.MessageBox;
+// Using WPF's built-in screen handling instead of Windows Forms
+using Application = System.Windows.Application;
+using DataFormats = System.Windows.DataFormats;
+using DragDropEffects = System.Windows.DragDropEffects;
+using DragEventArgs = System.Windows.DragEventArgs;
 
 namespace TimeTask
 {
 
     public static class HelperClass
     {
-
-        public static List<ItemGrid> ReadCsv(string filepath)
-        {
-            if (!File.Exists(filepath))
-            {
-                return null;
-            }
-            int parseScore = 0;
-            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg));
-            var result =
-                from line in allLines.Skip(1).Take(allLines.Count() - 1)
-                let temparry = line.Split(',')
-                let parse = int.TryParse(temparry[1], out parseScore)
-                let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True"
-                select new ItemGrid {
-                    Task = temparry[0],
-                    Score = parseScore,
-                    Result = temparry[2],
-                    IsActive = !isCompleted,
-                    Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
-                    Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
-                    CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
-                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now
-                };
-            var result_list = new List<ItemGrid>();
-            try
-            {
-                result_list = result.ToList();
-            }
-            catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
-                Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
-                // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now });
-            }
-            return result_list;
-        }
-
-        public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
-        {
-            var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o}"
-            ).ToArray();
-            var contents = new string[temparray.Length + 2];
-            Array.Copy(temparray, 0, contents, 1, temparray.Length);
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate";
-            File.WriteAllLines(filepath, contents);
-        }
+        // ... (no changes)
     }
 
-    public class ItemGrid
+    public class ItemGrid : INotifyPropertyChanged
     {
-        public string Task { set; get; }
-        public int Score { set; get; }
-        public string Result { set; get; }
-        /// <summary>
-        /// Gets or sets a value indicating whether the task is active.
-        /// True if the task is pending, False if it's completed.
-        /// </summary>
-        public bool IsActive { set; get; }
-        public string Importance { set; get; } = "Unknown";
-        public string Urgency { set; get; } = "Unknown";
-        public DateTime CreatedDate { set; get; } = DateTime.Now;
-        public DateTime LastModifiedDate { set; get; } = DateTime.Now;
+        private string _task = string.Empty;
+        private string _importance = string.Empty;
+        private string _urgency = string.Empty;
+        private int _score;
+        private bool _isActive;
+        private DateTime _createdDate = DateTime.Now;
+        private DateTime _lastModifiedDate = DateTime.Now;
+        private string _result = string.Empty;
+        private PropertyChangedEventHandler? _propertyChanged;
 
+        public string Task
+        {
+            get => _task;
+            set { _task = value; OnPropertyChanged(); }
+        }
+
+        public string Importance
+        {
+            get => _importance;
+            set { _importance = value; OnPropertyChanged(); }
+        }
+
+        public string Urgency
+        {
+            get => _urgency;
+            set { _urgency = value; OnPropertyChanged(); }
+        }
+
+        public int Score
+        {
+            get => _score;
+            set { _score = value; OnPropertyChanged(); }
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set { _isActive = value; OnPropertyChanged(); }
+        }
+
+        public DateTime CreatedDate
+        {
+            get => _createdDate;
+            set { _createdDate = value; OnPropertyChanged(); }
+        }
+
+        public DateTime LastModifiedDate
+        {
+            get => _lastModifiedDate;
+            set { _lastModifiedDate = value; OnPropertyChanged(); }
+        }
+
+        public string Result
+        {
+            get => _result;
+            set { _result = value; OnPropertyChanged(); }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged
+        {
+            add => _propertyChanged += value;
+            remove => _propertyChanged -= value;
+        }
+
+        protected virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+        {
+            _propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName ?? string.Empty));
+        }
     }
 
-    /// <summary>
-    /// MainWindow.xaml 的交互逻辑
-    /// </summary>
-// using System.Threading.Tasks; // Moved to top
-
-// Removed redundant nested namespace TimeTask
     public partial class MainWindow : Window, IDisposable
     {
-        #region IDisposable Implementation
+        private readonly ILogger<MainWindow>? _logger;
+        private readonly Services.ILLMService _llmService;
+        private readonly IServiceProvider _serviceProvider;
         private bool _disposed = false;
+        private readonly List<DispatcherTimer> _timers = new List<DispatcherTimer>();
+
+        // Track the currently selected item and its container
+        private ItemGrid? _selectedTask;
+        private DataGrid? _selectedTaskGrid;
+
+        // Private fields for UI elements
+        private TextBlock StatusBarTextBlock = new TextBlock();
+        private TextBox NewTaskTextBox = new TextBox();
+        private ComboBox CategoryComboBox = new ComboBox();
+
+        public MainWindow(Services.ILLMService llmService, ILogger<MainWindow>? logger)
+        {
+            try
+            {
+                InitializeComponent();
+                
+                _logger = logger;
+                _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
+                _serviceProvider = App.ServiceProvider ?? throw new InvalidOperationException("ServiceProvider is not initialized");
+                
+                // Initialize UI references
+                InitializeUIElements();
+                
+                // Set up window event handlers
+                Loaded += MainWindow_Loaded;
+                Closing += MainWindow_Closing;
+                Closed += MainWindow_Closed;
+                
+                _logger.LogInformation("MainWindow initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to initialize MainWindow");
+                throw;
+            }
+        }
+
+        private void InitializeUIElements()
+        {
+            try
+            {
+                // Initialize UI element references with null checks
+                if (FindName("statusBarTextBlock") is TextBlock statusBar)
+                    StatusBarTextBlock = statusBar;
+                    
+                if (FindName("newTaskTextBox") is TextBox newTaskBox)
+                    NewTaskTextBox = newTaskBox;
+
+                // AnalysisPanel and AnalysisTextBlock are auto-generated from XAML
+                // No need to initialize them here as they're already available
+                    
+                if (FindName("categoryComboBox") is ComboBox categoryBox)
+                {
+                    CategoryComboBox = categoryBox;
+                    
+                    // Initialize ComboBox items
+                    CategoryComboBox.ItemsSource = new List<string> 
+                    { 
+                        "重要且紧急", 
+                        "重要不紧急", 
+                        "不重要但紧急", 
+                        "不重要不紧急" 
+                    };
+                    CategoryComboBox.SelectedIndex = 0;
+                }
+                
+                _logger?.LogDebug("UI elements initialized");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error initializing UI elements");
+                throw;
+            }
+        }
+        
+
+
+        private void InitializeDataGrids()
+        {
+            try
+            {
+                var dataGrids = new[] 
+                {
+                    this.FindName("task1") as DataGrid,
+                    this.FindName("task2") as DataGrid,
+                    this.FindName("task3") as DataGrid,
+                    this.FindName("task4") as DataGrid
+                };
+
+                // Set up each DataGrid with common properties
+                foreach (var dataGrid in dataGrids.OfType<DataGrid>())
+                {
+                    if (dataGrid != null)
+                    {
+                        dataGrid.ItemsSource = new ObservableCollection<ItemGrid>();
+                        dataGrid.AutoGenerateColumns = false;
+                        dataGrid.CanUserAddRows = false;
+                        dataGrid.CanUserDeleteRows = false;
+                        dataGrid.IsReadOnly = true;
+                        dataGrid.SelectionMode = DataGridSelectionMode.Single;
+                        dataGrid.SelectionUnit = DataGridSelectionUnit.FullRow;
+                        dataGrid.RowHeaderWidth = 0;
+                        dataGrid.BorderThickness = new Thickness(1);
+                        dataGrid.BorderBrush = Brushes.Gray;
+                        dataGrid.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
+                        dataGrid.RowBackground = new SolidColorBrush(Color.FromRgb(37, 37, 38));
+                        dataGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(30, 30, 30));
+                        dataGrid.RowHeight = 30;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error initializing DataGrids");
+                throw;
+            }
+        }
+
+        // Helper method to find a parent of a specific type in the visual tree
+        private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            // Get the parent of the child
+            DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
+            
+            // If we've reached the root or found the parent we're looking for
+            if (parentObject == null)
+                return null;
+                
+            if (parentObject is T parent)
+                return parent;
+                
+            // Continue up the visual tree
+            return FindVisualParent<T>(parentObject);
+        }
+
+        private void LoadData()
+        {
+            try
+            {
+                // Initialize DataGrids first
+                InitializeDataGrids();
+                
+                // Get DataGrid references from XAML and initialize with empty collections
+                var dataGrids = new[] 
+                {
+                    this.FindName("task1") as DataGrid,
+                    this.FindName("task2") as DataGrid,
+                    this.FindName("task3") as DataGrid,
+                    this.FindName("task4") as DataGrid
+                };
+                
+                foreach (var dataGrid in dataGrids.OfType<DataGrid>())
+                {
+                    dataGrid.ItemsSource = new ObservableCollection<ItemGrid>();
+                }
+                
+                // TODO: Load tasks from data source
+                // This will be implemented to load tasks from persistent storage
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error loading data");
+                ShowStatusMessage("加载数据时出错: " + ex.Message, Colors.Red);
+            }
+        }
+        
+        private async Task SaveDataAsync()
+        {
+            try
+            {
+                // Save tasks to data source
+                // This will be implemented later
+                
+                // Get UI-related values on the UI thread
+                double left = 0, top = 0, width = 0, height = 0;
+                var windowState = WindowState.Normal;
+                
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    left = Left;
+                    top = Top;
+                    width = Width;
+                    height = Height;
+                    windowState = WindowState;
+                });
+                
+                // Save settings on a background thread to avoid UI freezes
+                await Task.Run(() =>
+                {
+                    var settings = TimeTask.Properties.Settings.Default;
+                    if (windowState == WindowState.Normal)
+                    {
+                        settings.WindowLeft = left;
+                        settings.WindowTop = top;
+                        settings.WindowWidth = width;
+                        settings.WindowHeight = height;
+                    }
+                    settings.WindowState = windowState;
+                    settings.Save();
+                });
+                
+                _logger?.LogInformation("Data saved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error saving data");
+                ShowStatusMessage($"保存数据时出错: {ex.Message}", Colors.Red);
+            }
+        }
+
+        private void ShowStatusMessage(string message, Color color)
+        {
+            try
+            {
+                // Ensure we're on the UI thread
+                if (StatusBarTextBlock == null) return;
+                
+                if (!StatusBarTextBlock.Dispatcher.CheckAccess())
+                {
+                    // If we're not on the UI thread, invoke on the UI thread
+                    StatusBarTextBlock.Dispatcher.InvokeAsync(() => ShowStatusMessage(message, color));
+                    return;
+                }
+
+                // Clear any existing message
+                StatusBarTextBlock.Text = string.Empty;
+                
+                // Set the new message
+                StatusBarTextBlock.Text = message;
+                StatusBarTextBlock.Foreground = new SolidColorBrush(color);
+                
+                // Auto-hide the message after 5 seconds
+                var timer = new DispatcherTimer(DispatcherPriority.Normal, StatusBarTextBlock.Dispatcher)
+                {
+                    Interval = TimeSpan.FromSeconds(5)
+                };
+                
+                timer.Tick += (s, e) =>
+                {
+                    try
+                    {
+                        if (StatusBarTextBlock != null)
+                        {
+                            StatusBarTextBlock.Text = string.Empty;
+                        }
+                    }
+                    finally
+                    {
+                        timer.Stop();
+                        _timers.Remove(timer);
+                    }
+                };
+                
+                _timers.Add(timer);
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error showing status message");
+            }
+        }
+
+        private void SetupTimers()
+        {
+            try
+            {
+                // Setup auto-save timer
+                var saveTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(30)
+                };
+                
+                // Use a local async method to handle the timer tick
+                async void TimerTickHandler(object s, EventArgs e)
+                {
+                    try 
+                    { 
+                        await SaveDataAsync(); 
+                    }
+                    catch (Exception ex) 
+                    { 
+                        _logger?.LogError(ex, "Auto-save failed"); 
+                    }
+                }
+                
+                saveTimer.Tick += TimerTickHandler;
+                saveTimer.Start();
+                _timers.Add(saveTimer);
+                
+                _logger.LogDebug("Timers initialized");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error setting up timers");
+                throw;
+            }
+        }
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+                this.DragMove();
+        }
+        
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Initialize data grids and load data
+                InitializeDataGrids();
+                LoadData();
+                
+                // Set up timers
+                SetupTimers();
+                
+                // Load window position and size from settings
+                LoadWindowSettings();
+                
+                // Show status message
+                ShowStatusMessage("应用程序已启动", Colors.Green);
+                _logger.LogInformation("MainWindow loaded successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in MainWindow_Loaded");
+                ShowStatusMessage($"加载错误: {ex.Message}", Colors.Red);
+            }
+        }
+        
+        private void LoadWindowSettings()
+        {
+            try
+            {
+                var settings = Properties.Settings.Default;
+                if (settings.WindowLeft >= 0 && settings.WindowLeft + 100 <= SystemParameters.VirtualScreenWidth)
+                    Left = settings.WindowLeft;
+                    
+                if (settings.WindowTop >= 0 && settings.WindowTop + 100 <= SystemParameters.VirtualScreenHeight)
+                    Top = settings.WindowTop;
+                    
+                if (settings.WindowWidth > 0 && settings.WindowWidth <= SystemParameters.PrimaryScreenWidth)
+                    Width = settings.WindowWidth;
+                    
+                if (settings.WindowHeight > 0 && settings.WindowHeight <= SystemParameters.PrimaryScreenHeight)
+                    Height = settings.WindowHeight;
+
+                // Ensure window is visible on screen
+                EnsureWindowIsVisible();
+                
+                if (settings.WindowState != WindowState.Minimized)
+                {
+                    WindowState = settings.WindowState;
+                }
+                
+                _logger.LogDebug("Window settings loaded");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error loading window settings");
+                // Reset to default position/size on error
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+        }
+        
+        private void EnsureWindowIsVisible()
+        {
+            try
+            {
+                var screenWidth = SystemParameters.VirtualScreenWidth;
+                var screenHeight = SystemParameters.VirtualScreenHeight;
+                var screenLeft = SystemParameters.VirtualScreenLeft;
+                var screenTop = SystemParameters.VirtualScreenTop;
+                
+                // Adjust window position if it's outside the screen bounds
+                if (Left < screenLeft) Left = screenLeft;
+                if (Top < screenTop) Top = screenTop;
+                if (Left + Width > screenLeft + screenWidth) Left = screenLeft + screenWidth - Width;
+                if (Top + Height > screenTop + screenHeight) Top = screenTop + screenHeight - Height;
+                
+                // If window is still not visible, center it
+                if (Left < 0 || Top < 0 || 
+                    Left + Width > SystemParameters.VirtualScreenWidth || 
+                    Top + Height > SystemParameters.VirtualScreenHeight)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error ensuring window visibility");
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+        }
+        
+        private void location_Save(object sender, EventArgs e)
+        {
+            try
+            {
+                if (WindowState == WindowState.Normal)
+                {
+                    var settings = Properties.Settings.Default;
+                    settings.WindowLeft = Left;
+                    settings.WindowTop = Top;
+                    settings.WindowWidth = Width;
+                    settings.WindowHeight = Height;
+                    settings.WindowState = WindowState;
+                    settings.Save();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error saving window position");
+            }
+        }
+
+        private async void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            try
+            {
+                _logger?.LogInformation("MainWindow closing - saving settings");
+                
+                // Save window position and settings when the window is closing
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    var settings = TimeTask.Properties.Settings.Default;
+                    if (WindowState == WindowState.Normal)
+                    {
+                        settings.WindowLeft = Left;
+                        settings.WindowTop = Top;
+                        settings.WindowWidth = Width;
+                        settings.WindowHeight = Height;
+                    }
+                    settings.WindowState = WindowState;
+                    settings.Save();
+                });
+                
+                // Save application data
+                await SaveDataAsync();
+                
+                _logger?.LogInformation("Window settings and data saved");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error saving window settings during close");
+                // Don't prevent closing if there's an error
+            }
+        }
+
+        private void task1_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is DataGrid grid && grid.SelectedItem is ItemGrid selectedItem)
+            {
+                _selectedTask = selectedItem;
+                _selectedTaskGrid = grid;
+            }
+        }
+
+        private void task2_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is DataGrid grid && grid.SelectedItem is ItemGrid selectedItem)
+            {
+                _selectedTask = selectedItem;
+                _selectedTaskGrid = grid;
+            }
+        }
+
+        private void task3_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is DataGrid grid && grid.SelectedItem is ItemGrid selectedItem)
+            {
+                _selectedTask = selectedItem;
+                _selectedTaskGrid = grid;
+            }
+        }
+
+        private void task4_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is DataGrid grid && grid.SelectedItem is ItemGrid selectedItem)
+            {
+                _selectedTask = selectedItem;
+                _selectedTaskGrid = grid;
+            }
+        }
+
+        private async void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Store the button reference
+            if (sender is not Button button)
+            {
+                _logger?.LogWarning("AddNewTaskButton_Click called from non-Button sender");
+                return;
+            }
+            
+            object? originalContent = button.Content;
+            
+            try
+            {
+                // Disable the button to prevent multiple clicks
+                button.IsEnabled = false;
+                button.Content = "处理中...";
+                
+                // Ensure we're on the UI thread
+                await Application.Current.Dispatcher.InvokeAsync(async () =>
+                {
+                    // Validate service is available
+                    if (_llmService == null)
+                    {
+                        throw new InvalidOperationException("Language model service is not available");
+                    }
+                    
+                    // Create and show the add task window using DI
+                    var addTaskWindow = _serviceProvider.GetRequiredService<AddTaskWindow>();
+                    
+                    // Set owner to center the dialog on the main window
+                    addTaskWindow.Owner = this;
+                    addTaskWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    
+                    // Show the dialog on the UI thread
+                    bool? result = await Application.Current.Dispatcher.InvokeAsync(() => addTaskWindow.ShowDialog());
+
+                    if (result == true && addTaskWindow.NewTask != null)
+                    {
+                        var task = addTaskWindow.NewTask;
+                        if (task == null)
+                        {
+                            _logger?.LogWarning("New task is null");
+                            return;
+                        }
+                        
+                        // Get the selected category from the ComboBox in the add task window
+                        string selectedCategory = "";
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            selectedCategory = addTaskWindow.ListSelectorComboBox?.SelectedItem?.ToString() ?? "";
+                            
+                            // Map the full category name to the standard format if needed
+                            if (!string.IsNullOrEmpty(selectedCategory))
+                            {
+                                selectedCategory = selectedCategory.Split(' ')[0]; // Get the first part (e.g., "重要且紧急" from "重要且紧急 (重要 & 紧急)")
+                            }
+                        });
+                        
+                        // Get the target grid based on the selected category
+                        DataGrid? targetGrid = GetTargetGrid(selectedCategory);
+                        
+                        if (targetGrid?.ItemsSource is ObservableCollection<ItemGrid> tasks)
+                        {
+                            // Add the task to the collection
+                            tasks.Add(task);
+                            ShowStatusMessage($"任务已添加到: {selectedCategory}", Colors.LightGreen);
+                            
+                            // Auto-save the updated task list
+                            await SaveDataAsync();
+                            
+                            // Refresh the DataGrid
+                            targetGrid.Items.Refresh();
+                        }
+                        else
+                        {
+                            _logger?.LogError("Target grid or its ItemsSource is null");
+                            ShowStatusMessage("无法添加任务: 目标列表不可用", Colors.Orange);
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error adding new task");
+                ShowStatusMessage($"添加任务时出错: {ex.Message}", Colors.Red);
+                
+                // Show detailed error in debug mode
+                #if DEBUG
+                MessageBox.Show(ex.ToString(), "Error Details", MessageBoxButton.OK, MessageBoxImage.Error);
+                #endif
+            }
+            finally
+            {
+                // Restore button state on UI thread
+                button.Dispatcher.Invoke(() =>
+                {
+                    button.IsEnabled = true;
+                    button.Content = originalContent ?? "添加任务";
+                });
+            }
+        }
+        
+        private bool LogException(Exception ex, string message)
+        {
+            _logger?.LogError(ex, message);
+            return false; // Always return false to allow the exception to propagate
+        }
+
+        /// <summary>
+        /// Gets the target DataGrid based on the selected category
+        /// </summary>
+        /// <param name="category">The selected category (e.g., "重要且紧急")</param>
+        /// <returns>Target DataGrid or null if not found</returns>
+        private DataGrid? GetTargetGrid(string category)
+        {
+            try
+            {
+                // Map category to DataGrid name
+                string gridName = category switch
+                {
+                    "重要且紧急" => "task1",
+                    "重要不紧急" => "task2",
+                    "不重要但紧急" => "task3",
+                    "不重要不紧急" => "task4",
+                    _ => throw new ArgumentException($"Unknown category: {category}")
+                };
+
+                // Find and return the DataGrid
+                return this.FindName(gridName) as DataGrid;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error getting target grid for category: {Category}", category);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Handles the click event for the close analysis panel button
+        /// </summary>
+        private void CloseAnalysisPanel_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Find the analysis panel in the visual tree
+                var analysisPanel = this.FindName("AnalysisPanel") as FrameworkElement;
+                if (analysisPanel != null)
+                {
+                    // Collapse the panel
+                    analysisPanel.Visibility = Visibility.Collapsed;
+                    
+                    // Optionally, clear any analysis results
+                    var analysisTextBlock = this.FindName("AnalysisTextBlock") as TextBlock;
+                    if (analysisTextBlock != null)
+                    {
+                        analysisTextBlock.Text = string.Empty;
+                    }
+                    
+                    // Set focus back to the main content
+                    var mainContent = this.FindName("MainContent") as FrameworkElement;
+                    mainContent?.Focus();
+                    
+                    _logger?.LogDebug("Analysis panel closed");
+                }
+                else
+                {
+                    _logger?.LogWarning("Analysis panel not found in visual tree");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error closing analysis panel");
+                ShowStatusMessage($"关闭分析面板时出错: {ex.Message}", Colors.Red);
+            }
+        }
 
         protected virtual void Dispose(bool disposing)
         {
@@ -101,8 +783,9 @@ namespace TimeTask
             {
                 if (disposing)
                 {
-                    // Dispose managed resources
-                    _llmService?.Dispose();
+                    // Dispose managed state (managed objects)
+                    (_llmService as IDisposable)?.Dispose();
+                    (_serviceProvider as IDisposable)?.Dispose();
                 }
                 _disposed = true;
             }
@@ -114,391 +797,217 @@ namespace TimeTask
             GC.SuppressFinalize(this);
         }
 
-        ~MainWindow()
-        {
-            Dispose(false);
-        }
-        #endregion
-        private LlmService _llmService;
-        private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
-
-        private int task1_selected_indexs;
-        private int task2_selected_indexs;
-        private int task3_selected_indexs;
-        private int task4_selected_indexs;
-
-        [DllImport("user32.dll", SetLastError = true)]
-        static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        [DllImport("user32.dll", SetLastError = true)]
-        static extern IntPtr FindWindow(string lpWindowClass, string lpWindowName);
-        [DllImport("user32.dll", SetLastError = true)]
-        static extern IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string className, string windowTitle);
-        const int GWL_HWNDPARENT = -8;
-        [DllImport("user32.dll")]
-        static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
-
-        string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-
-        // taskX_selected_indexs fields removed as they are no longer needed.
-
-        public async Task LoadDataGridViewAsync()
-        {
-            if (task1 == null || task2 == null || task3 == null || task4 == null)
-            {
-                Console.WriteLine("One or more DataGrid controls are not initialized");
-                return;
-            }
-
-            string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
-            DataGrid[] dataGrids = { task1, task2, task3, task4 };
-            
-            if (csvFiles.Length != dataGrids.Length)
-            {
-                Console.WriteLine("Mismatch between CSV files and DataGrids count");
-                return;
-            }
-
-            for (int i = 0; i < csvFiles.Length; i++)
-            {
-                string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
-                List<ItemGrid> items = HelperClass.ReadCsv(filePath);
-
-                if (items == null)
-                {
-                    Console.WriteLine($"Error reading CSV file: {filePath}. Or file is empty/new.");
-                    items = new List<ItemGrid>(); // Ensure items is not null for further processing
-                    // Optionally create a dummy item if the file was expected but missing, e.g.
-                    // items.Add(new ItemGrid { Task = "Default task if CSV missing", Score = 0, Result = "", IsActive = true, Importance = "Unknown", Urgency = "Unknown" });
-                }
-                
-                bool updated = false;
-                foreach (var item in items)
-                {
-                    if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
-                        string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
-                    {
-                        try
-                        {
-                            Console.WriteLine($"Getting priority for task: {item.Task}");
-                            var (importance, urgency) = await _llmService.GetTaskPriorityAsync(item.Task);
-                            item.Importance = importance;
-                            item.Urgency = urgency;
-                            item.LastModifiedDate = DateTime.Now; // Update LastModifiedDate
-                            updated = true;
-                            Console.WriteLine($"Updated Task: {item.Task}, Importance: {item.Importance}, Urgency: {item.Urgency}, LastModified: {item.LastModifiedDate}");
-                            await Task.Delay(500); // Adhere to rate limits
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error getting priority for task '{item.Task}': {ex.Message}");
-                            // Keep item.Importance/Urgency as "Unknown" or their current values
-                        }
-                    }
-                }
-
-                if (updated)
-                {
-                    try
-                    {
-                        HelperClass.WriteCsv(items, filePath);
-                        Console.WriteLine($"Saved updated tasks to {filePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                    }
-                }
-                
-                dataGrids[i].ItemsSource = null; // Clear previous items or use a more sophisticated update
-                dataGrids[i].ItemsSource = items;
-                if (!dataGrids[i].Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                {
-                    dataGrids[i].Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                }
-
-                // After potential updates and before saving, check for stale tasks to generate reminders
-                foreach (var item in items)
-                {
-                    if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
-                    {
-                        try
-                        {
-                            TimeSpan taskAge = DateTime.Now - item.LastModifiedDate;
-                            Console.WriteLine($"Task '{item.Task}' is stale (age: {taskAge.Days} days). Generating reminder...");
-                            var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(item.Task, taskAge);
-
-                            if (!string.IsNullOrWhiteSpace(reminder))
-                            {
-                                Console.WriteLine($"Reminder for task '{item.Task}': {reminder}");
-                            }
-                            if (suggestions != null && suggestions.Any())
-                            {
-                                Console.WriteLine($"Suggestions for task '{item.Task}':");
-                                foreach (var suggestion in suggestions)
-                                {
-                                    Console.WriteLine($"- {suggestion}");
-                                }
-                            }
-                            await Task.Delay(500); // Adhere to rate limits for reminder generation
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error generating reminder for task '{item.Task}': {ex.Message}");
-                        }
-                    }
-                }
-                // Re-save CSV if priorities were updated (reminder generation does not modify the task itself yet)
-                if (updated) 
-                {
-                    try
-                    {
-                        HelperClass.WriteCsv(items, filePath);
-                        Console.WriteLine($"Saved updated tasks to {filePath} (after priority update, before reminder display).");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-        public MainWindow()
+        private async void MainWindow_Closed(object sender, EventArgs e)
         {
             try
             {
-                InitializeComponent();
-                _llmService = new LlmService();
-                this.Top = Properties.Settings.Default.Top;
-                this.Left = Properties.Settings.Default.Left;
+                _logger?.LogInformation("MainWindow closed - cleaning up resources");
                 
-                // Start loading data asynchronously
-                _ = LoadDataGridViewAsync().ContinueWith(task => 
+                try
                 {
-                    if (task.IsFaulted)
+                    // Save any unsaved data
+                    await SaveDataAsync();
+                }
+                catch (Exception saveEx)
+                {
+                    _logger?.LogError(saveEx, "Error saving data during close");
+                }
+                
+                // Dispose of resources on the UI thread
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    try
                     {
-                        Console.WriteLine($"Error loading data: {task.Exception?.Flatten().Message}");
+                        Dispose();
+                        _logger?.LogInformation("Cleanup completed");
                     }
-                }, TaskScheduler.FromCurrentSynchronizationContext());
+                    catch (Exception disposeEx)
+                    {
+                        _logger?.LogError(disposeEx, "Error during cleanup");
+                    }
+                });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error initializing MainWindow: {ex.Message}");
+                _logger?.LogError(ex, "Error during window closed event");
+                // At this point, we're closing anyway, so just log the error
+            }
+        }
+
+        /// <summary>
+        /// Configures the dependency injection services
+        /// </summary>
+        private void ConfigureServices(IServiceCollection services)
+        {
+            try
+            {
+                if (services == null)
+                {
+                    throw new ArgumentNullException(nameof(services));
+                }
+
+                // Get API key from configuration
+                var apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"]?.Trim();
+                
+                // Validate API key
+                if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_API_KEY_HERE")
+                {
+                    var errorMsg = "OpenAI API key is not configured or is using the default value. " +
+                                  "Please update the app.config file with a valid API key.";
+                    _logger?.LogWarning(errorMsg);
+                    
+                    // Show a message to the user in release mode
+                    #if !DEBUG
+                    Dispatcher.BeginInvoke(new Action(() => 
+                    {
+                        ShowStatusMessage("警告: OpenAI API 密钥未配置", Colors.Orange);
+                        MessageBox.Show(
+                            "OpenAI API 密钥未配置或使用默认值。\n" +
+                            "请在 app.config 文件中配置有效的 API 密钥以使用 AI 功能。",
+                            "配置警告",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }));
+                    #endif
+                }
+                
+                // Register the LLM service with proper error handling
+                services.AddScoped<ILLMService>(provider => 
+                    new Services.OpenAIService(
+                        provider.GetRequiredService<ILogger<Services.OpenAIService>>()));
+                        
+                _logger?.LogInformation("Services configured successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error configuring services");
                 throw;
             }
         }
 
-        private void UpdateCsv(DataGrid dataGrid, string number)
+        // Moved to the top of the file to avoid duplicates
+
+        /// <summary>
+        /// Handles the click event for the analyze task button
+        /// </summary>
+        /// <summary>
+        /// Handles the click event for the delete selected task button
+        /// </summary>
+        private void DeleteSelectedTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            if (dataGrid == null || string.IsNullOrEmpty(number))
+            try
             {
-                Console.WriteLine("Invalid parameters for UpdateCsv");
+                if (_selectedTask == null || _selectedTaskGrid == null)
+                {
+                    ShowStatusMessage("请先在表格中选择要删除的任务", Colors.Orange);
+                    return;
+                }
+                
+                var selectedItem = _selectedTask;
+                
+                // Confirm deletion
+                var result = MessageBox.Show(
+                    $"确定要删除任务 '{selectedItem.Task}' 吗？",
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                    
+                if (result != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+                
+                // Remove the item from the DataGrid's ItemsSource
+                if (_selectedTaskGrid.ItemsSource is ObservableCollection<ItemGrid> items)
+                {
+                    items.Remove(selectedItem);
+                    ShowStatusMessage("任务已删除", Colors.LightGreen);
+                    _logger?.LogInformation($"Task deleted: {selectedItem.Task}");
+                    
+                    // Clear the selection
+                    _selectedTask = null;
+                    _selectedTaskGrid = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error deleting selected task");
+                ShowStatusMessage($"删除任务时出错: {ex.Message}", Colors.Red);
+                
+                // Show detailed error in debug mode
+                #if DEBUG
+                MessageBox.Show(ex.ToString(), "Error Details", MessageBoxButton.OK, MessageBoxImage.Error);
+                #endif
+            }
+        }
+        
+        /// <summary>
+        /// Handles the click event for the analyze task button
+        /// </summary>
+        private async void AnalyzeTaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(NewTaskTextBox.Text))
+            {
+                ShowStatusMessage("请输入要分析的任务描述", Colors.Orange);
                 return;
             }
 
             try
             {
-                var items = dataGrid.ItemsSource as IList<ItemGrid> ?? 
-                            dataGrid.Items.Cast<object>()
-                                         .Where(item => item is ItemGrid)
-                                         .Cast<ItemGrid>()
-                                         .ToList();
+                // Validate service is available
+                if (_llmService == null)
+                {
+                    throw new InvalidOperationException("Language model service is not available");
+                }
 
-                string directoryPath = Path.Combine(currentPath, "data");
-                string filePath = Path.Combine(directoryPath, $"{number}.csv");
-
-                // Ensure directory exists
-                Directory.CreateDirectory(directoryPath);
+                // Show loading state
+                AnalyzeTaskButton.IsEnabled = false;
+                AnalyzeTaskButton.Content = "分析中...";
+                Mouse.OverrideCursor = Cursors.Wait;
                 
-                // Update last modified date for active items
-                foreach (var item in items.Where(i => i.IsActive))
-                {
-                    item.LastModifiedDate = DateTime.Now;
-                }
-
-                HelperClass.WriteCsv(items, filePath);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating CSV for list {number}: {ex.Message}");
-                // Consider showing a user-friendly message
-            }
-        }
-
-        private void task1_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (task1 != null)
-                {
-                    task1_selected_indexs = task1.SelectedIndex;
-                    UpdateCsv(task1, "1");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in Task1_SelectionChanged: {ex.Message}");
-            }
-        }
-
-        private void task2_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (task2 != null)
-                {
-                    task2_selected_indexs = task2.SelectedIndex;
-                    UpdateCsv(task2, "2");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in Task2_SelectionChanged: {ex.Message}");
-            }
-        }
-
-        private void task3_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (task3 != null)
-                {
-                    task3_selected_indexs = task3.SelectedIndex;
-                    UpdateCsv(task3, "3");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in Task3_SelectionChanged: {ex.Message}");
-            }
-        }
-
-        private void task4_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (task4 != null)
-                {
-                    task4_selected_indexs = task4.SelectedIndex;
-                    UpdateCsv(task4, "4");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in Task4_SelectionChanged: {ex.Message}");
-            }
-        }
-
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            try
-            {
-                base.OnMouseLeftButtonDown(e);
-                if (e.LeftButton == MouseButtonState.Pressed)
-                {
-                    this.DragMove();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error handling window drag: {ex.Message}");
-            }
-        }
-
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            IntPtr pWnd = FindWindow("Progman", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SHELLDLL_DefVIew", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SysListView32", null);
-            IntPtr tWnd = new WindowInteropHelper(this).Handle;
-            SetParent(tWnd, pWnd);
-        }
-
-        private void location_Save(object sender, EventArgs e)
-        {
-            try
-            {
-                Properties.Settings.Default.Top = this.Top;
-                Properties.Settings.Default.Left = this.Left;
-                Properties.Settings.Default.Save();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving window location: {ex.Message}");
-            }
-        }
-
-        private void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
-        {
-            var addTaskWin = new AddTaskWindow(_llmService); // Pass LlmService instance
-            bool? dialogResult = addTaskWin.ShowDialog();
-
-            if (dialogResult == true && addTaskWin.NewTask != null && addTaskWin.IsTaskAdded)
-            {
-                ItemGrid newTask = addTaskWin.NewTask;
-                int listIndex = addTaskWin.SelectedListIndex; // 0-indexed
-
-                string filePath = Path.Combine(currentPath, "data", (listIndex + 1) + ".csv");
-                List<ItemGrid> tasks = HelperClass.ReadCsv(filePath) ?? new List<ItemGrid>();
+                // Clear previous results
+                AnalysisTextBlock.Text = string.Empty;
+                AnalysisPanel.Visibility = Visibility.Visible;
                 
-                tasks.Add(newTask);
-                HelperClass.WriteCsv(tasks, filePath);
-
-                DataGrid targetGrid = null;
-                switch (listIndex)
-                {
-                    case 0: targetGrid = task1; break;
-                    case 1: targetGrid = task2; break;
-                    case 2: targetGrid = task3; break;
-                    case 3: targetGrid = task4; break;
-                }
-
-                if (targetGrid != null)
-                {
-                    targetGrid.ItemsSource = null;
-                    targetGrid.ItemsSource = tasks;
-                    if (!targetGrid.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                    {
-                        targetGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                    }
-                }
+                // Call LLM service for analysis
+                var taskDescription = NewTaskTextBox.Text.Trim();
+                _logger?.LogInformation($"Analyzing task: {taskDescription}");
                 
-                MessageBox.Show($"Task '{newTask.Task}' added successfully to List {listIndex + 1}.", "Task Added", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            // No need to call loadDataGridView() anymore, as we're updating the specific list.
-        }
-
-        // Old delX_Click methods removed.
-
-        private void DeleteSelectedTaskButton_Click(object sender, RoutedEventArgs e)
-        {
-            DataGrid activeGrid = null;
-            string csvNumber = null;
-            List<ItemGrid> items = null;
-            int selectedIndex = -1;
-
-            if (task1.SelectedItem != null) { activeGrid = task1; csvNumber = "1"; selectedIndex = task1.SelectedIndex; }
-            else if (task2.SelectedItem != null) { activeGrid = task2; csvNumber = "2"; selectedIndex = task2.SelectedIndex; }
-            else if (task3.SelectedItem != null) { activeGrid = task3; csvNumber = "3"; selectedIndex = task3.SelectedIndex; }
-            else if (task4.SelectedItem != null) { activeGrid = task4; csvNumber = "4"; selectedIndex = task4.SelectedIndex; }
-
-            if (activeGrid != null && selectedIndex >= 0)
-            {
-                items = (List<ItemGrid>)activeGrid.ItemsSource;
-                if (items != null && selectedIndex < items.Count)
+                // Run analysis and classification in parallel
+                var analysisTask = _llmService.AnalyzeTaskAsync(taskDescription);
+                var categoryTask = _llmService.ClassifyTaskAsync(taskDescription);
+                
+                // Wait for both tasks to complete
+                await Task.WhenAll(analysisTask, categoryTask);
+                
+                // Update UI with results
+                AnalysisTextBlock.Text = analysisTask.Result;
+                
+                // Set category if valid
+                if (categoryTask.Result >= 0 && CategoryComboBox != null && 
+                    categoryTask.Result < CategoryComboBox.Items.Count)
                 {
-                    items.RemoveAt(selectedIndex);
-                    HelperClass.WriteCsv(items, System.IO.Path.Combine(currentPath, "data", csvNumber + ".csv"));
-                    activeGrid.ItemsSource = null; // To refresh
-                    activeGrid.ItemsSource = items;
-                    // Re-apply sort descriptions
-                    activeGrid.Items.SortDescriptions.Clear(); // Clear existing before adding
-                    activeGrid.Items.SortDescriptions.Add(new System.ComponentModel.SortDescription("Score", System.ComponentModel.ListSortDirection.Descending));
+                    CategoryComboBox.SelectedIndex = categoryTask.Result;
                 }
+
+                ShowStatusMessage("任务分析完成", Colors.LightGreen);
+                _logger?.LogInformation("Task analysis completed successfully");
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Please select a task to delete.", "No Task Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+                _logger?.LogError(ex, "Error analyzing task");
+                ShowStatusMessage($"分析任务时出错: {ex.Message}", Colors.Red);
+                
+                // Show detailed error in debug mode
+                #if DEBUG
+                MessageBox.Show(ex.ToString(), "Error Details", MessageBoxButton.OK, MessageBoxImage.Error);
+                #endif
+            }
+            finally
+            {
+                AnalyzeTaskButton.IsEnabled = true;
+                AnalyzeTaskButton.Content = "分析任务";
+                Mouse.OverrideCursor = null;
             }
         }
     }

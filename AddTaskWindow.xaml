@@ -4,9 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
+        xmlns:converters="clr-namespace:TimeTask.Converters"
         mc:Ignorable="d"
-        Title="Add New Task" Height="300" Width="400"
+        Title="Add New Task" Height="400" Width="500"
         WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </Window.Resources>
     <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -14,21 +18,45 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,5"/>
+        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" 
+                 VerticalScrollBarVisibility="Auto" Margin="0,5,0,5" TextChanged="TaskDescriptionTextBox_TextChanged"/>
 
-        <TextBlock Grid.Row="2" Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
+        <TextBlock Grid.Row="2" Name="ClarificationPromptText" TextWrapping="Wrap" 
+                   Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
         
-        <Button Grid.Row="3" Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed" Click="ResetClarificationButton_Click"/>
+        <Button Grid.Row="3" Name="ResetClarificationButton" Content="Edit Original Task / Reset" 
+                HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed" 
+                Click="ResetClarificationButton_Click"/>
 
-        <TextBlock Grid.Row="4" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <ComboBox Grid.Row="5" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,10,0,5">
+            <CheckBox Name="AutoClassifyCheckBox" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0"
+                     Checked="AutoClassifyCheckBox_Changed" Unchecked="AutoClassifyCheckBox_Changed"/>
+            <TextBlock Text="Auto-classify task" VerticalAlignment="Center"/>
+        </StackPanel>
 
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
-            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
+        <Grid Grid.Row="5" Margin="0,5,0,15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Category:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox Grid.Column="1" Name="ListSelectorComboBox" IsEnabled="{Binding ElementName=AutoClassifyCheckBox, Path=IsChecked, Converter={StaticResource InvertBoolConverter}}"/>
+        </Grid>
+
+        <StackPanel Grid.Row="6" Orientation="Vertical" HorizontalAlignment="Stretch">
+            <TextBlock Name="StatusTextBlock" Margin="0,0,0,5" Foreground="Red" TextWrapping="Wrap" Height="40" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="AnalyzeButton" Content="Analyze Task" Width="120" Margin="0,0,10,0" 
+                        Click="AnalyzeButton_Click" IsEnabled="{Binding ElementName=AutoClassifyCheckBox, Path=IsChecked}"/>
+                <Button Name="AddTaskButton" Content="Add Task" Width="120" Margin="0,0,10,0" 
+                        Click="AddTaskButton_Click"/>
+                <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

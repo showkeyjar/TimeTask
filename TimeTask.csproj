@@ -1,9 +1,12 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <ProjectGuid>{53371C9A-7D20-49DF-AC76-9479964DB5BB}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>TimeTask</RootNamespace>
@@ -52,7 +55,13 @@
     <Reference Include="PresentationFramework" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="6.0.0" />
+    <PackageReference Include="OpenAI" Version="1.7.2" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -82,6 +91,16 @@
     <Compile Include="LlmService.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Converters\InvertBoolConverter.cs" />
+    <Compile Include="Models\ItemGrid.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Services\ILLMService.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Services\OpenAIService.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
