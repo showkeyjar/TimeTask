@@ -144,8 +144,12 @@ namespace TimeTask
                 Loaded += MainWindow_Loaded;
                 Closing += MainWindow_Closing;
                 Closed += MainWindow_Closed;
+                Deactivated += MainWindow_Deactivated;
+                Activated += MainWindow_Activated;
                 
-                _logger.LogInformation("MainWindow initialized successfully");
+                // Mouse events are no longer needed as we're using window styles for desktop behavior
+                
+                _logger?.LogInformation("MainWindow initialized successfully");
             }
             catch (Exception ex)
             {
@@ -406,7 +410,7 @@ namespace TimeTask
                 saveTimer.Start();
                 _timers.Add(saveTimer);
                 
-                _logger.LogDebug("Timers initialized");
+                _logger?.LogDebug("Timers initialized");
             }
             catch (Exception ex)
             {
@@ -415,16 +419,53 @@ namespace TimeTask
             }
         }
 
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int SWP_NOZORDER = 0x0004;
+        private const int SWP_NOACTIVATE = 0x0010;
+        private const int HWND_BOTTOM = 1;
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        private void InitializeWindowStyle()
         {
-            if (e.ChangedButton == MouseButton.Left)
-                this.DragMove();
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+        }
+
+        private void SetWindowToDesktop()
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            SetWindowPos(hwnd, (IntPtr)HWND_BOTTOM, 0, 0, 0, 0, 
+                SWP_NOACTIVATE | SWP_NOZORDER | 0x0001 | 0x0002);
+        }
+
+        private void MainWindow_Deactivated(object sender, EventArgs e)
+        {
+            SetWindowToDesktop();
+        }
+
+        private void MainWindow_Activated(object sender, EventArgs e)
+        {
+            SetWindowToDesktop();
         }
         
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
+                // Initialize window style first
+                InitializeWindowStyle();
+                
                 // Initialize data grids and load data
                 InitializeDataGrids();
                 LoadData();
@@ -435,9 +476,17 @@ namespace TimeTask
                 // Load window position and size from settings
                 LoadWindowSettings();
                 
+                // Set initial window state
+                SetWindowToDesktop();
+                
                 // Show status message
-                ShowStatusMessage("应用程序已启动", Colors.Green);
-                _logger.LogInformation("MainWindow loaded successfully");
+                ShowStatusMessage("应用程序已启动 - 返回桌面查看", Colors.Green);
+                _logger?.LogInformation("MainWindow loaded successfully");
+                
+                // Ensure window is properly positioned
+                this.Topmost = false;
+                this.Focusable = false;
+                this.ShowInTaskbar = false;
             }
             catch (Exception ex)
             {
@@ -471,7 +520,7 @@ namespace TimeTask
                     WindowState = settings.WindowState;
                 }
                 
-                _logger.LogDebug("Window settings loaded");
+                _logger?.LogDebug("Window settings loaded");
             }
             catch (Exception ex)
             {
@@ -871,10 +920,10 @@ namespace TimeTask
                     #endif
                 }
                 
-                // Register the LLM service with proper error handling
+                // Register the Zhipu AI service
                 services.AddScoped<ILLMService>(provider => 
-                    new Services.OpenAIService(
-                        provider.GetRequiredService<ILogger<Services.OpenAIService>>()));
+                    new Services.ZhipuAIService(
+                        provider.GetRequiredService<ILogger<Services.ZhipuAIService>>()));
                         
                 _logger?.LogInformation("Services configured successfully");
             }
@@ -897,13 +946,26 @@ namespace TimeTask
         {
             try
             {
-                if (_selectedTask == null || _selectedTaskGrid == null)
+                // Check which DataGrid has a selected item
+                DataGrid? activeGrid = null;
+                ItemGrid? selectedItem = null;
+
+                // Check each DataGrid for selected items
+                foreach (var grid in new[] { task1, task2, task3, task4 })
+                {
+                    if (grid.SelectedItem is ItemGrid item)
+                    {
+                        activeGrid = grid;
+                        selectedItem = item;
+                        break;
+                    }
+                }
+
+                if (selectedItem == null || activeGrid == null)
                 {
                     ShowStatusMessage("请先在表格中选择要删除的任务", Colors.Orange);
                     return;
                 }
-                
-                var selectedItem = _selectedTask;
                 
                 // Confirm deletion
                 var result = MessageBox.Show(
@@ -918,13 +980,14 @@ namespace TimeTask
                 }
                 
                 // Remove the item from the DataGrid's ItemsSource
-                if (_selectedTaskGrid.ItemsSource is ObservableCollection<ItemGrid> items)
+                if (activeGrid.ItemsSource is ObservableCollection<ItemGrid> items)
                 {
                     items.Remove(selectedItem);
                     ShowStatusMessage("任务已删除", Colors.LightGreen);
                     _logger?.LogInformation($"Task deleted: {selectedItem.Task}");
                     
                     // Clear the selection
+                    activeGrid.UnselectAll();
                     _selectedTask = null;
                     _selectedTaskGrid = null;
                 }

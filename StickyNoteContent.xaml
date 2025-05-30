@@ -1,0 +1,295 @@
+<UserControl x:Class="TimeTask.StickyNoteContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
+             xmlns:local="clr-namespace:TimeTask"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300"
+             Background="Transparent">
+    
+    <Grid>
+        <Grid.Resources>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+            
+            <!-- Style for task items -->
+            <Style x:Key="TaskItemStyle" TargetType="CheckBox">
+                <Setter Property="Margin" Value="0,2,0,2"/>
+            </Style>
+        </Grid.Resources>
+        
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Main Content Area -->
+        <Grid Grid.Row="0" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Rich Text Editor -->
+            <RichTextBox 
+                x:Name="NoteEditor"
+                Grid.Row="0"
+                BorderThickness="1"
+                BorderBrush="#E0E0E0"
+                Padding="10"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                AcceptsTab="True"
+                FontFamily="Segoe UI"
+                FontSize="14"
+                Foreground="#333333"
+                Background="White"
+                VerticalAlignment="Stretch"
+                HorizontalAlignment="Stretch">
+                <RichTextBox.Resources>
+                    <Style TargetType="Paragraph">
+                        <Setter Property="Margin" Value="0,0,0,8"/>
+                    </Style>
+                </RichTextBox.Resources>
+            </RichTextBox>
+            
+            <!-- Task List -->
+            <ScrollViewer 
+                Grid.Row="0"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Visibility="{Binding IsTaskListMode, Converter={StaticResource BoolToVisibility}, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <ItemsControl 
+                    x:Name="TaskList"
+                    ItemsSource="{Binding Tasks}"
+                    Margin="0,5,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox 
+                                Margin="5,2"
+                                IsChecked="{Binding IsCompleted}"
+                                Content="{Binding Description}"
+                                VerticalAlignment="Center">
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                                <Setter Property="TextBlock.TextDecorations" Value="Strikethrough"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            
+            <!-- Task Input Area -->
+            <Border 
+                Grid.Row="1"
+                Background="#F5F5F5"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#E0E0E0"
+                Padding="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Task Input -->
+                <Grid Grid.Column="0" 
+                      Visibility="{Binding IsTaskListMode, Converter={StaticResource BoolToVisibility}, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBox 
+                        x:Name="TaskInput"
+                        Grid.Column="0"
+                        Margin="0,0,5,0"
+                        Padding="8,5"
+                        VerticalContentAlignment="Center"
+                        BorderThickness="1"
+                        BorderBrush="{StaticResource NoteHeaderBrush}"
+                        FontSize="13"
+                        KeyDown="TaskInput_KeyDown"
+                        Text="{Binding NewTaskDescription, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Style.Triggers>
+                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                        <Setter Property="BorderBrush" Value="{StaticResource NoteHeaderBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    
+                    <Button 
+                        x:Name="AddTaskButton"
+                        Grid.Column="1"
+                        Content="Add"
+                        MinWidth="60"
+                        Height="28"
+                        Margin="5,0,0,0"
+                        Padding="8,0"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Background="{StaticResource NoteHeaderBrush}"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Command="{Binding AddTaskCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.9"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+                
+                <!-- Spacer to push the toggle button to the right when in note mode -->
+                <Grid Grid.Column="1" Width="5"/>
+                
+                <!-- View Toggle Button -->
+                <ToggleButton 
+                    x:Name="ViewToggle"
+                    Grid.Column="2"
+                    Content="📝"
+                    ToolTip="Switch to Notes"
+                    Width="32"
+                    Height="28"
+                    FontSize="14"
+                    Background="{StaticResource NoteHeaderBrush}"
+                    Foreground="White"
+                    BorderThickness="0"
+                    IsChecked="{Binding IsTaskListMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="📋"/>
+                                    <Setter Property="ToolTip" Value="Switch to Tasks"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.9"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
+            </Grid>
+            </Border>
+            
+        </Grid>
+        
+        <!-- Toolbar -->
+        <Border 
+            Grid.Row="1"
+            Background="#F5F5F5"
+            BorderThickness="0,1,0,0"
+            BorderBrush="#E0E0E0"
+            Padding="5">
+            <StackPanel 
+                Orientation="Horizontal" 
+                HorizontalAlignment="Right"
+                Margin="5">
+                
+                <!-- Formatting Buttons -->
+                <ToggleButton 
+                    x:Name="BoldButton"
+                    ToolTip="Bold"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    Click="FormatButton_Click">
+                    <TextBlock Text="B" FontWeight="Bold"/>
+                </ToggleButton>
+                
+                <ToggleButton 
+                    x:Name="ItalicButton"
+                    ToolTip="Italic"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    Click="FormatButton_Click"
+                    IsChecked="{Binding IsItalic}">
+                    <TextBlock Text="I" FontStyle="Italic"/>
+                </ToggleButton>
+                
+                <ToggleButton 
+                    x:Name="UnderlineButton"
+                    ToolTip="Underline"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    Click="FormatButton_Click"
+                    IsChecked="{Binding IsUnderline}">
+                    <TextBlock Text="U" TextDecorations="Underline"/>
+                </ToggleButton>
+                
+                <Separator Width="10" Opacity="0"/>
+                
+                <!-- Task List Toggle -->
+                <ToggleButton 
+                    x:Name="TaskListButton"
+                    ToolTip="Task List"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    IsChecked="{Binding IsTaskListMode, Mode=TwoWay}">
+                    <Image Source="/Assets/checklist.png" Width="16" Height="16"/>
+                </ToggleButton>
+                
+                <!-- Add Task Button -->
+                <Button 
+                    x:Name="AddTaskButton"
+                    ToolTip="Add Task"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    Command="{Binding AddTaskCommand}"
+                    Visibility="{Binding IsTaskListMode, Converter={StaticResource BoolToVisibility}}">
+                    <Image Source="/Assets/plus.png" Width="16" Height="16"/>
+                </Button>
+                
+                <!-- Color Picker -->
+                <ComboBox 
+                    x:Name="ColorPicker"
+                    Width="30"
+                    Height="30"
+                    Margin="2"
+                    ToolTip="Note Color"
+                    SelectionChanged="ColorPicker_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border 
+                                Width="20" 
+                                Height="20" 
+                                Background="{Binding}"
+                                BorderThickness="1"
+                                BorderBrush="#CCCCCC"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -20,7 +20,7 @@
 - 任务分析建议
 
 ### 3. AI 智能功能
-- 基于 OpenAI 的智能任务分类
+- 基于 智谱清言 (Zhipu AI) 的智能任务分类
 - 任务分析建议
 - 任务分解指导
 - 智能提醒和建议
@@ -36,16 +36,16 @@
 ### 系统要求
 - Windows 10/11
 - .NET 6.0 或更高版本
-- OpenAI API 密钥 (用于智能功能)
+- 智谱清言 (Zhipu AI) API 密钥 (用于智能功能)
 
 ### 安装步骤
 1. 下载最新版本的程序
 2. 解压到任意目录
-3. 在 `App.config` 中配置 OpenAI API 密钥：
+3. 在 `App.config` 中配置 Zhipu AI API 密钥：
    ```xml
    <configuration>
      <appSettings>
-       <add key="OpenAIApiKey" value="your-api-key-here" />
+       <add key="ZhipuAI:ApiKey" value="your-api-key-here" />
      </appSettings>
    </configuration>
    ```
@@ -117,7 +117,7 @@
 5. 生成解决方案
 
 ### 依赖项
-- [OpenAI .NET Client](https://github.com/OkGoDoIt/OpenAI-API-dotnet)
+- [Zhipu AI](https://open.bigmodel.cn/)
 - Microsoft.Extensions.DependencyInjection
 - Microsoft.Extensions.Logging
 - Microsoft.Extensions.Logging.Console

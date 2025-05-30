@@ -4,11 +4,21 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
-        mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="时间管理" Width="1280" Height="900" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="MainWindow_Loaded"
-        LocationChanged="location_Save"
-        Background="Transparent" ShowInTaskbar="False" WindowStartupLocation="CenterScreen">
-    <Grid x:Name="TaskGrid" Width="1240" Height="860">
+        mc:Ignorable="d" 
+        Title="时间管理" 
+        Width="1280" 
+        Height="900"
+        SizeToContent="Manual"
+        Topmost="False"
+        Loaded="MainWindow_Loaded"
+        Background="Transparent"
+        AllowsTransparency="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowActivated="False">
+    <Grid x:Name="TaskGrid" Width="1240" Height="860" Background="#CC1E1E1E">
         <Grid.RowDefinitions>
             <RowDefinition Height="30"/> <!-- Row 0 for labels -->
             <RowDefinition Height="*"/>  <!-- Row 1 for first row of datagrids -->
@@ -30,7 +40,26 @@
         <DataGrid Grid.Row="1" Grid.Column="0" x:Name="task1" Margin="20,5,10,5" SelectionChanged="task1_SelectionChanged"
                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                  FontSize="14" RowHeight="30" HeadersVisibility="Column" IsReadOnly="True"
-                 HorizontalGridLinesBrush="#505050" VerticalGridLinesBrush="#505050">
+                 Background="White" Foreground="Black"
+                 HorizontalGridLinesBrush="#E0E0E0" VerticalGridLinesBrush="#E0E0E0">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="#F5F5F5"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#E3F2FD"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#212121"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="完成" Binding="{Binding IsActive}" Width="60"/>
                 <DataGridTextColumn Header="任务描述" Binding="{Binding Task}" Width="*"/>
@@ -44,7 +73,26 @@
         <DataGrid Grid.Row="1" Grid.Column="1" x:Name="task2" Margin="10,5,20,5" SelectionChanged="task2_SelectionChanged"
                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                  FontSize="14" RowHeight="30" HeadersVisibility="Column" IsReadOnly="True"
-                 HorizontalGridLinesBrush="#505050" VerticalGridLinesBrush="#505050">
+                 Background="White" Foreground="Black"
+                 HorizontalGridLinesBrush="#E0E0E0" VerticalGridLinesBrush="#E0E0E0">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="#F5F5F5"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#E3F2FD"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#212121"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="完成" Binding="{Binding IsActive}" Width="60"/>
                 <DataGridTextColumn Header="任务描述" Binding="{Binding Task}" Width="*"/>
@@ -65,7 +113,26 @@
         <DataGrid Grid.Row="3" Grid.Column="0" x:Name="task3" Margin="20,5,10,5" SelectionChanged="task3_SelectionChanged"
                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                  FontSize="14" RowHeight="30" HeadersVisibility="Column" IsReadOnly="True"
-                 HorizontalGridLinesBrush="#505050" VerticalGridLinesBrush="#505050">
+                 Background="White" Foreground="Black"
+                 HorizontalGridLinesBrush="#E0E0E0" VerticalGridLinesBrush="#E0E0E0">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="#F5F5F5"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#E3F2FD"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#212121"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="完成" Binding="{Binding IsActive}" Width="60"/>
                 <DataGridTextColumn Header="任务描述" Binding="{Binding Task}" Width="*"/>
@@ -79,7 +146,26 @@
         <DataGrid Grid.Row="3" Grid.Column="1" x:Name="task4" Margin="10,5,20,5" SelectionChanged="task4_SelectionChanged"
                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                  FontSize="14" RowHeight="30" HeadersVisibility="Column" IsReadOnly="True"
-                 HorizontalGridLinesBrush="#505050" VerticalGridLinesBrush="#505050">
+                 Background="White" Foreground="Black"
+                 HorizontalGridLinesBrush="#E0E0E0" VerticalGridLinesBrush="#E0E0E0">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="#F5F5F5"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#E3F2FD"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#212121"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="完成" Binding="{Binding IsActive}" Width="60"/>
                 <DataGridTextColumn Header="任务描述" Binding="{Binding Task}" Width="*"/>

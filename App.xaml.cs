@@ -18,11 +18,15 @@ namespace TimeTask
     public partial class App : Application
     {
         public static IServiceProvider? ServiceProvider { get; private set; }
-        // Removed unused field
+        
+        private StickyNotesManager? _stickyNotesManager;
 
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            
+            // Initialize sticky notes manager
+            _stickyNotesManager = new StickyNotesManager();
             
             // Set up dependency injection
             var serviceCollection = new ServiceCollection();
@@ -34,6 +38,15 @@ namespace TimeTask
             mainWindow.Show();
         }
 
+        private void Application_Exit(object sender, ExitEventArgs e)
+        {
+            // Clean up resources
+            if (_stickyNotesManager != null)
+            {
+                _stickyNotesManager = null;
+            }
+        }
+
         private void ConfigureServices(IServiceCollection services)
         {
             // Add logging
@@ -43,8 +56,8 @@ namespace TimeTask
             
             // Add services
             services.AddSingleton<Services.ILLMService>(provider => 
-                new Services.OpenAIService(
-                    provider.GetRequiredService<ILogger<Services.OpenAIService>>()));
+                new Services.ZhipuAIService(
+                    provider.GetRequiredService<ILogger<Services.ZhipuAIService>>()));
             
             // Register AddTaskWindow
             services.AddTransient<AddTaskWindow>(provider => 
