@@ -369,6 +369,12 @@ namespace TimeTask
 
         private void DataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // Check if the click originated from a Button. If so, let the button handle it.
+            if (e.OriginalSource is System.Windows.Controls.Button)
+            {
+                return; // Do not start a drag, let the button's Click event proceed
+            }
+
             // Traverse up the visual tree to find the DataGridRow
             DependencyObject dep = (DependencyObject)e.OriginalSource;
             while ((dep != null) && !(dep is DataGridRow))
