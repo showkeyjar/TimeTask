@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
 
 namespace TimeTask
@@ -364,6 +365,132 @@ namespace TimeTask
                     Console.WriteLine($"Error creating {tasksCsvPath}: {ex.Message}");
                 }
             }
+        }
+
+        private void DataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Traverse up the visual tree to find the DataGridRow
+            DependencyObject dep = (DependencyObject)e.OriginalSource;
+            while ((dep != null) && !(dep is DataGridRow))
+            {
+                dep = VisualTreeHelper.GetParent(dep);
+            }
+
+            if (dep == null) // Click was not on a row element that is part of a DataGridRow
+                return;
+
+            DataGridRow row = dep as DataGridRow;
+            if (row == null || row.DataContext == null || !(row.DataContext is ItemGrid))
+            {
+                // Clicked on a row but it's not bound to an ItemGrid (e.g. header row or empty space)
+                return;
+            }
+
+            ItemGrid draggedItem = (ItemGrid)row.DataContext;
+            DataGrid sourceDataGrid = sender as DataGrid;
+
+            if (draggedItem != null && sourceDataGrid != null)
+            {
+                DataObject dragData = new DataObject();
+                dragData.SetData("DraggedItem", draggedItem);
+                dragData.SetData("SourceDataGridName", sourceDataGrid.Name);
+
+                Console.WriteLine($"Starting drag for task: '{draggedItem.Task}' from {sourceDataGrid.Name}");
+                DragDrop.DoDragDrop(sourceDataGrid, dragData, DragDropEffects.Move);
+            }
+        }
+
+        private void DataGrid_Drop(object sender, DragEventArgs e)
+        {
+            // Retrieve the dragged data
+            ItemGrid draggedItem = e.Data.GetData("DraggedItem") as ItemGrid;
+            string sourceDataGridName = e.Data.GetData("SourceDataGridName") as string;
+            DataGrid targetDataGrid = sender as DataGrid;
+
+            if (draggedItem == null || sourceDataGridName == null || targetDataGrid == null)
+            {
+                Console.WriteLine("Drop failed: Invalid data or target.");
+                return;
+            }
+
+            // Prevent dropping onto the same grid
+            if (sourceDataGridName == targetDataGrid.Name)
+            {
+                Console.WriteLine("Drop cancelled: Source and target are the same.");
+                return;
+            }
+
+            Console.WriteLine($"Dropped task '{draggedItem.Task}' from {sourceDataGridName} onto {targetDataGrid.Name}");
+
+            // Update Importance and Urgency based on the target DataGrid
+            string newImportance = draggedItem.Importance;
+            string newUrgency = draggedItem.Urgency;
+
+            switch (targetDataGrid.Name)
+            {
+                case "task1": // Important & Urgent
+                    newImportance = "High"; newUrgency = "High";
+                    break;
+                case "task2": // Important & Not Urgent
+                    newImportance = "High"; newUrgency = "Low";
+                    break;
+                case "task3": // Not Important & Urgent
+                    newImportance = "Low"; newUrgency = "High";
+                    break;
+                case "task4": // Not Important & Not Urgent
+                    newImportance = "Low"; newUrgency = "Low";
+                    break;
+                default:
+                    Console.WriteLine($"Warning: Unknown target DataGrid name '{targetDataGrid.Name}'. Task properties not changed.");
+                    return;
+            }
+
+            // Normalize Chinese terms if they were somehow set (though our switch sets English terms)
+            if (newImportance == "高") newImportance = "High"; if (newImportance == "低") newImportance = "Low";
+            if (newUrgency == "高") newUrgency = "High"; if (newUrgency == "低") newUrgency = "Low";
+
+            draggedItem.Importance = newImportance;
+            draggedItem.Urgency = newUrgency;
+            draggedItem.LastModifiedDate = DateTime.Now;
+
+            DataGrid sourceDataGrid = this.FindName(sourceDataGridName) as DataGrid;
+            if (sourceDataGrid == null)
+            {
+                Console.WriteLine($"Error: Could not find source DataGrid '{sourceDataGridName}'.");
+                return;
+            }
+
+            if (sourceDataGrid.ItemsSource is List<ItemGrid> sourceList)
+            {
+                sourceList.Remove(draggedItem);
+                sourceDataGrid.ItemsSource = null;
+                sourceDataGrid.ItemsSource = new List<ItemGrid>(sourceList);
+                sourceDataGrid.Items.SortDescriptions.Clear();
+                sourceDataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                if (sourceDataGrid.ItemsSource != null) sourceDataGrid.Items.Refresh();
+            }
+            else
+            {
+                Console.WriteLine($"Error: Source DataGrid '{sourceDataGridName}' ItemsSource is not a List<ItemGrid> or is null.");
+                return;
+            }
+
+            if (targetDataGrid.ItemsSource is List<ItemGrid> targetList)
+            {
+                targetList.Add(draggedItem);
+                targetDataGrid.ItemsSource = null;
+                targetDataGrid.ItemsSource = new List<ItemGrid>(targetList);
+            }
+            else
+            {
+                targetDataGrid.ItemsSource = new List<ItemGrid> { draggedItem };
+            }
+            targetDataGrid.Items.SortDescriptions.Clear();
+            targetDataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+            if (targetDataGrid.ItemsSource != null) targetDataGrid.Items.Refresh();
+
+            SaveTasksToCsv();
+            Console.WriteLine($"Task '{draggedItem.Task}' moved and properties updated. Changes saved.");
         }
 
         private void RoleSelectorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
