@@ -327,44 +327,55 @@ namespace TimeTask
             // No need to call loadDataGridView() anymore, as we're updating the specific list.
         }
 
-        private void del1_Click(object sender, RoutedEventArgs e)
+        public void DeleteTaskRow_Click(object sender, RoutedEventArgs e)
         {
-            if (task1_selected_indexs >= 0)
-            {
-                var itemList = (List<ItemGrid>)task1.ItemsSource;
-                itemList.RemoveAt(task1_selected_indexs);
-                task1.ItemsSource = itemList;
-            }
-        }
+            Button deleteButton = sender as Button;
+            if (deleteButton == null) return;
 
-        private void del2_Click(object sender, RoutedEventArgs e)
-        {
-            DataRowView selectedItem = task2.SelectedItem as DataRowView;
-            if (selectedItem != null)
-            {
-                DataView dataView = task2.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
-            }
-        }
+            ItemGrid taskToDelete = deleteButton.DataContext as ItemGrid;
+            if (taskToDelete == null) return;
 
-        private void del3_Click(object sender, RoutedEventArgs e)
-        {
-            DataRowView selectedItem = task3.SelectedItem as DataRowView;
-            if (selectedItem != null)
+            if (task1.ItemsSource is List<ItemGrid> tasks1List && tasks1List.Remove(taskToDelete))
             {
-                DataView dataView = task3.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
+                task1.ItemsSource = null;
+                task1.ItemsSource = tasks1List;
+                if (!task1.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+                {
+                    task1.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                }
+                update_csv(task1, "1");
+            }
+            else if (task2.ItemsSource is List<ItemGrid> tasks2List && tasks2List.Remove(taskToDelete))
+            {
+                task2.ItemsSource = null;
+                task2.ItemsSource = tasks2List;
+                if (!task2.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+                {
+                    task2.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                }
+                update_csv(task2, "2");
+            }
+            else if (task3.ItemsSource is List<ItemGrid> tasks3List && tasks3List.Remove(taskToDelete))
+            {
+                task3.ItemsSource = null;
+                task3.ItemsSource = tasks3List;
+                if (!task3.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+                {
+                    task3.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                }
+                update_csv(task3, "3");
+            }
+            else if (task4.ItemsSource is List<ItemGrid> tasks4List && tasks4List.Remove(taskToDelete))
+            {
+                task4.ItemsSource = null;
+                task4.ItemsSource = tasks4List;
+                if (!task4.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+                {
+                    task4.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                }
+                update_csv(task4, "4");
             }
         }
-
-        private void del4_Click(object sender, RoutedEventArgs e)
-        {
-            DataRowView selectedItem = task4.SelectedItem as DataRowView;
-            if (selectedItem != null)
-            {
-                DataView dataView = task4.ItemsSource as DataView;
-                dataView.Table.Rows.Remove(selectedItem.Row);
-            }
-        }
+        // Removed del1_Click, del2_Click, del3_Click, del4_Click
     }
 } // Closing brace for namespace TimeTask
