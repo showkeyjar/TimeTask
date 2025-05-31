@@ -23,8 +23,13 @@ namespace TimeTask
             _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
 
             // Populate ComboBox
-            ListSelectorComboBox.ItemsSource = new List<string> { "List 1", "List 2", "List 3", "List 4" };
-            ListSelectorComboBox.SelectedIndex = 0; // Default to List 1
+            ListSelectorComboBox.ItemsSource = new List<string> {
+                "重要且紧急", // Important & Urgent
+                "重要不紧急", // Important & Not Urgent
+                "不重要但紧急", // Not Important & Urgent
+                "不重要不紧急"  // Not Important & Not Urgent
+            };
+            ListSelectorComboBox.SelectedIndex = 0; // Default to "重要且紧急"
         }
 
         // Removed older synchronous AddTaskButton_Click method. The async version below is used.
@@ -38,8 +43,9 @@ namespace TimeTask
         private void ResetClarificationButton_Click(object sender, RoutedEventArgs e)
         {
             TaskDescriptionTextBox.Text = _originalTaskDescription; // Restore original text
-            ClarificationPromptText.Visibility = Visibility.Collapsed;
-            ResetClarificationButton.Visibility = Visibility.Collapsed;
+            ClarificationBorder.Visibility = Visibility.Collapsed; // Changed
+            // ClarificationPromptText.Visibility = Visibility.Collapsed; // Old
+            // ResetClarificationButton.Visibility = Visibility.Collapsed; // Old
             AddTaskButton.Content = "Add Task";
             _isClarificationRound = false;
             TaskDescriptionTextBox.Focus(); // Set focus back to the textbox
@@ -76,9 +82,10 @@ namespace TimeTask
 
                     if (status == ClarityStatus.NeedsClarification)
                     {
-                        ClarificationPromptText.Text = question;
-                        ClarificationPromptText.Visibility = Visibility.Visible;
-                        ResetClarificationButton.Visibility = Visibility.Visible;
+                        ClarificationPromptText.Text = question; // This still needs to be set
+                        ClarificationBorder.Visibility = Visibility.Visible; // Changed
+                        // ClarificationPromptText.Visibility = Visibility.Visible; // Old
+                        // ResetClarificationButton.Visibility = Visibility.Visible; // Old
                         AddTaskButton.Content = "Submit Clarified Task";
                         _isClarificationRound = true;
                         TaskDescriptionTextBox.Focus(); // Focus on textbox for user to edit

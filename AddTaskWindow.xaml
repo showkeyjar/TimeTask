@@ -9,24 +9,30 @@
         WindowStartupLocation="CenterScreen">
     <Grid Margin="15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <!-- Row 0 for Task Description Label -->
+            <RowDefinition Height="*"/>    <!-- Row 1 for TaskDescriptionTextBox -->
+            <RowDefinition Height="Auto"/> <!-- Row 2 for Clarification Border -->
+            <RowDefinition Height="Auto"/> <!-- Row 3 for Add to List Label -->
+            <RowDefinition Height="Auto"/> <!-- Row 4 for ListSelectorComboBox -->
+            <RowDefinition Height="Auto"/> <!-- Row 5 for Buttons StackPanel -->
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,5"/>
+        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10"/> <!-- Increased bottom margin -->
 
-        <TextBlock Grid.Row="2" Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
+        <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Visible"/>
+                <!-- Visibility here is Visible because parent Border controls overall show/hide -->
+                <Button Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
+                 <!-- Visibility here is Visible because parent Border controls overall show/hide -->
+            </StackPanel>
+        </Border>
         
-        <Button Grid.Row="3" Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed" Click="ResetClarificationButton_Click"/>
+        <TextBlock Grid.Row="3" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+        <ComboBox Grid.Row="4" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
 
-        <TextBlock Grid.Row="4" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <ComboBox Grid.Row="5" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
-
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
             <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
         </StackPanel>

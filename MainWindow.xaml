@@ -8,27 +8,100 @@
         Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
         LocationChanged="location_Save"
         Background="Transparent" ShowInTaskbar="False">
-    <Grid x:Name="TaskGrid" Width="780" Height="630"> <!-- Adjusted height for new button row -->
+    <Window.Resources>
+        <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridRow">
+                        <Border x:Name="DGR_Border" CornerRadius="5" Background="#FFFFE0" Padding="5" Margin="3,5,3,5" SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect ShadowDepth="1" Color="Gray" Opacity="0.5" BlurRadius="3"/>
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <SelectiveScrollingGrid Grid.Column="0">
+                                    <SelectiveScrollingGrid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </SelectiveScrollingGrid.ColumnDefinitions>
+                                    <SelectiveScrollingGrid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </SelectiveScrollingGrid.RowDefinitions>
+                                    <DataGridCellsPresenter Grid.Column="1" ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                    <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1" SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" Visibility="{TemplateBinding DetailsVisibility}"/>
+                                    <DataGridRowHeader Grid.RowSpan="2" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"/>
+                                </SelectiveScrollingGrid>
+                                <Button x:Name="PART_DeleteButton" Grid.Column="1" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid x:Name="TaskGrid" Width="780" Height="630">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Row 0 for labels and delete buttons for row 1 of datagrids -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for first row of datagrids -->
-            <RowDefinition Height="Auto"/> <!-- Row 2 for labels and delete buttons for row 2 of datagrids -->
-            <RowDefinition Height="*"/>    <!-- Row 3 for second row of datagrids -->
-            <RowDefinition Height="Auto"/> <!-- Row 4 for the new Add Task button -->
+            <RowDefinition Height="*"/>    <!-- Row 0 for Quadrant 1 & 2 (combines old Row 0 and 1) -->
+            <RowDefinition Height="*"/>    <!-- Row 1 for Quadrant 3 & 4 (combines old Row 2 and 3) -->
+            <RowDefinition Height="Auto"/> <!-- Row 2 for the new Add Task button (old Row 4) -->
         </Grid.RowDefinitions>
-        <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button Grid.Row="0" x:Name="del1" Content="-" HorizontalAlignment="Left" Margin="365,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del1_Click"/>
-        <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Left" Margin="5,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task1_SelectionChanged"/>
-        <Label Grid.Row="0" Content="重要不紧急" HorizontalAlignment="Left" Margin="395,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button Grid.Row="0" x:Name="del2" Content="-" HorizontalAlignment="Left" Margin="755,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del2_Click"/>
-        <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Left" Margin="395,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task2_SelectionChanged"/>
-        <Label Grid.Row="2" Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button Grid.Row="2" x:Name="del3" Content="-" HorizontalAlignment="Left" Margin="365,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del3_Click"/>
-        <DataGrid Grid.Row="3" x:Name="task3" HorizontalAlignment="Left" Margin="5,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task3_SelectionChanged"/>
-        <Label Grid.Row="2" Content="不重要不紧急" HorizontalAlignment="Left" Margin="395,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
-        <Button Grid.Row="2" x:Name="del4" Content="-" HorizontalAlignment="Left" Margin="755,5,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Width="20" Click="del4_Click"/>
-        <DataGrid Grid.Row="3" x:Name="task4" HorizontalAlignment="Left" Margin="395,5,0,0" VerticalAlignment="Top" Width="380" SelectionChanged="task4_SelectionChanged"/>
+
+        <!-- Quadrant 1: Important & Urgent -->
+        <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- Quadrant 2: Important & Not Urgent -->
+        <Border Grid.Row="0" Grid.Column="1" Background="#33D4E8FF" CornerRadius="5" Padding="5" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Label Grid.Row="0" Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- Quadrant 3: Not Important & Urgent -->
+        <Border Grid.Row="1" Grid.Column="0" Background="#33D9FFD9" CornerRadius="5" Padding="5" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Label Grid.Row="0" Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- Quadrant 4: Not Important & Not Urgent -->
+        <Border Grid.Row="1" Grid.Column="1" Background="#33E0E0E0" CornerRadius="5" Padding="5" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Label Grid.Row="0" Content="不重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}"/>
+            </Grid>
+        </Border>
         
-        <Button Grid.Row="4" x:Name="AddNewTaskButton" Content="Add New Task" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="30" Click="AddNewTaskButton_Click" Margin="0,10,0,10" FontWeight="SemiBold"/>
+        <Button Grid.Row="2" Grid.ColumnSpan="2" x:Name="AddNewTaskButton" Content="Add New Task" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="30" Click="AddNewTaskButton_Click" Margin="0,10,0,10" FontWeight="SemiBold"/>
     </Grid>
 </Window>
