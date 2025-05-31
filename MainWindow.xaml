@@ -63,7 +63,7 @@
                 <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
                 <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" MaxHeight="200">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="340">
+                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="325">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="{x:Type TextBlock}">
                                     <Setter Property="TextWrapping" Value="Wrap"/>
@@ -85,7 +85,7 @@
                 <Label Grid.Row="0" Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" MaxHeight="200">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="340">
+                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="325">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="{x:Type TextBlock}">
                                     <Setter Property="TextWrapping" Value="Wrap"/>
@@ -107,7 +107,7 @@
                 <Label Grid.Row="0" Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
                 <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" MaxHeight="200">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="340">
+                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="325">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="{x:Type TextBlock}">
                                     <Setter Property="TextWrapping" Value="Wrap"/>
@@ -129,7 +129,7 @@
                 <Label Grid.Row="0" Content="不重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
                 <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" MaxHeight="200">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="340">
+                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" Width="*" MaxWidth="325">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="{x:Type TextBlock}">
                                     <Setter Property="TextWrapping" Value="Wrap"/>
