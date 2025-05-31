@@ -397,6 +397,7 @@ namespace TimeTask
 
                 Console.WriteLine($"Starting drag for task: '{draggedItem.Task}' from {sourceDataGrid.Name}");
                 DragDrop.DoDragDrop(sourceDataGrid, dragData, DragDropEffects.Move);
+                e.Handled = true; // Add this line
             }
         }
 
