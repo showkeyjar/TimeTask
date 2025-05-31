@@ -279,7 +279,7 @@ namespace TimeTask
             }
         }
 
-        private async void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
+        private void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
         {
             var addTaskWin = new AddTaskWindow(_llmService, UserRoles);
             if (addTaskWin.ShowDialog() == true && addTaskWin.NewTask != null)
@@ -297,7 +297,7 @@ namespace TimeTask
             }
         }
 
-        private async void RefreshTasksButton_Click(object sender, RoutedEventArgs e)
+        private void RefreshTasksButton_Click(object sender, RoutedEventArgs e)
         {
             // Since loadDataGridView is async void, we just call it.
             // The 'async' on this handler allows for other awaitable operations if needed in the future.
@@ -438,41 +438,43 @@ namespace TimeTask
             bool removed = false;
             if (task1.ItemsSource is List<ItemGrid> tasks1List && tasks1List.Remove(taskToDelete))
             {
-                task1.ItemsSource = null; task1.ItemsSource = new List<ItemGrid>(tasks1List); removed = true;
+                task1.ItemsSource = null;
+                task1.ItemsSource = new List<ItemGrid>(tasks1List);
+                removed = true;
+                task1.Items.SortDescriptions.Clear();
+                task1.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                if (task1.ItemsSource != null) task1.Items.Refresh();
             }
             else if (task2.ItemsSource is List<ItemGrid> tasks2List && tasks2List.Remove(taskToDelete))
             {
-                task2.ItemsSource = null; task2.ItemsSource = new List<ItemGrid>(tasks2List); removed = true;
+                task2.ItemsSource = null;
+                task2.ItemsSource = new List<ItemGrid>(tasks2List);
+                removed = true;
+                task2.Items.SortDescriptions.Clear();
+                task2.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                if (task2.ItemsSource != null) task2.Items.Refresh();
             }
             else if (task3.ItemsSource is List<ItemGrid> tasks3List && tasks3List.Remove(taskToDelete))
             {
-                task3.ItemsSource = null; task3.ItemsSource = new List<ItemGrid>(tasks3List); removed = true;
+                task3.ItemsSource = null;
+                task3.ItemsSource = new List<ItemGrid>(tasks3List);
+                removed = true;
+                task3.Items.SortDescriptions.Clear();
+                task3.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                if (task3.ItemsSource != null) task3.Items.Refresh();
             }
             else if (task4.ItemsSource is List<ItemGrid> tasks4List && tasks4List.Remove(taskToDelete))
             {
-                task4.ItemsSource = null; task4.ItemsSource = new List<ItemGrid>(tasks4List); removed = true;
+                task4.ItemsSource = null;
+                task4.ItemsSource = new List<ItemGrid>(tasks4List);
+                removed = true;
+                task4.Items.SortDescriptions.Clear();
+                task4.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                if (task4.ItemsSource != null) task4.Items.Refresh();
             }
 
             if (removed)
             {
-                // Re-apply sort descriptions after ItemsSource is reset, as this might clear them.
-                // Or, ensure loadDataGridView is called if appropriate, though here we only want to save.
-                DataGrid[] dataGrids = { task1, task2, task3, task4 };
-                foreach (var dg in dataGrids)
-                {
-                    if (dg.ItemsSource is List<ItemGrid> currentList && currentList != null)
-                    {
-                         // Ensure sort is re-applied; resetting ItemsSource might clear it.
-                        var view = CollectionViewSource.GetDefaultView(dg.ItemsSource);
-                        if (view != null && view.SortDescriptions.Count == 0) {
-                             view.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                        } else if (view == null && !dg.Items.SortDescriptions.Any()) {
-                            // Fallback if default view is null and no sort descriptions exist
-                            dg.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                        }
-                        // dg.Items.Refresh(); // This might also be needed
-                    }
-                }
                 SaveTasksToCsv();
             }
         }
