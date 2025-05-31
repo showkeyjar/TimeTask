@@ -287,46 +287,6 @@ namespace TimeTask
             Properties.Settings.Default.Save();
         }
 
-        private void AddNewTaskButton_Click(object sender, RoutedEventArgs e)
-        {
-            var addTaskWin = new AddTaskWindow(_llmService); // Pass LlmService instance
-            bool? dialogResult = addTaskWin.ShowDialog();
-
-            if (dialogResult == true && addTaskWin.NewTask != null && addTaskWin.IsTaskAdded)
-            {
-                ItemGrid newTask = addTaskWin.NewTask;
-                int listIndex = addTaskWin.SelectedListIndex; // 0-indexed
-
-                string filePath = Path.Combine(currentPath, "data", (listIndex + 1) + ".csv");
-                List<ItemGrid> tasks = HelperClass.ReadCsv(filePath) ?? new List<ItemGrid>();
-                
-                tasks.Add(newTask);
-                HelperClass.WriteCsv(tasks, filePath);
-
-                DataGrid targetGrid = null;
-                switch (listIndex)
-                {
-                    case 0: targetGrid = task1; break;
-                    case 1: targetGrid = task2; break;
-                    case 2: targetGrid = task3; break;
-                    case 3: targetGrid = task4; break;
-                }
-
-                if (targetGrid != null)
-                {
-                    targetGrid.ItemsSource = null;
-                    targetGrid.ItemsSource = tasks;
-                    if (!targetGrid.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                    {
-                        targetGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                    }
-                }
-                
-                MessageBox.Show($"Task '{newTask.Task}' added successfully to List {listIndex + 1}.", "Task Added", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            // No need to call loadDataGridView() anymore, as we're updating the specific list.
-        }
-
         public void DeleteTaskRow_Click(object sender, RoutedEventArgs e)
         {
             Button deleteButton = sender as Button;
