@@ -5,34 +5,39 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="Add New Task" Height="300" Width="400"
+        Title="Add New Task" Height="350" Width="400"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="15">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/> <!-- For labels -->
+            <ColumnDefinition Width="*"/>    <!-- For controls -->
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Row 0 for Task Description Label -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for TaskDescriptionTextBox -->
-            <RowDefinition Height="Auto"/> <!-- Row 2 for Clarification Border -->
-            <RowDefinition Height="Auto"/> <!-- Row 3 for Add to List Label -->
-            <RowDefinition Height="Auto"/> <!-- Row 4 for ListSelectorComboBox -->
-            <RowDefinition Height="Auto"/> <!-- Row 5 for Buttons StackPanel -->
+            <RowDefinition Height="Auto"/> <!-- Row 0: Task Description Label -->
+            <RowDefinition Height="*"/>    <!-- Row 1: TaskDescriptionTextBox -->
+            <RowDefinition Height="Auto"/> <!-- Row 2: Clarification Border -->
+            <RowDefinition Height="Auto"/> <!-- Row 3: List Selector Label & ComboBox -->
+            <RowDefinition Height="Auto"/> <!-- Row 4: Role Selector Label & ComboBox (NEW) -->
+            <RowDefinition Height="Auto"/> <!-- Row 5: Buttons StackPanel -->
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10"/> <!-- Increased bottom margin -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Task Description:" FontWeight="SemiBold"/>
+        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10"/>
 
-        <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
+        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
             <StackPanel>
                 <TextBlock Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Visible"/>
-                <!-- Visibility here is Visible because parent Border controls overall show/hide -->
                 <Button Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
-                 <!-- Visibility here is Visible because parent Border controls overall show/hide -->
             </StackPanel>
         </Border>
         
-        <TextBlock Grid.Row="3" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <ComboBox Grid.Row="4" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
+        <Label Content="Add to List:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+        <ComboBox Name="ListSelectorComboBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,10"/>
 
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Label Content="Assign to Role:" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+        <ComboBox Name="RoleSelectorComboBox" Grid.Row="4" Grid.Column="1" Margin="0,0,0,10"/>
+
+        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
             <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
         </StackPanel>

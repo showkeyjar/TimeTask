@@ -16,23 +16,36 @@ namespace TimeTask
         public int SelectedListIndex { get; private set; } // 0-indexed
         public bool IsTaskAdded { get; private set; } = false;
         public ItemGrid NewTask { get; private set; } // The newly created task object
+        public List<string> UserRoles { get; private set; }
+        public string SelectedTaskRole { get; private set; }
 
-        public AddTaskWindow(LlmService llmService)
+        public AddTaskWindow(LlmService llmService, List<string> userRoles)
         {
-            InitializeComponent();
+            InitializeComponent(); // Keep this at the top
             _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
+            UserRoles = userRoles ?? new List<string>();
 
-            // Populate ComboBox
+            // Populate ComboBox for lists (existing code)
             ListSelectorComboBox.ItemsSource = new List<string> {
-                "重要且紧急", // Important & Urgent
-                "重要不紧急", // Important & Not Urgent
-                "不重要但紧急", // Not Important & Urgent
-                "不重要不紧急"  // Not Important & Not Urgent
+                "重要且紧急", "重要不紧急", "不重要但紧急", "不重要不紧急"
             };
-            ListSelectorComboBox.SelectedIndex = 0; // Default to "重要且紧急"
-        }
+            ListSelectorComboBox.SelectedIndex = 0;
 
-        // Removed older synchronous AddTaskButton_Click method. The async version below is used.
+            // Populate new ComboBox for roles
+            RoleSelectorComboBox.ItemsSource = UserRoles;
+            if (UserRoles.Any())
+            {
+                RoleSelectorComboBox.SelectedIndex = 0; // Default selection
+            }
+            else
+            {
+                // Handle case where no roles are passed (e.g., add a default "Unassigned" or disable)
+                RoleSelectorComboBox.IsEnabled = false;
+                // Optionally, add a placeholder item like "Unassigned" if it's disabled
+                // RoleSelectorComboBox.Items.Add("Unassigned");
+                // RoleSelectorComboBox.SelectedIndex = 0;
+            }
+        }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
@@ -55,6 +68,7 @@ namespace TimeTask
         {
             string currentTaskDescription = TaskDescriptionTextBox.Text.Trim();
             SelectedListIndex = ListSelectorComboBox.SelectedIndex;
+            SelectedTaskRole = RoleSelectorComboBox.SelectedItem as string;
 
             if (string.IsNullOrWhiteSpace(currentTaskDescription))
             {
@@ -107,7 +121,8 @@ namespace TimeTask
                     IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
-                    Result = string.Empty
+                    Result = string.Empty,
+                    AssignedRole = SelectedTaskRole ?? "Unassigned" // Assign the selected role
                 };
 
                 IsTaskAdded = true;
