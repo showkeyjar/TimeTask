@@ -56,6 +56,7 @@ namespace TimeTask
         {
             string currentTaskDescription = TaskDescriptionTextBox.Text.Trim();
             SelectedListIndex = ListSelectorComboBox.SelectedIndex;
+            string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
 
             if (string.IsNullOrWhiteSpace(currentTaskDescription))
             {
@@ -82,7 +83,7 @@ namespace TimeTask
                     var (status, question) = await _llmService.AnalyzeTaskClarityAsync(currentTaskDescription);
 
                     // Check for LLM configuration error after clarity analysis
-                    string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
+                    // string configErrorSubstring is now defined at the beginning of the method
                     if (!_isLlmConfigErrorNotified && question != null && question.Contains(configErrorSubstring))
                     {
                         MessageBox.Show("The AI assistant features may be limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
