@@ -232,8 +232,7 @@ namespace TimeTask
                                     if (dialogResult == MessageBoxResult.Yes)
                                     {
                                         var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(item.Task);
-                                        // LlmService.DecompositionStatus is an enum; using "Success" string for now as per LlmService mock.
-                                        if (decompositionStatus == "Success" && subTaskStrings != null && subTaskStrings.Any())
+                                        if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
                                         {
                                             // Current loop index 'i' corresponds to the parent task's quadrant (0-3)
                                             // Or, we can use item.Importance and item.Urgency directly
