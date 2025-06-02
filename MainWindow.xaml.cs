@@ -136,50 +136,33 @@ namespace TimeTask
                     items = new List<ItemGrid>();
                 }
                 
-                bool updated = false;
-                foreach (var item in items)
-                {
-                    if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
-                        string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
-                    {
-                        try
-                        {
-                            Console.WriteLine($"Getting priority for task: {item.Task}");
-                            var (importance, urgency) = await _llmService.GetTaskPriorityAsync(item.Task);
+                bool updated = false; // This variable is now effectively unused in this part of the loop
+                                     // as the block that set it to true is removed.
+                // The following block for on-load LLM prioritization has been removed.
+                // foreach (var item in items)
+                // {
+                //     if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
+                //         string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
+                //     {
+                //         // ... LLM call and update logic was here ...
+                //         // updated = true;
+                //     }
+                // }
 
-                            if (!_llmConfigErrorDetectedInLoad &&
-                                ((importance != null && importance.Contains(configErrorSubstring)) ||
-                                 (urgency != null && urgency.Contains(configErrorSubstring))))
-                            {
-                                _llmConfigErrorDetectedInLoad = true;
-                            }
-
-                            item.Importance = importance;
-                            item.Urgency = urgency;
-                            item.LastModifiedDate = DateTime.Now;
-                            updated = true;
-                            Console.WriteLine($"Updated Task: {item.Task}, Importance: {item.Importance}, Urgency: {item.Urgency}, LastModified: {item.LastModifiedDate}");
-                            await Task.Delay(500);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error getting priority for task '{item.Task}': {ex.Message}");
-                        }
-                    }
-                }
-
-                if (updated)
-                {
-                    try
-                    {
-                        HelperClass.WriteCsv(items, filePath);
-                        Console.WriteLine($"Saved updated tasks to {filePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                    }
-                }
+                // The following if(updated) block, which was for saving after on-load prioritization,
+                // has also been removed as 'updated' would always be false here.
+                // if (updated)
+                // {
+                //     try
+                //     {
+                //         HelperClass.WriteCsv(items, filePath);
+                //         Console.WriteLine($"Saved updated tasks to {filePath}");
+                //     }
+                //     catch (Exception ex)
+                //     {
+                //         Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
+                //     }
+                // }
                 
                 dataGrids[i].ItemsSource = null;
                 dataGrids[i].ItemsSource = items;
