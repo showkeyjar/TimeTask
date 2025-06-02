@@ -94,6 +94,7 @@ namespace TimeTask
     public partial class MainWindow : Window
     {
         private LlmService _llmService;
+        private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
 
         private ItemGrid _draggedItem;
@@ -118,6 +119,9 @@ namespace TimeTask
 
         public async void loadDataGridView()
         {
+            string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
+            _llmConfigErrorDetectedInLoad = false; // Initialize/reset for current load operation
+
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
 
@@ -142,6 +146,14 @@ namespace TimeTask
                         {
                             Console.WriteLine($"Getting priority for task: {item.Task}");
                             var (importance, urgency) = await _llmService.GetTaskPriorityAsync(item.Task);
+
+                            if (!_llmConfigErrorDetectedInLoad &&
+                                ((importance != null && importance.Contains(configErrorSubstring)) ||
+                                 (urgency != null && urgency.Contains(configErrorSubstring))))
+                            {
+                                _llmConfigErrorDetectedInLoad = true;
+                            }
+
                             item.Importance = importance;
                             item.Urgency = urgency;
                             item.LastModifiedDate = DateTime.Now;
@@ -186,8 +198,17 @@ namespace TimeTask
                             Console.WriteLine($"Task '{item.Task}' is stale (age: {taskAge.Days} days). Generating reminder...");
                             var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(item.Task, taskAge);
 
+                            if (!_llmConfigErrorDetectedInLoad && reminder != null && reminder.Contains(configErrorSubstring))
+                            {
+                                _llmConfigErrorDetectedInLoad = true;
+                            }
+
                             if (!string.IsNullOrWhiteSpace(reminder) || (suggestions != null && suggestions.Any()))
                             {
+                                // We check the reminder string itself for the config error.
+                                // If the reminder is the config error string, it's unlikely to trigger useful suggestions
+                                // or decomposition prompts, but the check is placed before its content is evaluated.
+
                                 string[] decompositionKeywords = { "break it down", "decompose", "smaller pieces", "sub-tasks", "subtasks" };
                                 string decompositionSuggestion = null;
                                 List<string> otherSuggestions = new List<string>();
@@ -232,6 +253,14 @@ namespace TimeTask
                                     if (dialogResult == MessageBoxResult.Yes)
                                     {
                                         var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(item.Task);
+                                        // Note: Checking subTaskStrings for the specific configErrorSubstring is not straightforward here,
+                                        // as DecomposeTaskAsync returns a status and a list, not the raw LLM string.
+                                        // The LlmService's GetCompletionAsync would return the raw error, but ParseDecompositionResponse
+                                        // would likely turn that into DecompositionStatus.Unknown.
+                                        // The user would see a "Could not automatically decompose task" message in that case.
+                                        // The generic _llmConfigErrorDetectedInLoad flag (if set by priority/reminder calls)
+                                        // will cover notifying the user about potential underlying config issues.
+
                                         if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
                                         {
                                             // Current loop index 'i' corresponds to the parent task's quadrant (0-3)
@@ -316,6 +345,11 @@ namespace TimeTask
                         }
                     }
                 }
+                // Note: The 'updated' flag and subsequent WriteCsv call seem to be potentially duplicated.
+                // The first WriteCsv inside the priority update loop saves changes.
+                // This second 'updated' check might refer to a different set of updates or be redundant.
+                // For this subtask, I am focusing only on adding the LLM config error checks.
+                // The existing logic for when and how CSV is written is preserved.
                 if (updated) 
                 {
                     try
@@ -328,6 +362,14 @@ namespace TimeTask
                         Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
                     }
                 }
+            }
+
+            // After all files are processed, show a single notification if LLM config error was detected
+            if (_llmConfigErrorDetectedInLoad)
+            {
+                MessageBox.Show(this, "During task loading, some AI assistant features may have been limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
+                                "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // As per requirement, not resetting _llmConfigErrorDetectedInLoad here.
             }
         }
 

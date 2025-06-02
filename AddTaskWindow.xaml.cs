@@ -11,6 +11,7 @@ namespace TimeTask
         private LlmService _llmService;
         private bool _isClarificationRound = false; // State for clarification
         private string _originalTaskDescription = string.Empty; // To store original task if clarification is needed
+        private bool _isLlmConfigErrorNotified = false; // Flag to track if user has been notified of LLM config error
 
         public string TaskDescription { get; private set; }
         public int SelectedListIndex { get; private set; } // 0-indexed
@@ -80,6 +81,15 @@ namespace TimeTask
                     _originalTaskDescription = currentTaskDescription; // Save for potential reset
                     var (status, question) = await _llmService.AnalyzeTaskClarityAsync(currentTaskDescription);
 
+                    // Check for LLM configuration error after clarity analysis
+                    string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
+                    if (!_isLlmConfigErrorNotified && question != null && question.Contains(configErrorSubstring))
+                    {
+                        MessageBox.Show("The AI assistant features may be limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
+                                        "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        _isLlmConfigErrorNotified = true;
+                    }
+
                     if (status == ClarityStatus.NeedsClarification)
                     {
                         ClarificationPromptText.Text = question; // This still needs to be set
@@ -97,6 +107,17 @@ namespace TimeTask
                 // Prioritization & Task Creation (either directly or after clarification)
                 TaskDescription = currentTaskDescription; // Final task description
                 var (llmImportance, llmUrgency) = await _llmService.GetTaskPriorityAsync(TaskDescription);
+
+                // Check for LLM configuration error after priority analysis
+                // string configErrorSubstring has been defined above
+                if (!_isLlmConfigErrorNotified &&
+                    ((llmImportance != null && llmImportance.Contains(configErrorSubstring)) ||
+                     (llmUrgency != null && llmUrgency.Contains(configErrorSubstring))))
+                {
+                    MessageBox.Show("The AI assistant features may be limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
+                                    "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _isLlmConfigErrorNotified = true;
+                }
 
                 // --- LLM Suggestion Logic ---
                 int suggestedIndex = GetIndexFromPriority(llmImportance, llmUrgency);
