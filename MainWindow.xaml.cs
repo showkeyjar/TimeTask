@@ -358,9 +358,23 @@ namespace TimeTask
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
+                // Check if the click originated from the delete button
+                DependencyObject dep = (DependencyObject)e.OriginalSource;
+                while (dep != null && !(dep is DataGridRow))
+                {
+                    if (dep is Button button && button.Name == "PART_DeleteButton")
+                    {
+                        // Click was on the delete button, so don't start drag
+                        return;
+                    }
+                    dep = VisualTreeHelper.GetParent(dep);
+                }
+
                 DataGridRow row = e.Source as DataGridRow;
                 if (row == null)
                 {
+                    // If the source isn't the row itself (e.g. a cell), try to find the parent row.
+                    // This part of your existing logic seems correct for finding the row.
                     row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
                 }
 
@@ -370,6 +384,10 @@ namespace TimeTask
                     _sourceDataGrid = FindParent<DataGrid>(row);
                     if (_sourceDataGrid != null)
                     {
+                        // Ensure that we are not trying to drag if the source was PART_DeleteButton
+                        // The check above should handle this, but as a safeguard for _sourceDataGrid being set
+                        // by FindParent<DataGrid>(row) even if the click was on a button within that row.
+                        // However, the initial check on e.OriginalSource is more direct.
                         DragDrop.DoDragDrop(row, _draggedItem, DragDropEffects.Move);
                     }
                 }
