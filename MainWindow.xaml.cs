@@ -386,8 +386,12 @@ namespace TimeTask
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            base.OnMouseLeftButtonDown(e);
-            this.DragMove();
+            //base.OnMouseLeftButtonDown(e);
+            //this.DragMove();
+            if (e.ButtonState == MouseButtonState.Pressed)
+            {
+                this.DragMove();
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
