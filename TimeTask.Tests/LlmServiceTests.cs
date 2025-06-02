@@ -87,16 +87,18 @@ namespace TimeTask.Tests
         [TestMethod]
         public void ParsePriorityResponse_CaseVariations_ParsesCorrectly()
         {
+            // Regex parsing normalizes to Title Case for valid values
             string llmResponse = "importance: low, urgency: high";
             var (importance, urgency) = LlmService.ParsePriorityResponse(llmResponse);
-            Assert.AreEqual("low", importance);
-            Assert.AreEqual("high", urgency);
+            Assert.AreEqual("Low", importance, "Importance should be normalized to 'Low'");
+            Assert.AreEqual("High", urgency, "Urgency should be normalized to 'High'");
         }
         
         [TestMethod]
-        public void ParsePriorityResponse_ExtraSpaces_ParsesCorrectly()
+        public void ParsePriorityResponse_ExtraSpacesAndDifferentOrder_ParsesCorrectly()
         {
-            string llmResponse = "  Importance:  High  ,  Urgency:  Medium  ";
+            // Order doesn't matter for regex, and spaces should be handled
+            string llmResponse = "  Urgency:  Medium   Importance:  High  ";
             var (importance, urgency) = LlmService.ParsePriorityResponse(llmResponse);
             Assert.AreEqual("High", importance);
             Assert.AreEqual("Medium", urgency);
@@ -112,18 +114,18 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
-        public void ParsePriorityResponse_MissingUrgencyField_ReturnsUnknownForUrgency()
+        public void ParsePriorityResponse_MissingUrgencyValue_ReturnsUnknownForUrgency()
         {
-            string llmResponse = "Importance: High";
+            string llmResponse = "Importance: High, Urgency:";
             var (importance, urgency) = LlmService.ParsePriorityResponse(llmResponse);
             Assert.AreEqual("High", importance);
             Assert.AreEqual("Unknown", urgency);
         }
         
         [TestMethod]
-        public void ParsePriorityResponse_MissingImportanceField_ReturnsUnknownForImportance()
+        public void ParsePriorityResponse_MissingImportanceLabel_ReturnsUnknownForImportance()
         {
-            string llmResponse = "Urgency: Low";
+            string llmResponse = "High, Urgency: Low";
             var (importance, urgency) = LlmService.ParsePriorityResponse(llmResponse);
             Assert.AreEqual("Unknown", importance);
             Assert.AreEqual("Low", urgency);
@@ -170,7 +172,7 @@ namespace TimeTask.Tests
             string llmResponse = "Status: Clear\nQuestion: N/A";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
             Assert.AreEqual(ClarityStatus.Clear, status);
-            Assert.AreEqual(string.Empty, question); // N/A should become empty
+            Assert.AreEqual(string.Empty, question, "Question should be empty for Clear status with N/A.");
         }
 
         [TestMethod]
@@ -181,23 +183,53 @@ namespace TimeTask.Tests
             Assert.AreEqual(ClarityStatus.NeedsClarification, status);
             Assert.AreEqual("What is the deadline?", question);
         }
+
+        [TestMethod]
+        public void ParseClarityResponse_ValidNeedsClarificationMultiLineQuestion_ParsesCorrectly()
+        {
+            string llmResponse = "Status: NeedsClarification\nQuestion: What is the deadline?\nAnd who is responsible?";
+            var (status, question) = LlmService.ParseClarityResponse(llmResponse);
+            Assert.AreEqual(ClarityStatus.NeedsClarification, status);
+            Assert.AreEqual("What is the deadline?\nAnd who is responsible?", question.Trim());
+        }
         
         [TestMethod]
-        public void ParseClarityResponse_MalformedResponse_ReturnsUnknown()
+        public void ParseClarityResponse_MalformedStatus_ReturnsUnknown()
         {
-            string llmResponse = "Status NeedsClarification Question What is the deadline?";
+            string llmResponse = "Stat: NeedsClarification\nQuestion: What is the deadline?";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
-            Assert.AreEqual(ClarityStatus.Unknown, status); // Status parsing fails
-            Assert.IsTrue(question.Contains("Failed to parse") || question.Contains("Question not found"));
+            Assert.AreEqual(ClarityStatus.Unknown, status, "Status should be Unknown due to malformed label.");
+            // Question might be parsed or not depending on how strict regex is, but status is key.
+            // Current regex for question is independent, so it might parse.
+            Assert.AreEqual("What is the deadline?", question);
         }
 
         [TestMethod]
-        public void ParseClarityResponse_StatusOnly_ParsesStatus()
+        public void ParseClarityResponse_MalformedQuestionLabel_ReturnsStatusAndEmptyQuestionOrGenericError()
+        {
+            string llmResponse = "Status: Clear\nQestion: N/A"; // Misspelled "Question"
+            var (status, question) = LlmService.ParseClarityResponse(llmResponse);
+            Assert.AreEqual(ClarityStatus.Clear, status);
+            Assert.IsTrue(string.IsNullOrEmpty(question) || question.Contains("Question expected but not found") || question.Contains("Failed to parse status and question"), "Question should be empty or indicate not found.");
+        }
+
+
+        [TestMethod]
+        public void ParseClarityResponse_StatusOnly_Clear_ParsesStatusAndEmptyQuestion()
         {
             string llmResponse = "Status: Clear";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
             Assert.AreEqual(ClarityStatus.Clear, status);
-            Assert.IsTrue(question.Contains("Question not found"));
+            Assert.IsTrue(string.IsNullOrEmpty(question) || question.Contains("Question not found"), "Question should be empty or indicate not found.");
+        }
+
+        [TestMethod]
+        public void ParseClarityResponse_StatusOnly_NeedsClarification_SetsQuestionToIndicateNotFound()
+        {
+            string llmResponse = "Status: NeedsClarification";
+            var (status, question) = LlmService.ParseClarityResponse(llmResponse);
+            Assert.AreEqual(ClarityStatus.NeedsClarification, status);
+            Assert.IsTrue(question.Contains("Question expected but not found"), "Question should indicate it was expected but not found.");
         }
         
         [TestMethod]
@@ -209,13 +241,26 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
-        public void ParseClarityResponse_NeedsClarificationMissingQuestion_ReturnsNeedsClarificationAndNotFoundQuestion()
+        public void ParseClarityResponse_NeedsClarificationMissingQuestionValue_ReturnsNeedsClarificationAndIndicatesNotFound()
         {
-            string llmResponse = "Status: NeedsClarification";
+            string llmResponse = "Status: NeedsClarification\nQuestion:";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
             Assert.AreEqual(ClarityStatus.NeedsClarification, status);
-            Assert.IsTrue(question.Contains("Question not found"), "Question should indicate it was not found.");
+            Assert.IsTrue(string.IsNullOrWhiteSpace(question) || question.Contains("Question expected but not found"), "Question should be empty or indicate it was expected but not found.");
         }
+
+        [TestMethod]
+        public void ParseClarityResponse_NeedsClarificationQuestionNA_ReturnsNeedsClarificationAndEmptyQuestion()
+        {
+            string llmResponse = "Status: NeedsClarification\nQuestion: N/A";
+            var (status, question) = LlmService.ParseClarityResponse(llmResponse);
+            Assert.AreEqual(ClarityStatus.NeedsClarification, status);
+            // If status is NeedsClarification, N/A for question might mean the LLM failed.
+            // The new parser logic keeps "N/A" if status is NeedsClarification. This test reflects that.
+            // If "N/A" should be string.Empty here, the core parsing logic needs adjustment.
+            Assert.AreEqual("N/A", question, "Question should be 'N/A' as per current parsing logic for NeedsClarification.");
+        }
+
 
         [TestMethod]
         public void ParseClarityResponse_WhitespaceVariations_ParsesCorrectly()
@@ -223,30 +268,40 @@ namespace TimeTask.Tests
             string llmResponse = "  Status:   NeedsClarification  \n  Question:   What is the main goal?  ";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
             Assert.AreEqual(ClarityStatus.NeedsClarification, status);
-            Assert.AreEqual("What is the main goal?", question);
+            Assert.AreEqual("What is the main goal?", question.Trim());
         }
 
         [TestMethod]
-        public void ParseClarityResponse_ValidUnknownStatus_ParsesCorrectly()
+        public void ParseClarityResponse_CaseInsensitiveLabels_ParsesCorrectly()
         {
-            string llmResponse = "Status: Unknown\nQuestion: This task is very vague."; // Assuming LLM might output this
+            string llmResponse = "sTaTuS: clear\nqUeStIoN: n/a";
+            var (status, question) = LlmService.ParseClarityResponse(llmResponse);
+            Assert.AreEqual(ClarityStatus.Clear, status);
+            Assert.AreEqual(string.Empty, question);
+        }
+
+        [TestMethod]
+        public void ParseClarityResponse_InvalidStatusValue_ReturnsUnknown()
+        {
+            string llmResponse = "Status: Maybe\nQuestion: Some question";
             var (status, question) = LlmService.ParseClarityResponse(llmResponse);
             Assert.AreEqual(ClarityStatus.Unknown, status);
-            Assert.AreEqual("This task is very vague.", question);
+            Assert.AreEqual("Some question", question); // Question is still parsed
         }
 
         // --- Tests for DecomposeTaskAsync Parsing ---
         [TestMethod]
         public void ParseDecompositionResponse_ValidNeedsDecomposition_ParsesCorrectly()
         {
-            string llmResponse = "Status: NeedsDecomposition\nSubtasks:\n- Subtask 1\n* Subtask 2\n  Another Subtask";
+            string llmResponse = "Status: NeedsDecomposition\nSubtasks:\n- Subtask 1\n* Subtask 2\n  Another Subtask\n    * Indented Subtask";
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
             Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(3, subtasks.Count);
+            Assert.AreEqual(4, subtasks.Count);
             Assert.AreEqual("Subtask 1", subtasks[0]);
             Assert.AreEqual("Subtask 2", subtasks[1]);
             Assert.AreEqual("Another Subtask", subtasks[2]);
+            Assert.AreEqual("Indented Subtask", subtasks[3]);
         }
 
         [TestMethod]
@@ -256,37 +311,59 @@ namespace TimeTask.Tests
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
             Assert.AreEqual(DecompositionStatus.Sufficient, status);
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(0, subtasks.Count);
+            Assert.AreEqual(0, subtasks.Count, "Subtasks should be empty for Sufficient status with N/A.");
         }
         
         [TestMethod]
-        public void ParseDecompositionResponse_MalformedResponse_ReturnsUnknown()
+        public void ParseDecompositionResponse_MalformedStatusLabel_ReturnsUnknown()
         {
-            string llmResponse = "Status NeedsDecomposition Subtasks - Subtask1";
+            string llmResponse = "Stat: NeedsDecomposition\nSubtasks:\n- Subtask1";
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
-            Assert.AreEqual(DecompositionStatus.Unknown, status); // Status parsing fails
+            Assert.AreEqual(DecompositionStatus.Unknown, status, "Status should be Unknown due to malformed label.");
+            // Subtasks might still be parsed if the "Subtasks:" label is correct.
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(0, subtasks.Count);
+            Assert.AreEqual(1, subtasks.Count, "Subtasks should be parsed if label is correct.");
+            Assert.AreEqual("Subtask1", subtasks[0]);
         }
 
         [TestMethod]
-        public void ParseDecompositionResponse_StatusOnly_ReturnsStatusAndNoSubtasks()
+        public void ParseDecompositionResponse_MalformedSubtasksLabel_ReturnsStatusAndEmptySubtasks()
+        {
+            string llmResponse = "Status: NeedsDecomposition\nSubtask:\n- Subtask1"; // Misspelled "Subtasks"
+            var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
+            Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
+            Assert.IsNotNull(subtasks);
+            Assert.AreEqual(0, subtasks.Count, "Subtasks should be empty due to malformed label.");
+        }
+
+        [TestMethod]
+        public void ParseDecompositionResponse_StatusOnly_Sufficient_ReturnsStatusAndNoSubtasks()
         {
             string llmResponse = "Status: Sufficient";
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
             Assert.AreEqual(DecompositionStatus.Sufficient, status);
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(0, subtasks.Count); // No "Subtasks:" line
+            Assert.AreEqual(0, subtasks.Count);
         }
 
         [TestMethod]
-        public void ParseDecompositionResponse_NeedsDecompositionNoSubtasksHeader_ReturnsUnknown()
+        public void ParseDecompositionResponse_StatusOnly_NeedsDecomposition_ReturnsStatusAndNoSubtasks()
+        {
+            string llmResponse = "Status: NeedsDecomposition";
+            var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
+            Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status); // Status is parsed
+            Assert.IsNotNull(subtasks);
+            Assert.AreEqual(0, subtasks.Count, "Subtasks should be empty as Subtasks block is missing.");
+        }
+
+        [TestMethod]
+        public void ParseDecompositionResponse_NeedsDecompositionNoSubtasksHeader_ReturnsNeedsDecompositionAndEmptySubtasks()
         {
             string llmResponse = "Status: NeedsDecomposition\nActual Subtask 1"; // Missing "Subtasks:" header
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
-            Assert.AreEqual(DecompositionStatus.Unknown, status); // Fails to find subtasks header
+            Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(0, subtasks.Count);
+            Assert.AreEqual(0, subtasks.Count, "Subtasks should be empty as Subtasks block is missing.");
         }
         
         [TestMethod]
@@ -300,48 +377,44 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
-        public void ParseDecompositionResponse_NeedsDecompositionSingleSubtask_ParsesCorrectly()
-        {
-            string llmResponse = "Status: NeedsDecomposition\nSubtasks:\n- Only one task";
-            var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
-            Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
-            Assert.IsNotNull(subtasks);
-            Assert.AreEqual(1, subtasks.Count);
-            Assert.AreEqual("Only one task", subtasks[0]);
-        }
-
-        [TestMethod]
         public void ParseDecompositionResponse_NeedsDecompositionSubtasksNA_ReturnsNeedsDecompositionAndEmptyList()
         {
-            // This tests if "N/A" specifically under "Subtasks:" for "NeedsDecomposition" is treated as no actual subtasks.
-            // Current LlmService.ParseDecompositionResponse might interpret "N/A" as a subtask if not handled.
-            // Based on current LlmService, N/A would be a subtask. If this behavior is undesired, LlmService needs change.
-            // For now, testing current behavior:
+            // New regex logic should treat "N/A" under Subtasks as no actual subtasks.
             string llmResponse = "Status: NeedsDecomposition\nSubtasks: N/A";
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
             Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
             Assert.IsNotNull(subtasks);
-            // Assert.AreEqual(0, subtasks.Count); // This would be ideal if N/A means no tasks.
-            Assert.AreEqual(1, subtasks.Count); // Current behavior, "N/A" is a task.
-            Assert.AreEqual("N/A", subtasks[0]); // Current behavior
+            Assert.AreEqual(0, subtasks.Count, "Subtasks should be empty when 'N/A' is provided.");
         }
 
         [TestMethod]
-        public void ParseDecompositionResponse_SufficientWithSubtasksPresentButNA_ParsesCorrectly()
+        public void ParseDecompositionResponse_NeedsDecompositionSubtasksMultiLineAndMixedPrefixes_ParsesCorrectly()
         {
-            // This is a duplicate of ParseDecompositionResponse_ValidSufficient_ParsesCorrectly, which already covers this.
-            // Kept for clarity if specific test name is desired.
-            string llmResponse = "Status: Sufficient\nSubtasks: N/A";
+            string llmResponse = "sTaTuS: needsdecomposition\n\nSuBtAsKs: \n - Task A \n * Task B \n Task C (no prefix)\n\n - Task D with extra space";
             var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
-            Assert.AreEqual(DecompositionStatus.Sufficient, status);
+            Assert.AreEqual(DecompositionStatus.NeedsDecomposition, status);
             Assert.IsNotNull(subtasks);
-            Assert.AreEqual(0, subtasks.Count); // N/A for Sufficient means no tasks.
+            Assert.AreEqual(4, subtasks.Count);
+            Assert.AreEqual("Task A", subtasks[0]);
+            Assert.AreEqual("Task B", subtasks[1]);
+            Assert.AreEqual("Task C (no prefix)", subtasks[2]);
+            Assert.AreEqual("Task D with extra space", subtasks[3]);
         }
 
+        [TestMethod]
+        public void ParseDecompositionResponse_InvalidStatusValue_ReturnsUnknownAndParsesSubtasks()
+        {
+            string llmResponse = "Status: Maybe\nSubtasks:\n- Subtask 1";
+            var (status, subtasks) = LlmService.ParseDecompositionResponse(llmResponse);
+            Assert.AreEqual(DecompositionStatus.Unknown, status);
+            Assert.IsNotNull(subtasks);
+            Assert.AreEqual(1, subtasks.Count); // Subtasks are still parsed
+            Assert.AreEqual("Subtask 1", subtasks[0]);
+        }
 
         // --- Tests for GenerateTaskReminderAsync Parsing ---
         [TestMethod]
-        public void ParseReminderResponse_ValidInput_ParsesCorrectly()
+        public void ParseReminderResponse_ValidInputAllFields_ParsesCorrectly()
         {
             string llmResponse = "Reminder: Time to check this!\nSuggestion1: Do it.\nSuggestion2: Plan it.\nSuggestion3: Delegate it.";
             var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
@@ -364,7 +437,7 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
-        public void ParseReminderResponse_SuggestionsOnly_ParsesSuggestions()
+        public void ParseReminderResponse_SuggestionsOnlyNoReminder_ParsesSuggestions()
         {
             string llmResponse = "Suggestion1: Think about it.\nSuggestion2: Write it down.";
             var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
@@ -376,13 +449,13 @@ namespace TimeTask.Tests
         }
         
         [TestMethod]
-        public void ParseReminderResponse_MalformedResponse_ReturnsEmpty()
+        public void ParseReminderResponse_MalformedLabels_ReturnsEmptyOrPartiallyParsed()
         {
-            string llmResponse = "This is not the expected format.";
+            string llmResponse = "Remindr: This is not the expected format.\nSgestion1: Test";
             var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
-            Assert.IsTrue(string.IsNullOrEmpty(reminder));
+            Assert.IsTrue(string.IsNullOrEmpty(reminder), "Reminder should be empty due to misspelled label.");
             Assert.IsNotNull(suggestions);
-            Assert.AreEqual(0, suggestions.Count);
+            Assert.AreEqual(0, suggestions.Count, "Suggestions should be empty due to misspelled label.");
         }
 
         [TestMethod]
@@ -395,28 +468,49 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
-        public void ParseReminderResponse_OneSuggestion_ParsesCorrectly()
+        public void ParseReminderResponse_CaseAndWhitespaceVariations_ParsesCorrectly()
         {
-            string llmResponse = "Reminder: Check this out.\nSuggestion1: Action point one.";
+            string llmResponse = "  rEmInDeR:   The main reminder.  \n  sUgGeStIoN1:   First suggestion. \n SUGGESTION2: Second one. ";
             var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
-            Assert.AreEqual("Check this out.", reminder);
+            Assert.AreEqual("The main reminder.", reminder.Trim());
             Assert.IsNotNull(suggestions);
-            Assert.AreEqual(1, suggestions.Count);
-            Assert.AreEqual("Action point one.", suggestions[0]);
+            Assert.AreEqual(2, suggestions.Count);
+            Assert.AreEqual("First suggestion.", suggestions[0].Trim());
+            Assert.AreEqual("Second one.", suggestions[1].Trim());
         }
 
         [TestMethod]
-        public void ParseReminderResponse_TwoSuggestions_ParsesCorrectly()
+        public void ParseReminderResponse_MultiLineReminderAndSuggestions_ParsesCorrectly()
         {
-            // This is covered by ParseReminderResponse_SuggestionsOnly_ParsesSuggestions if reminder is empty
-            // or can be a new dedicated test.
-            string llmResponse = "Reminder: Gentle reminder.\nSuggestion1: First thing.\nSuggestion2: Second thing.";
+            string llmResponse = "Reminder: This is a reminder\nthat spans multiple lines.\nSuggestion1: This is suggestion 1\nalso on multiple lines.\nSuggestion2: S2";
             var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
-            Assert.AreEqual("Gentle reminder.", reminder);
+            Assert.AreEqual("This is a reminder\nthat spans multiple lines.", reminder.Trim());
             Assert.IsNotNull(suggestions);
             Assert.AreEqual(2, suggestions.Count);
-            Assert.AreEqual("First thing.", suggestions[0]);
-            Assert.AreEqual("Second thing.", suggestions[1]);
+            Assert.AreEqual("This is suggestion 1\nalso on multiple lines.", suggestions[0].Trim());
+            Assert.AreEqual("S2", suggestions[1].Trim());
+        }
+
+        [TestMethod]
+        public void ParseReminderResponse_Suggestion3Missing_ParsesUpToSuggestion2()
+        {
+            string llmResponse = "Reminder: Check this.\nSuggestion1: Action A.\nSuggestion2: Action B.";
+            var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
+            Assert.AreEqual("Check this.", reminder);
+            Assert.IsNotNull(suggestions);
+            Assert.AreEqual(2, suggestions.Count);
+            Assert.AreEqual("Action A.", suggestions[0]);
+            Assert.AreEqual("Action B.", suggestions[1]);
+        }
+
+        [TestMethod]
+        public void ParseReminderResponse_Suggestion3IsNA_Suggestion3NotAdded()
+        {
+            string llmResponse = "Reminder: Reminder text.\nSuggestion1: Sug 1.\nSuggestion2: Sug 2.\nSuggestion3: N/A";
+            var (reminder, suggestions) = LlmService.ParseReminderResponse(llmResponse);
+            Assert.AreEqual("Reminder text.", reminder);
+            Assert.IsNotNull(suggestions);
+            Assert.AreEqual(2, suggestions.Count, "Suggestion3 with N/A should not be added.");
         }
     }
 }

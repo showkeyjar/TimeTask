@@ -120,26 +120,75 @@ namespace TimeTask
 
         internal static (string reminder, List<string> suggestions) ParseReminderResponse(string llmResponse)
         {
+            Console.WriteLine($"Parsing LLM reminder response: \"{llmResponse}\"");
             var suggestions = new List<string>();
             string reminder = string.Empty;
-            if (string.IsNullOrWhiteSpace(llmResponse)) return (reminder, suggestions);
+
+            if (string.IsNullOrWhiteSpace(llmResponse))
+            {
+                Console.WriteLine("LLM response is null or whitespace. Returning empty reminder and suggestions.");
+                return (reminder, suggestions);
+            }
+
             try
             {
-                string[] lines = llmResponse.Replace("\r\n", "\n").Replace("\r", "\n").Split(new char[] {'\n'}, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string line in lines)
+                var reminderRegex = new Regex(@"Reminder\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                var suggestion1Regex = new Regex(@"Suggestion1\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                var suggestion2Regex = new Regex(@"Suggestion2\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                var suggestion3Regex = new Regex(@"Suggestion3\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+                var reminderMatch = reminderRegex.Match(llmResponse);
+                if (reminderMatch.Success)
                 {
-                    string trimmedLine = line.Trim();
-                    if (trimmedLine.StartsWith("Reminder:", StringComparison.OrdinalIgnoreCase)) reminder = trimmedLine.Substring("Reminder:".Length).Trim();
-                    else if (trimmedLine.StartsWith("Suggestion1:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion1:".Length).Trim());
-                    else if (trimmedLine.StartsWith("Suggestion2:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion2:".Length).Trim());
-                    else if (trimmedLine.StartsWith("Suggestion3:", StringComparison.OrdinalIgnoreCase)) suggestions.Add(trimmedLine.Substring("Suggestion3:".Length).Trim());
+                    reminder = reminderMatch.Groups[1].Value.Trim();
                 }
-                if (string.IsNullOrWhiteSpace(reminder) && !suggestions.Any()) Console.WriteLine($"Could not parse reminder or suggestions from LLM response: '{llmResponse}'.");
+                else
+                {
+                    Console.WriteLine("Could not find 'Reminder:' pattern in LLM response.");
+                }
+
+                var suggestion1Match = suggestion1Regex.Match(llmResponse);
+                if (suggestion1Match.Success)
+                {
+                    suggestions.Add(suggestion1Match.Groups[1].Value.Trim());
+                }
+                else
+                {
+                    Console.WriteLine("Could not find 'Suggestion1:' pattern in LLM response.");
+                }
+
+                var suggestion2Match = suggestion2Regex.Match(llmResponse);
+                if (suggestion2Match.Success)
+                {
+                    suggestions.Add(suggestion2Match.Groups[1].Value.Trim());
+                }
+                else
+                {
+                     Console.WriteLine("Could not find 'Suggestion2:' pattern in LLM response.");
+                }
+
+                var suggestion3Match = suggestion3Regex.Match(llmResponse);
+                if (suggestion3Match.Success)
+                {
+                    string sug3 = suggestion3Match.Groups[1].Value.Trim();
+                    if (!string.IsNullOrWhiteSpace(sug3) && !sug3.Equals("N/A", StringComparison.OrdinalIgnoreCase))
+                    {
+                        suggestions.Add(sug3);
+                    }
+                }
+                // Optional: Log if Suggestion3 is not found, but it's optional so might be too noisy.
+
+                if (string.IsNullOrWhiteSpace(reminder) && !suggestions.Any())
+                {
+                    Console.WriteLine($"Could not parse any reminder or suggestions from LLM response using regex: '{llmResponse}'.");
+                }
+                Console.WriteLine($"Parsed Reminder: \"{reminder}\", Suggestions: {suggestions.Count}");
                 return (reminder, suggestions);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing LLM reminder response: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Error parsing LLM reminder response with regex: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Defaulted Reminder/Suggestions due to exception: Reminder='', Suggestions=[]");
                 return (string.Empty, new List<string>());
             }
         }
@@ -160,52 +209,78 @@ namespace TimeTask
 
         internal static (DecompositionStatus status, List<string> subtasks) ParseDecompositionResponse(string llmResponse)
         {
+            Console.WriteLine($"Parsing LLM decomposition response: \"{llmResponse}\"");
             var subtasks = new List<string>();
-            if (string.IsNullOrWhiteSpace(llmResponse)) return (DecompositionStatus.Unknown, subtasks);
+            DecompositionStatus status = DecompositionStatus.Unknown;
+
+            if (string.IsNullOrWhiteSpace(llmResponse))
+            {
+                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown status and empty subtasks.");
+                return (status, subtasks);
+            }
+
             try
             {
-                DecompositionStatus status = DecompositionStatus.Unknown;
-                var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Sufficient|NeedsDecomposition)", RegexOptions.IgnoreCase);
+                var statusRegex = new Regex(@"Status\s*:\s*(Sufficient|NeedsDecomposition)", RegexOptions.IgnoreCase);
+                var statusMatch = statusRegex.Match(llmResponse);
+
                 if (statusMatch.Success)
                 {
                     string statusStr = statusMatch.Groups[1].Value;
                     if (!Enum.TryParse(statusStr, true, out status))
                     {
                         status = DecompositionStatus.Unknown;
-                        Console.WriteLine($"Could not parse decomposition status value '{statusStr}' from LLM response: '{llmResponse}'.");
+                        Console.WriteLine($"Could not parse decomposition status value '{statusStr}' from LLM response. Defaulting to Unknown.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Could not find 'Status:' for decomposition in LLM response: '{llmResponse}'.");
-                    return (DecompositionStatus.Unknown, subtasks);
+                    Console.WriteLine($"Could not find 'Status:' for decomposition in LLM response. Defaulting to Unknown.");
+                    // No early return, will log final status and subtasks at the end
                 }
+
                 if (status == DecompositionStatus.NeedsDecomposition)
                 {
-                    int subtasksHeaderIndex = llmResponse.IndexOf("Subtasks:", StringComparison.OrdinalIgnoreCase);
-                    if (subtasksHeaderIndex != -1)
+                    var subtasksRegex = new Regex(@"Subtasks\s*:\s*((?:.|\n)*)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                    var subtasksMatch = subtasksRegex.Match(llmResponse);
+
+                    if (subtasksMatch.Success)
                     {
-                        string subtasksSection = llmResponse.Substring(subtasksHeaderIndex + "Subtasks:".Length);
-                        string[] lines = subtasksSection.Split(new char[] {'\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (string line in lines)
+                        string subtasksBlock = subtasksMatch.Groups[1].Value.Trim();
+                        if (!string.IsNullOrWhiteSpace(subtasksBlock) && !subtasksBlock.Equals("N/A", StringComparison.OrdinalIgnoreCase))
                         {
-                            string trimmedLine = line.Trim();
-                            if (trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*")) trimmedLine = trimmedLine.Substring(1).Trim();
-                            if (!string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.Equals("N/A", StringComparison.OrdinalIgnoreCase)) subtasks.Add(trimmedLine);
+                            string[] lines = subtasksBlock.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (string line in lines)
+                            {
+                                string trimmedLine = line.Trim();
+                                if (trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*"))
+                                {
+                                    trimmedLine = trimmedLine.Substring(1).Trim();
+                                }
+                                if (!string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.Equals("N/A", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    subtasks.Add(trimmedLine);
+                                }
+                            }
                         }
-                        if (!subtasks.Any()) Console.WriteLine($"Decomposition status is NeedsDecomposition but no valid subtasks found in response: '{llmResponse}'.");
+                        if (!subtasks.Any())
+                        {
+                            Console.WriteLine($"Decomposition status is NeedsDecomposition but no valid subtasks found or parsed from block: '{subtasksBlock}'.");
+                        }
                     }
                     else
                     {
-                        Console.WriteLine($"Decomposition status is NeedsDecomposition but 'Subtasks:' header not found in LLM response: '{llmResponse}'.");
-                        status = DecompositionStatus.Unknown; 
+                        Console.WriteLine($"Decomposition status is NeedsDecomposition but 'Subtasks:' block not found in LLM response.");
+                        // Status might remain NeedsDecomposition but subtasks list will be empty.
                     }
                 }
+                Console.WriteLine($"Parsed Decomposition: Status={status}, Subtasks Count={subtasks.Count}");
                 return (status, subtasks);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing LLM decomposition response: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Error parsing LLM decomposition response with regex: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Defaulted Decomposition due to exception: Status=Unknown, Subtasks=[]");
                 return (DecompositionStatus.Unknown, new List<string>());
             }
         }
@@ -225,40 +300,77 @@ namespace TimeTask
 
         internal static (ClarityStatus status, string question) ParseClarityResponse(string llmResponse)
         {
-            if (string.IsNullOrWhiteSpace(llmResponse)) return (ClarityStatus.Unknown, "LLM response was empty.");
+            Console.WriteLine($"Parsing LLM clarity response: \"{llmResponse}\"");
+            ClarityStatus status = ClarityStatus.Unknown;
+            string question = string.Empty; // Default to empty string
+
+            if (string.IsNullOrWhiteSpace(llmResponse))
+            {
+                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown status and empty question.");
+                question = "LLM response was empty."; // Keep original error message for this specific case
+                return (status, question);
+            }
+
             try
             {
-                ClarityStatus status = ClarityStatus.Unknown;
-                string question = "Failed to parse clarity analysis.";
-                var statusMatch = Regex.Match(llmResponse, @"Status:\s*(Clear|NeedsClarification)", RegexOptions.IgnoreCase);
-                var questionMatch = Regex.Match(llmResponse, @"Question:\s*(.*)", RegexOptions.IgnoreCase);
+                var statusRegex = new Regex(@"Status\s*:\s*(Clear|NeedsClarification)", RegexOptions.IgnoreCase);
+                var questionRegex = new Regex(@"Question\s*:\s*((?:.|\n)*)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+                var statusMatch = statusRegex.Match(llmResponse);
                 if (statusMatch.Success)
                 {
                     string statusStr = statusMatch.Groups[1].Value;
-                    if (Enum.TryParse(statusStr, true, out ClarityStatus parsedStatus)) status = parsedStatus;
+                    if (Enum.TryParse(statusStr, true, out ClarityStatus parsedStatus))
+                    {
+                        status = parsedStatus;
+                    }
                     else
                     {
-                        Console.WriteLine($"Could not parse status value '{statusStr}' from LLM response: '{llmResponse}'.");
-                        status = ClarityStatus.Unknown; 
+                        Console.WriteLine($"Could not parse clarity status value '{statusStr}' from LLM response. Defaulting to Unknown.");
+                        status = ClarityStatus.Unknown;
                     }
-                }
-                else Console.WriteLine($"Could not find 'Status:' line in LLM response: '{llmResponse}'.");
-                if (questionMatch.Success)
-                {
-                    question = questionMatch.Groups[1].Value.Trim();
-                    if (status == ClarityStatus.Clear && (string.IsNullOrWhiteSpace(question) || question.Equals("N/A", StringComparison.OrdinalIgnoreCase))) question = string.Empty; 
                 }
                 else
                 {
-                    Console.WriteLine($"Could not find 'Question:' line in LLM response: '{llmResponse}'.");
-                    if (status != ClarityStatus.Unknown) question = "Question not found in response.";
+                    Console.WriteLine("Could not find 'Status:' pattern in LLM response. Defaulting to Unknown status.");
+                    // No early return, will log final status and question at the end
                 }
-                if (status == ClarityStatus.Unknown && !statusMatch.Success) question = "Failed to parse status and question from LLM response.";
+
+                var questionMatch = questionRegex.Match(llmResponse);
+                if (questionMatch.Success)
+                {
+                    question = questionMatch.Groups[1].Value.Trim();
+                    if (status == ClarityStatus.Clear && (string.IsNullOrWhiteSpace(question) || question.Equals("N/A", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        question = string.Empty; // Clear question if status is Clear and question is N/A or empty
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Could not find 'Question:' pattern in LLM response.");
+                    if (status == ClarityStatus.NeedsClarification)
+                    {
+                        question = "Question expected but not found in response."; // More specific if status indicated a question was expected
+                    } else if (status == ClarityStatus.Unknown) {
+                        question = "Failed to parse status and question from LLM response.";
+                    }
+                }
+
+                if (status == ClarityStatus.Unknown && !statusMatch.Success) { // If status is still unknown because regex failed
+                     question = "Failed to parse status from LLM response.";
+                } else if (status == ClarityStatus.NeedsClarification && string.IsNullOrWhiteSpace(question)) {
+                    Console.WriteLine("Warning: Status is NeedsClarification, but question is empty or N/A.");
+                    // question = "Clarification needed, but no specific question was parsed."; // Optionally override if needed
+                }
+
+
+                Console.WriteLine($"Parsed Clarity: Status={status}, Question=\"{question}\"");
                 return (status, question);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing LLM clarity response: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Error parsing LLM clarity response with regex: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Defaulted Clarity due to exception: Status=Unknown, Question='Failed to analyze task clarity due to an exception.'");
                 return (ClarityStatus.Unknown, "Failed to analyze task clarity due to an exception.");
             }
         }
@@ -278,35 +390,75 @@ namespace TimeTask
 
         internal static (string Importance, string Urgency) ParsePriorityResponse(string llmResponse)
         {
-            if (string.IsNullOrWhiteSpace(llmResponse)) return ("Unknown", "Unknown");
+            Console.WriteLine($"Parsing LLM priority response: \"{llmResponse}\"");
+            if (string.IsNullOrWhiteSpace(llmResponse))
+            {
+                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown/Unknown.");
+                return ("Unknown", "Unknown");
+            }
+
+            string importance = "Unknown";
+            string urgency = "Unknown";
+
             try
             {
-                string importance = "Unknown";
-                string urgency = "Unknown";
-                string normalizedResponse = llmResponse.Trim();
-                string[] parts = normalizedResponse.Split(','); 
-                if (parts.Length == 2)
-                {
-                    string importancePart = parts[0].Trim();
-                    string urgencyPart = parts[1].Trim();
-                    if (importancePart.StartsWith("Importance:", StringComparison.OrdinalIgnoreCase)) importance = importancePart.Substring("Importance:".Length).Trim();
-                    if (urgencyPart.StartsWith("Urgency:", StringComparison.OrdinalIgnoreCase)) urgency = urgencyPart.Substring("Urgency:".Length).Trim();
-                }
+                // Regex to find "Importance: [value]" and "Urgency: [value]", case-insensitive labels, flexible whitespace
+                var importanceRegex = new Regex(@"Importance\s*:\s*([A-Za-z]+)", RegexOptions.IgnoreCase);
+                var urgencyRegex = new Regex(@"Urgency\s*:\s*([A-Za-z]+)", RegexOptions.IgnoreCase);
+
+                var importanceMatch = importanceRegex.Match(llmResponse);
+                var urgencyMatch = urgencyRegex.Match(llmResponse);
+
                 string[] validPriorities = { "High", "Medium", "Low" };
                 var validPrioritySet = new HashSet<string>(validPriorities, StringComparer.OrdinalIgnoreCase);
-                if (!validPrioritySet.Contains(importance)) importance = "Unknown";
-                if (!validPrioritySet.Contains(urgency)) urgency = "Unknown";
-                if (importance == "Unknown" && urgency == "Unknown" && 
-                    !(normalizedResponse.IndexOf("Importance:", StringComparison.OrdinalIgnoreCase) >= 0 && 
-                      normalizedResponse.IndexOf("Urgency:", StringComparison.OrdinalIgnoreCase) >= 0))
+
+                if (importanceMatch.Success)
                 {
-                     Console.WriteLine($"Could not parse Importance/Urgency from LLM response: '{llmResponse}'. Defaulting to Unknown.");
+                    string extractedImportance = importanceMatch.Groups[1].Value.Trim();
+                    if (validPrioritySet.Contains(extractedImportance))
+                    {
+                        // Normalize to title case e.g. "high" -> "High"
+                        importance = validPriorities.First(p => p.Equals(extractedImportance, StringComparison.OrdinalIgnoreCase));
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Extracted importance '{extractedImportance}' is not a valid priority. Defaulting to Unknown.");
+                    }
                 }
+                else
+                {
+                    Console.WriteLine("Could not find 'Importance:' pattern in LLM response.");
+                }
+
+                if (urgencyMatch.Success)
+                {
+                    string extractedUrgency = urgencyMatch.Groups[1].Value.Trim();
+                    if (validPrioritySet.Contains(extractedUrgency))
+                    {
+                        // Normalize to title case
+                        urgency = validPriorities.First(p => p.Equals(extractedUrgency, StringComparison.OrdinalIgnoreCase));
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Extracted urgency '{extractedUrgency}' is not a valid priority. Defaulting to Unknown.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Could not find 'Urgency:' pattern in LLM response.");
+                }
+
+                if (importance == "Unknown" && urgency == "Unknown" && !importanceMatch.Success && !urgencyMatch.Success)
+                {
+                     Console.WriteLine($"Could not parse Importance or Urgency from LLM response using regex: '{llmResponse}'. Both remain Unknown.");
+                }
+                Console.WriteLine($"Parsed Priority: Importance={importance}, Urgency={urgency}");
                 return (importance, urgency);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing LLM priority response: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Error parsing LLM priority response with regex: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Defaulted Priority due to exception: Importance=Unknown, Urgency=Unknown");
                 return ("Unknown", "Unknown");
             }
         }
@@ -378,20 +530,27 @@ namespace TimeTask
             _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options);
             Console.WriteLine($"LlmService: Initialized OpenAIService. Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
-        
-        public void Init() // This method might be redundant if constructor does all init.
-        {
-            LoadLlmConfig();
-            InitializeOpenAiService();
-        }
 
         public async Task<string> GetCompletionAsync(string prompt)
         {
             if (_openAiService == null || _apiKey == PlaceholderApiKey || string.IsNullOrWhiteSpace(_apiKey))
             {
                 Console.WriteLine("LLM Service not properly initialized. Returning dummy response.");
+                if (_apiKey == PlaceholderApiKey || string.IsNullOrWhiteSpace(_apiKey))
+                {
+                    return await Task.FromResult($"LLM dummy response (Configuration Error: API key missing or placeholder). Prompt: {prompt}");
+                }
                 return await Task.FromResult($"LLM dummy response for: {prompt}");
             }
+
+            // Added logging for diagnostics
+            string endpointPath = "v1/chat/completions"; // Common path for chat completions
+            string targetUrl = (_apiBaseUrl != null ? _apiBaseUrl.TrimEnd('/') : "https://api.openai.com") + "/" + endpointPath.TrimStart('/');
+            Console.WriteLine($"LLM Request: Target URL: {targetUrl}");
+            Console.WriteLine($"LLM Request: Model Name: {_modelName}");
+            bool apiKeyLoaded = !string.IsNullOrWhiteSpace(_apiKey) && _apiKey != PlaceholderApiKey;
+            string apiKeyFirstChars = apiKeyLoaded && _apiKey.Length >= 5 ? _apiKey.Substring(0, 5) : "N/A";
+            Console.WriteLine($"LLM Request: ApiKey Loaded: {apiKeyLoaded}, First 5 chars: {(apiKeyLoaded ? apiKeyFirstChars : "N/A")}");
 
             try
             {
