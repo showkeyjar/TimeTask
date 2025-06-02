@@ -13,8 +13,9 @@
             <RowDefinition Height="*"/>    <!-- Row 1 for TaskDescriptionTextBox -->
             <RowDefinition Height="Auto"/> <!-- Row 2 for Clarification Border -->
             <RowDefinition Height="Auto"/> <!-- Row 3 for Add to List Label -->
-            <RowDefinition Height="Auto"/> <!-- Row 4 for ListSelectorComboBox -->
-            <RowDefinition Height="Auto"/> <!-- Row 5 for Buttons StackPanel -->
+            <RowDefinition Height="Auto"/> <!-- Row 4 for LlmSuggestionText -->
+            <RowDefinition Height="Auto"/> <!-- Row 5 for ListSelectorComboBox -->
+            <RowDefinition Height="Auto"/> <!-- Row 6 for Buttons StackPanel -->
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
@@ -30,9 +31,10 @@
         </Border>
         
         <TextBlock Grid.Row="3" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <ComboBox Grid.Row="4" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
+        <TextBlock Grid.Row="4" Name="LlmSuggestionText" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
+        <ComboBox Grid.Row="5" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
 
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
             <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
         </StackPanel>

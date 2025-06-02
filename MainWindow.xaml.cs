@@ -186,19 +186,129 @@ namespace TimeTask
                             Console.WriteLine($"Task '{item.Task}' is stale (age: {taskAge.Days} days). Generating reminder...");
                             var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(item.Task, taskAge);
 
-                            if (!string.IsNullOrWhiteSpace(reminder))
+                            if (!string.IsNullOrWhiteSpace(reminder) || (suggestions != null && suggestions.Any()))
                             {
-                                Console.WriteLine($"Reminder for task '{item.Task}': {reminder}");
-                            }
-                            if (suggestions != null && suggestions.Any())
-                            {
-                                Console.WriteLine($"Suggestions for task '{item.Task}':");
-                                foreach (var suggestion in suggestions)
+                                string[] decompositionKeywords = { "break it down", "decompose", "smaller pieces", "sub-tasks", "subtasks" };
+                                string decompositionSuggestion = null;
+                                List<string> otherSuggestions = new List<string>();
+
+                                if (suggestions != null)
                                 {
-                                    Console.WriteLine($"- {suggestion}");
+                                    foreach (var s in suggestions)
+                                    {
+                                        if (decompositionKeywords.Any(keyword => s.ToLowerInvariant().Contains(keyword)))
+                                        {
+                                            decompositionSuggestion = s; // Store the first one found
+                                        }
+                                        else
+                                        {
+                                            otherSuggestions.Add(s);
+                                        }
+                                    }
+                                }
+
+                                if (decompositionSuggestion != null)
+                                {
+                                    var questionMessageBuilder = new System.Text.StringBuilder();
+                                    if (!string.IsNullOrWhiteSpace(reminder))
+                                    {
+                                        questionMessageBuilder.AppendLine($"Reminder: {reminder}");
+                                        questionMessageBuilder.AppendLine();
+                                    }
+                                    if (otherSuggestions.Any())
+                                    {
+                                        questionMessageBuilder.AppendLine("Other Suggestions:");
+                                        foreach (var s in otherSuggestions)
+                                        {
+                                            questionMessageBuilder.AppendLine($"- {s}");
+                                        }
+                                        questionMessageBuilder.AppendLine();
+                                    }
+                                    questionMessageBuilder.AppendLine($"LLM also suggests: \"{decompositionSuggestion}\"");
+                                    questionMessageBuilder.AppendLine("Would you like to attempt to break this task into smaller pieces now?");
+
+                                    var dialogResult = MessageBox.Show(this, questionMessageBuilder.ToString(), $"Action for Task: {item.Task}", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                                    if (dialogResult == MessageBoxResult.Yes)
+                                    {
+                                        var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(item.Task);
+                                        if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
+                                        {
+                                            // Current loop index 'i' corresponds to the parent task's quadrant (0-3)
+                                            // Or, we can use item.Importance and item.Urgency directly
+                                            DecompositionResultWindow decompositionWindow = new DecompositionResultWindow(subTaskStrings, item.Importance, item.Urgency)
+                                            {
+                                                Owner = this // Ensure the new window is owned by MainWindow
+                                            };
+
+                                            bool? addSubTasksDialogResult = decompositionWindow.ShowDialog();
+
+                                            if (addSubTasksDialogResult == true && decompositionWindow.SelectedSubTasks.Any())
+                                            {
+                                                string parentImportance = decompositionWindow.ParentImportance;
+                                                string parentUrgency = decompositionWindow.ParentUrgency;
+                                                int targetQuadrantIndex = decompositionWindow.ParentQuadrantIndex; // Resolved in Decomp window
+
+                                                DataGrid targetGrid = dataGrids[targetQuadrantIndex]; // Get the target DataGrid
+                                                string targetCsvNumber = (targetQuadrantIndex + 1).ToString();
+
+                                                var currentGridItems = targetGrid.ItemsSource as List<ItemGrid>;
+                                                if (currentGridItems == null) currentGridItems = new List<ItemGrid>();
+
+                                                int newTasksAddedCount = 0;
+                                                foreach (var subTaskString in decompositionWindow.SelectedSubTasks)
+                                                {
+                                                    var newSubTask = new ItemGrid
+                                                    {
+                                                        Task = subTaskString,
+                                                        Importance = parentImportance,
+                                                        Urgency = parentUrgency,
+                                                        Score = 0, // Default score
+                                                        IsActive = true,
+                                                        Result = string.Empty,
+                                                        CreatedDate = DateTime.Now,
+                                                        LastModifiedDate = DateTime.Now
+                                                    };
+                                                    currentGridItems.Add(newSubTask);
+                                                    newTasksAddedCount++;
+                                                }
+
+                                                if (newTasksAddedCount > 0)
+                                                {
+                                                    RefreshDataGrid(targetGrid);
+                                                    update_csv(targetGrid, targetCsvNumber);
+                                                    MessageBox.Show(this, $"{newTasksAddedCount} new sub-task(s) added to the '{GetQuadrantName(targetQuadrantIndex)}' list.", "Sub-tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            MessageBox.Show(this, $"Could not automatically decompose task '{item.Task}'. Status: {decompositionStatus}.", "Decomposition Result", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                        }
+                                    }
+                                    // If No to decomposition prompt, do nothing further for this interaction.
+                                }
+                                else
+                                {
+                                    // Original logic: No decomposition suggestion found, show reminder and all suggestions.
+                                    var messageBuilder = new System.Text.StringBuilder();
+                                    if (!string.IsNullOrWhiteSpace(reminder))
+                                    {
+                                        messageBuilder.AppendLine($"Reminder: {reminder}");
+                                        messageBuilder.AppendLine();
+                                    }
+                                    if (suggestions != null && suggestions.Any()) // suggestions here means otherSuggestions is empty or all suggestions
+                                    {
+                                        messageBuilder.AppendLine("Suggestions:");
+                                        foreach (var s in suggestions) // Show all original suggestions
+                                        {
+                                            messageBuilder.AppendLine($"- {s}");
+                                        }
+                                    }
+                                    MessageBox.Show(this, messageBuilder.ToString(), $"Reminder for Task: {item.Task}", MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                             }
-                            await Task.Delay(500);
+                            await Task.Delay(500); // Keep the delay whether decomposition happened or not
                         }
                         catch (Exception ex)
                         {
@@ -276,8 +386,12 @@ namespace TimeTask
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            base.OnMouseLeftButtonDown(e);
-            this.DragMove();
+            //base.OnMouseLeftButtonDown(e);
+            //this.DragMove();
+            if (e.ButtonState == MouseButtonState.Pressed)
+            {
+                this.DragMove();
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -329,15 +443,28 @@ namespace TimeTask
                 return FindParent<T>(parentObject);
         }
 
-        internal string GetQuadrantNumber(string dataGridName) // Made internal for testing
+        internal static string GetQuadrantNumber(string dataGridName) // Made internal static for testing. Returns "1", "2", "3", "4"
         {
             switch (dataGridName)
             {
-                case "task1": return "1";
-                case "task2": return "2";
-                case "task3": return "3";
-                case "task4": return "4";
+                case "task1": return "1"; // Corresponds to index 0
+                case "task2": return "2"; // Corresponds to index 1
+                case "task3": return "3"; // Corresponds to index 2
+                case "task4": return "4"; // Corresponds to index 3
                 default: return null;
+            }
+        }
+
+        // Helper to get a user-friendly quadrant name from index
+        internal static string GetQuadrantName(int index)
+        {
+            switch (index)
+            {
+                case 0: return "Important & Urgent";
+                case 1: return "Important & Not Urgent";
+                case 2: return "Not Important & Urgent";
+                case 3: return "Not Important & Not Urgent";
+                default: return "Unknown Quadrant";
             }
         }
 

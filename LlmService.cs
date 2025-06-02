@@ -27,11 +27,14 @@ namespace TimeTask
         Unknown
     }
 
-    public class LlmService
+    public class LlmService : ILlmService
     {
         private IOpenAIService _openAiService; 
         private string _apiKey;
+        private string _apiBaseUrl; // New field for API Base URL
+        private string _modelName;  // New field for Model Name
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
+        private const string DefaultModelName = "gpt-3.5-turbo"; // Default model
 
         // Prompts remain the same
         private const string PrioritizationSystemPrompt = 
@@ -93,7 +96,7 @@ namespace TimeTask
         
         public LlmService()
         {
-            LoadApiKeyFromConfig();
+            LoadLlmConfig(); // Renamed from LoadApiKeyFromConfig
             InitializeOpenAiService();
         }
 
@@ -321,34 +324,64 @@ namespace TimeTask
             return ParsePriorityResponse(llmResponse);
         }
         
-        private void LoadApiKeyFromConfig()
+        private void LoadLlmConfig() // Renamed and updated
         {
-            try { _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"]; }
+            try
+            {
+                _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
+                _apiBaseUrl = ConfigurationManager.AppSettings["LlmApiBaseUrl"]; // Load new setting
+                _modelName = ConfigurationManager.AppSettings["LlmModelName"];   // Load new setting
+            }
             catch (ConfigurationErrorsException ex)
             {
                 Console.WriteLine($"Error reading App.config: {ex.Message}");
                 _apiKey = null; 
+                _apiBaseUrl = null;
+                _modelName = null;
             }
+
             if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == PlaceholderApiKey)
             {
-                Console.WriteLine("Warning: LLM Service initialized using placeholder or missing API key from App.config. Please configure a valid OpenAIApiKey in App.config.");
+                Console.WriteLine("Warning: LLM Service: API key is placeholder or missing in App.config. LLM features will use dummy responses.");
                 _apiKey = PlaceholderApiKey; 
+            }
+
+            // _apiBaseUrl can be legitimately empty/null for OpenAI default
+            if (string.IsNullOrWhiteSpace(_modelName))
+            {
+                Console.WriteLine($"Warning: LLM Service: Model name is missing in App.config. Defaulting to '{DefaultModelName}'.");
+                _modelName = DefaultModelName;
+            }
+            else
+            {
+                // Basic check if model name from config looks like a known OpenAI static model string,
+                // otherwise, use it as a custom model string.
+                // Example: Models.Gpt_3_5_Turbo is a static string constant.
+                // If _modelName is something like "ft:gpt-3.5-turbo:my-org:custom-suffix:id", it's a custom model.
+                // The Betalgo library expects the model string directly.
             }
         }
 
         private void InitializeOpenAiService()
         {
-            // Using direct instantiation as per Betalgo.Ranul.OpenAI v9.0.4 examples
-            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(new Betalgo.Ranul.OpenAI.OpenAIOptions()
+            var options = new Betalgo.Ranul.OpenAI.OpenAIOptions()
             {
                 ApiKey = _apiKey
-            });
-            Console.WriteLine("LlmService: Initialized with Betalgo.Ranul.OpenAI.OpenAIService (direct instantiation).");
+            };
+
+            if (!string.IsNullOrWhiteSpace(_apiBaseUrl))
+            {
+                options.BaseDomain = _apiBaseUrl; // Set BaseDomain if provided
+                Console.WriteLine($"LlmService: Using custom API Base URL: {_apiBaseUrl}");
+            }
+
+            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options);
+            Console.WriteLine($"LlmService: Initialized OpenAIService. Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
         
-        public void Init()
+        public void Init() // This method might be redundant if constructor does all init.
         {
-            LoadApiKeyFromConfig();
+            LoadLlmConfig();
             InitializeOpenAiService();
         }
 
@@ -368,8 +401,7 @@ namespace TimeTask
                     {
                         ChatMessage.FromUser(prompt) 
                     },
-                    Model = Models.Gpt_3_5_Turbo, // Ensure this model identifier is correct for v9.0.4
-                                                  // Common alternatives: Models.ChatGpt3_5Turbo, Models.Gpt3_5Turbo
+                    Model = _modelName, // Use configured model name
                     MaxTokens = 150 
                 });
 
