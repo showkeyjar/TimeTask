@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
 
 namespace TimeTask
@@ -95,6 +96,9 @@ namespace TimeTask
         private LlmService _llmService;
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
 
+        private ItemGrid _draggedItem;
+        private DataGrid _sourceDataGrid;
+
         [DllImport("user32.dll", SetLastError = true)]
         static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
         [DllImport("user32.dll", SetLastError = true)]
@@ -105,7 +109,7 @@ namespace TimeTask
         [DllImport("user32.dll")]
         static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
-        string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        internal string currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); // Made internal for test access
 
         int task1_selected_indexs = -1;
         int task2_selected_indexs = -1;
@@ -125,9 +129,7 @@ namespace TimeTask
                 if (items == null)
                 {
                     Console.WriteLine($"Error reading CSV file: {filePath}. Or file is empty/new.");
-                    items = new List<ItemGrid>(); // Ensure items is not null for further processing
-                    // Optionally create a dummy item if the file was expected but missing, e.g.
-                    // items.Add(new ItemGrid { Task = "Default task if CSV missing", Score = 0, Result = "", IsActive = true, Importance = "Unknown", Urgency = "Unknown" });
+                    items = new List<ItemGrid>();
                 }
                 
                 bool updated = false;
@@ -142,15 +144,14 @@ namespace TimeTask
                             var (importance, urgency) = await _llmService.GetTaskPriorityAsync(item.Task);
                             item.Importance = importance;
                             item.Urgency = urgency;
-                            item.LastModifiedDate = DateTime.Now; // Update LastModifiedDate
+                            item.LastModifiedDate = DateTime.Now;
                             updated = true;
                             Console.WriteLine($"Updated Task: {item.Task}, Importance: {item.Importance}, Urgency: {item.Urgency}, LastModified: {item.LastModifiedDate}");
-                            await Task.Delay(500); // Adhere to rate limits
+                            await Task.Delay(500);
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine($"Error getting priority for task '{item.Task}': {ex.Message}");
-                            // Keep item.Importance/Urgency as "Unknown" or their current values
                         }
                     }
                 }
@@ -168,14 +169,13 @@ namespace TimeTask
                     }
                 }
                 
-                dataGrids[i].ItemsSource = null; // Clear previous items or use a more sophisticated update
+                dataGrids[i].ItemsSource = null;
                 dataGrids[i].ItemsSource = items;
                 if (!dataGrids[i].Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
                 {
                     dataGrids[i].Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
                 }
 
-                // After potential updates and before saving, check for stale tasks to generate reminders
                 foreach (var item in items)
                 {
                     if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
@@ -198,7 +198,7 @@ namespace TimeTask
                                     Console.WriteLine($"- {suggestion}");
                                 }
                             }
-                            await Task.Delay(500); // Adhere to rate limits for reminder generation
+                            await Task.Delay(500);
                         }
                         catch (Exception ex)
                         {
@@ -206,7 +206,6 @@ namespace TimeTask
                         }
                     }
                 }
-                // Re-save CSV if priorities were updated (reminder generation does not modify the task itself yet)
                 if (updated) 
                 {
                     try
@@ -225,20 +224,30 @@ namespace TimeTask
         public MainWindow()
         {
             InitializeComponent();
-            _llmService = LlmService.Create(); // Instantiate LlmService
+            _llmService = LlmService.Create();
             this.Top = (double)Properties.Settings.Default.Top;
             this.Left = (double)Properties.Settings.Default.Left;
             loadDataGridView();
         }
 
-        private void update_csv(DataGrid dgv, string number) {
-            var temp = new List<ItemGrid>();
-            for (int i = 0; i < dgv.Items.Count; i++)
+        internal void update_csv(DataGrid dgv, string number, string basePath = null) { // Added basePath for testing flexibility
+            if (dgv == null) return; // Simplified for testing if dgv is null
+
+            var itemsToSave = new List<ItemGrid>();
+            if (dgv.ItemsSource is IEnumerable<ItemGrid> items)
             {
-                if (dgv.Items[i] is ItemGrid)
-                    temp.Add((ItemGrid)dgv.Items[i]);
+                itemsToSave.AddRange(items);
             }
-            HelperClass.WriteCsv(temp, currentPath + "/data/" + number + ".csv");
+            // In a test scenario, dgv.ItemsSource might be directly set to List<ItemGrid>
+            // and dgv.Items might not be populated if the DataGrid is not rendered.
+            // Iterating dgv.ItemsSource is generally more reliable for data access.
+
+            string dirPath = basePath ?? Path.Combine(currentPath, "data");
+            if (!Directory.Exists(dirPath) && basePath != null) // Create test data directory if specified and not exists
+            {
+                Directory.CreateDirectory(dirPath);
+            }
+            HelperClass.WriteCsv(itemsToSave, Path.Combine(dirPath, number + ".csv"));
         }
 
         private void task1_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -295,47 +304,201 @@ namespace TimeTask
             ItemGrid taskToDelete = deleteButton.DataContext as ItemGrid;
             if (taskToDelete == null) return;
 
-            if (task1.ItemsSource is List<ItemGrid> tasks1List && tasks1List.Remove(taskToDelete))
+            DataGrid sourceGrid = null;
+
+            if (task1.ItemsSource is List<ItemGrid> tasks1List && tasks1List.Remove(taskToDelete)) sourceGrid = task1;
+            else if (task2.ItemsSource is List<ItemGrid> tasks2List && tasks2List.Remove(taskToDelete)) sourceGrid = task2;
+            else if (task3.ItemsSource is List<ItemGrid> tasks3List && tasks3List.Remove(taskToDelete)) sourceGrid = task3;
+            else if (task4.ItemsSource is List<ItemGrid> tasks4List && tasks4List.Remove(taskToDelete)) sourceGrid = task4;
+
+            if (sourceGrid != null)
             {
-                task1.ItemsSource = null;
-                task1.ItemsSource = tasks1List;
-                if (!task1.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                {
-                    task1.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                }
-                update_csv(task1, "1");
-            }
-            else if (task2.ItemsSource is List<ItemGrid> tasks2List && tasks2List.Remove(taskToDelete))
-            {
-                task2.ItemsSource = null;
-                task2.ItemsSource = tasks2List;
-                if (!task2.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                {
-                    task2.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                }
-                update_csv(task2, "2");
-            }
-            else if (task3.ItemsSource is List<ItemGrid> tasks3List && tasks3List.Remove(taskToDelete))
-            {
-                task3.ItemsSource = null;
-                task3.ItemsSource = tasks3List;
-                if (!task3.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                {
-                    task3.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                }
-                update_csv(task3, "3");
-            }
-            else if (task4.ItemsSource is List<ItemGrid> tasks4List && tasks4List.Remove(taskToDelete))
-            {
-                task4.ItemsSource = null;
-                task4.ItemsSource = tasks4List;
-                if (!task4.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
-                {
-                    task4.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
-                }
-                update_csv(task4, "4");
+                RefreshDataGrid(sourceGrid); // Refresh the specific grid
+                update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
             }
         }
-        // Removed del1_Click, del2_Click, del3_Click, del4_Click
+
+        public static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            T parent = parentObject as T;
+            if (parent != null)
+                return parent;
+            else
+                return FindParent<T>(parentObject);
+        }
+
+        internal string GetQuadrantNumber(string dataGridName) // Made internal for testing
+        {
+            switch (dataGridName)
+            {
+                case "task1": return "1";
+                case "task2": return "2";
+                case "task3": return "3";
+                case "task4": return "4";
+                default: return null;
+            }
+        }
+
+        private void RefreshDataGrid(DataGrid dataGrid)
+        {
+            if (dataGrid == null) return;
+            var itemsSource = dataGrid.ItemsSource as List<ItemGrid>;
+            dataGrid.ItemsSource = null;
+            dataGrid.ItemsSource = itemsSource;
+            if (itemsSource != null && !dataGrid.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+            {
+                dataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+            }
+        }
+
+
+        private void DataGridRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                // Check if the click originated from the delete button
+                DependencyObject dep = (DependencyObject)e.OriginalSource;
+                while (dep != null && !(dep is DataGridRow))
+                {
+                    if (dep is Button button && button.Name == "PART_DeleteButton")
+                    {
+                        // Click was on the delete button, so don't start drag
+                        return;
+                    }
+                    dep = VisualTreeHelper.GetParent(dep);
+                }
+
+                DataGridRow row = e.Source as DataGridRow;
+                if (row == null)
+                {
+                    // If the source isn't the row itself (e.g. a cell), try to find the parent row.
+                    // This part of your existing logic seems correct for finding the row.
+                    row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
+                }
+
+                if (row != null && row.Item is ItemGrid item)
+                {
+                    _draggedItem = item;
+                    _sourceDataGrid = FindParent<DataGrid>(row);
+                    if (_sourceDataGrid != null)
+                    {
+                        // Ensure that we are not trying to drag if the source was PART_DeleteButton
+                        // The check above should handle this, but as a safeguard for _sourceDataGrid being set
+                        // by FindParent<DataGrid>(row) even if the click was on a button within that row.
+                        // However, the initial check on e.OriginalSource is more direct.
+                        DragDrop.DoDragDrop(row, _draggedItem, DragDropEffects.Move);
+                    }
+                }
+            }
+        }
+
+        private void Task_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemGrid)))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void Task_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemGrid)))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        // Extracted core logic for testability
+        internal static bool ProcessTaskDrop(ItemGrid draggedItem, List<ItemGrid> sourceList, List<ItemGrid> targetList, string targetDataGridName)
+        {
+            if (draggedItem == null || sourceList == null || targetList == null)
+            {
+                return false;
+            }
+
+            if (!sourceList.Contains(draggedItem))
+            {
+                return false;
+            }
+
+            sourceList.Remove(draggedItem);
+            targetList.Add(draggedItem);
+            draggedItem.LastModifiedDate = DateTime.Now;
+
+            string newImportance = "Unknown";
+            string newUrgency = "Unknown";
+
+            switch (targetDataGridName)
+            {
+                case "task1": newImportance = "High"; newUrgency = "High"; break;
+                case "task2": newImportance = "High"; newUrgency = "Low"; break;
+                case "task3": newImportance = "Low"; newUrgency = "High"; break;
+                case "task4": newImportance = "Low"; newUrgency = "Low"; break;
+            }
+
+            draggedItem.Importance = newImportance;
+            draggedItem.Urgency = newUrgency;
+
+            return true;
+        }
+
+        private void Quadrant_Drop(object sender, DragEventArgs e)
+        {
+            if (_draggedItem == null || _sourceDataGrid == null)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            DataGrid targetDataGrid = sender as DataGrid;
+            if (targetDataGrid == null || targetDataGrid == _sourceDataGrid)
+            {
+                _draggedItem = null;
+                _sourceDataGrid = null;
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Data.GetDataPresent(typeof(ItemGrid)))
+            {
+                ItemGrid droppedItem = _draggedItem;
+                var sourceList = _sourceDataGrid.ItemsSource as List<ItemGrid>;
+                var targetList = targetDataGrid.ItemsSource as List<ItemGrid>;
+
+                if (targetList == null)
+                {
+                    targetList = new List<ItemGrid>();
+                    targetDataGrid.ItemsSource = targetList;
+                }
+
+                if (ProcessTaskDrop(droppedItem, sourceList, targetList, targetDataGrid.Name))
+                {
+                    string sourceQuadrantNumber = GetQuadrantNumber(_sourceDataGrid.Name);
+                    string targetQuadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
+
+                    if (sourceQuadrantNumber != null) update_csv(_sourceDataGrid, sourceQuadrantNumber);
+                    if (targetQuadrantNumber != null) update_csv(targetDataGrid, targetQuadrantNumber);
+
+                    RefreshDataGrid(_sourceDataGrid);
+                    RefreshDataGrid(targetDataGrid);
+                }
+            }
+            _draggedItem = null;
+            _sourceDataGrid = null;
+            e.Handled = true;
+        }
     }
-} // Closing brace for namespace TimeTask
+}

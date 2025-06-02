@@ -17,4 +17,7 @@
   <ItemGroup>
     <Reference Include="System.Configuration" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="MainWindowTests.cs" />
+  </ItemGroup>
 </Project>
