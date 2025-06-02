@@ -380,6 +380,41 @@ namespace TimeTask
             this.Top = (double)Properties.Settings.Default.Top;
             this.Left = (double)Properties.Settings.Default.Left;
             loadDataGridView();
+
+            // Attach CellEditEnding event handler to all DataGrids
+            task1.CellEditEnding += DataGrid_CellEditEnding;
+            task2.CellEditEnding += DataGrid_CellEditEnding;
+            task3.CellEditEnding += DataGrid_CellEditEnding;
+            task4.CellEditEnding += DataGrid_CellEditEnding;
+        }
+
+        private void DataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit)
+            {
+                // Check if the edited column is the "Task" column.
+                // Using HeaderText assumes the XAML <DataGridTextColumn Header="Task" ... />
+                // A more robust way might involve checking the binding path if available,
+                // but HeaderText is usually reliable for display columns.
+                var column = e.Column as DataGridBoundColumn;
+                if (column != null && column.Header != null && column.Header.ToString() == "Task")
+                {
+                    var item = e.Row.Item as ItemGrid;
+                    if (item != null && e.EditingElement is TextBox textBox)
+                    {
+                        string newDescription = textBox.Text;
+                        string oldDescriptionPreview = item.Task != null && item.Task.Length > 15 ? item.Task.Substring(0, 15) + "..." : item.Task;
+
+                        // Note: At this point, item.Task is still the *old* value before the commit.
+                        // The newDescription is what will be committed.
+                        Console.WriteLine($"Task edited in grid. Task (Old Preview): [{oldDescriptionPreview}], New Description: [{newDescription}]");
+
+                        // If you need to trigger something *after* the value has been committed to the item,
+                        // you might need a different approach or event, or handle it carefully knowing item.Task isn't updated yet.
+                        // For logging the edit *intent* with the new value, this is fine.
+                    }
+                }
+            }
         }
 
         internal void update_csv(DataGrid dgv, string number, string basePath = null) { // Added basePath for testing flexibility
