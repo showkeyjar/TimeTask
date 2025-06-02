@@ -96,13 +96,38 @@ namespace TimeTask
 
                 // Prioritization & Task Creation (either directly or after clarification)
                 TaskDescription = currentTaskDescription; // Final task description
-                var (importance, urgency) = await _llmService.GetTaskPriorityAsync(TaskDescription);
+                var (llmImportance, llmUrgency) = await _llmService.GetTaskPriorityAsync(TaskDescription);
+
+                // --- LLM Suggestion Logic ---
+                int suggestedIndex = GetIndexFromPriority(llmImportance, llmUrgency);
+                ListSelectorComboBox.SelectedIndex = suggestedIndex;
+
+                if (suggestedIndex != -1 && ListSelectorComboBox.SelectedItem != null)
+                {
+                    LlmSuggestionText.Text = $"LLM Suggests: {ListSelectorComboBox.SelectedItem as string}";
+                    LlmSuggestionText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    // Handle cases where suggestion is ambiguous or mapping fails
+                    LlmSuggestionText.Text = "LLM suggestion unavailable.";
+                    LlmSuggestionText.Visibility = Visibility.Collapsed; // Or Visible with a different message
+                }
+                // --- End LLM Suggestion Logic ---
+
+                // User confirms or changes selection, then clicks "Add Task" again (or it's the first time)
+                // The final selection is captured by:
+                SelectedListIndex = ListSelectorComboBox.SelectedIndex;
+                // This line was already here, but its role is now more significant
+
+                // Update NewTask's Importance and Urgency based on the final ComboBox selection
+                var (finalImportance, finalUrgency) = GetPriorityFromIndex(SelectedListIndex);
 
                 NewTask = new ItemGrid
                 {
                     Task = TaskDescription,
-                    Importance = importance,
-                    Urgency = urgency,
+                    Importance = finalImportance, // Updated based on final selection
+                    Urgency = finalUrgency,   // Updated based on final selection
                     Score = 0, // Default score
                     IsActive = true,
                     CreatedDate = DateTime.Now,
@@ -124,6 +149,36 @@ namespace TimeTask
             {
                 AddTaskButton.IsEnabled = true;
                 CancelButton.IsEnabled = true;
+            }
+        }
+
+        // Helper method to map LLM priority to ComboBox index
+        internal static int GetIndexFromPriority(string importance, string urgency)
+        {
+            // Normalize inputs to lower case for robust comparison
+            importance = importance?.ToLowerInvariant() ?? "unknown";
+            urgency = urgency?.ToLowerInvariant() ?? "unknown";
+
+            if (importance == "high" && urgency == "high") return 0; // Important & Urgent
+            if (importance == "high" && urgency == "low") return 1;  // Important & Not Urgent
+            if (importance == "low" && urgency == "high") return 2;  // Not Important & Urgent
+            if (importance == "low" && urgency == "low") return 3;   // Not Important & Not Urgent
+
+            // Default or fallback for Medium/Unknown - could be -1 to indicate no selection
+            // Or a specific category like "Important & Urgent"
+            return 0; // Defaulting to "Important & Urgent" for now
+        }
+
+        // Helper method to map ComboBox index back to Importance/Urgency strings
+        internal static (string Importance, string Urgency) GetPriorityFromIndex(int index)
+        {
+            switch (index)
+            {
+                case 0: return ("High", "High");   // Important & Urgent
+                case 1: return ("High", "Low");    // Important & Not Urgent
+                case 2: return ("Low", "High");    // Not Important & Urgent
+                case 3: return ("Low", "Low");     // Not Important & Not Urgent
+                default: return ("Medium", "Medium"); // Default if index is unexpected
             }
         }
     }

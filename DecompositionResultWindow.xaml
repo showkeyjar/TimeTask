@@ -1,0 +1,33 @@
+<Window x:Class="TimeTask.DecompositionResultWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TimeTask"
+        mc:Ignorable="d"
+        Title="Decomposition Results" Height="400" Width="500"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Select the sub-tasks you want to create from the decomposition:" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+        <ListBox Grid.Row="1" Name="SubTasksListBox" Margin="0,0,0,10" SelectionMode="Multiple">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox Content="{Binding Description}" IsChecked="{Binding IsSelected}" Margin="2"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Name="AddSelectedButton" Content="Add Selected Sub-tasks" Width="180" Margin="0,0,10,0" Click="AddSelectedButton_Click"/>
+            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
