@@ -136,50 +136,33 @@ namespace TimeTask
                     items = new List<ItemGrid>();
                 }
                 
-                bool updated = false;
-                foreach (var item in items)
-                {
-                    if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
-                        string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
-                    {
-                        try
-                        {
-                            Console.WriteLine($"Getting priority for task: {item.Task}");
-                            var (importance, urgency) = await _llmService.GetTaskPriorityAsync(item.Task);
+                bool updated = false; // This variable is now effectively unused in this part of the loop
+                                     // as the block that set it to true is removed.
+                // The following block for on-load LLM prioritization has been removed.
+                // foreach (var item in items)
+                // {
+                //     if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
+                //         string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
+                //     {
+                //         // ... LLM call and update logic was here ...
+                //         // updated = true;
+                //     }
+                // }
 
-                            if (!_llmConfigErrorDetectedInLoad &&
-                                ((importance != null && importance.Contains(configErrorSubstring)) ||
-                                 (urgency != null && urgency.Contains(configErrorSubstring))))
-                            {
-                                _llmConfigErrorDetectedInLoad = true;
-                            }
-
-                            item.Importance = importance;
-                            item.Urgency = urgency;
-                            item.LastModifiedDate = DateTime.Now;
-                            updated = true;
-                            Console.WriteLine($"Updated Task: {item.Task}, Importance: {item.Importance}, Urgency: {item.Urgency}, LastModified: {item.LastModifiedDate}");
-                            await Task.Delay(500);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error getting priority for task '{item.Task}': {ex.Message}");
-                        }
-                    }
-                }
-
-                if (updated)
-                {
-                    try
-                    {
-                        HelperClass.WriteCsv(items, filePath);
-                        Console.WriteLine($"Saved updated tasks to {filePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                    }
-                }
+                // The following if(updated) block, which was for saving after on-load prioritization,
+                // has also been removed as 'updated' would always be false here.
+                // if (updated)
+                // {
+                //     try
+                //     {
+                //         HelperClass.WriteCsv(items, filePath);
+                //         Console.WriteLine($"Saved updated tasks to {filePath}");
+                //     }
+                //     catch (Exception ex)
+                //     {
+                //         Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
+                //     }
+                // }
                 
                 dataGrids[i].ItemsSource = null;
                 dataGrids[i].ItemsSource = items;
@@ -380,6 +363,41 @@ namespace TimeTask
             this.Top = (double)Properties.Settings.Default.Top;
             this.Left = (double)Properties.Settings.Default.Left;
             loadDataGridView();
+
+            // Attach CellEditEnding event handler to all DataGrids
+            task1.CellEditEnding += DataGrid_CellEditEnding;
+            task2.CellEditEnding += DataGrid_CellEditEnding;
+            task3.CellEditEnding += DataGrid_CellEditEnding;
+            task4.CellEditEnding += DataGrid_CellEditEnding;
+        }
+
+        private void DataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit)
+            {
+                // Check if the edited column is the "Task" column.
+                // Using HeaderText assumes the XAML <DataGridTextColumn Header="Task" ... />
+                // A more robust way might involve checking the binding path if available,
+                // but HeaderText is usually reliable for display columns.
+                var column = e.Column as DataGridBoundColumn;
+                if (column != null && column.Header != null && column.Header.ToString() == "Task")
+                {
+                    var item = e.Row.Item as ItemGrid;
+                    if (item != null && e.EditingElement is TextBox textBox)
+                    {
+                        string newDescription = textBox.Text;
+                        string oldDescriptionPreview = item.Task != null && item.Task.Length > 15 ? item.Task.Substring(0, 15) + "..." : item.Task;
+
+                        // Note: At this point, item.Task is still the *old* value before the commit.
+                        // The newDescription is what will be committed.
+                        Console.WriteLine($"Task edited in grid. Task (Old Preview): [{oldDescriptionPreview}], New Description: [{newDescription}]");
+
+                        // If you need to trigger something *after* the value has been committed to the item,
+                        // you might need a different approach or event, or handle it carefully knowing item.Task isn't updated yet.
+                        // For logging the edit *intent* with the new value, this is fine.
+                    }
+                }
+            }
         }
 
         internal void update_csv(DataGrid dgv, string number, string basePath = null) { // Added basePath for testing flexibility
