@@ -145,13 +145,28 @@ namespace TimeTask
                 // Update NewTask's Importance and Urgency based on the final ComboBox selection
                 var (finalImportance, finalUrgency) = GetPriorityFromIndex(SelectedListIndex);
 
+                // Retrieve AssignedTo from the (hypothetical) AssignedToTextBox
+                // In a real scenario, AssignedToTextBox would be a XAML element
+                // string assignedTo = AssignedToTextBox.Text.Trim(); // Assuming AssignedToTextBox is available
+                // For now, as AssignedToTextBox is not defined in this .cs file, we'll simulate its behavior:
+                string assignedTo = ""; // Simulate empty TextBox
+                if (this.FindName("AssignedToTextBox") is System.Windows.Controls.TextBox actualAssignedToTextBox)
+                {
+                    assignedTo = actualAssignedToTextBox.Text.Trim();
+                }
+                if (string.IsNullOrWhiteSpace(assignedTo))
+                {
+                    assignedTo = "Unassigned";
+                }
+
                 NewTask = new ItemGrid
                 {
                     Task = TaskDescription,
                     Importance = finalImportance, // Updated based on final selection
                     Urgency = finalUrgency,   // Updated based on final selection
+                    AssignedTo = assignedTo, // Set AssignedTo property
+                    Status = "To Do",        // Set Status property
                     Score = 0, // Default score
-                    IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
                     Result = string.Empty

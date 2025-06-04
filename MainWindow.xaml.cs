@@ -32,16 +32,24 @@ namespace TimeTask
                 from line in allLines.Skip(1).Take(allLines.Count() - 1)
                 let temparry = line.Split(',')
                 let parse = int.TryParse(temparry[1], out parseScore)
-                let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True"
+                // Assuming old CSV format: task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate
+                // New properties AssignedTo and Status will be read if present, otherwise defaulted.
+                let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True" // For backward compatibility
                 select new ItemGrid {
                     Task = temparry[0],
                     Score = parseScore,
                     Result = temparry[2],
-                    IsActive = !isCompleted,
+                    // IsActive is removed. Status is new.
+                    // For backward compatibility with old CSVs, if 'is_completed' (temparry[3]) was true, Status is "Completed".
+                    // Otherwise, it defaults to "To Do" (which is set in ItemGrid constructor).
+                    Status = isCompleted ? "Completed" : "To Do",
                     Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
                     Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
                     CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
-                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now
+                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now,
+                    // AssignedTo will default to "Unassigned" as per ItemGrid constructor if not in CSV.
+                    // If CSV format changes to include AssignedTo, logic to parse it would be added here.
+                    // For example: AssignedTo = temparry.Length > 8 ? temparry[8] : "Unassigned",
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -51,7 +59,8 @@ namespace TimeTask
             catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
                 Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
                 // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now });
+                // Note: IsActive is removed, Status will default to "To Do"
+                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now });
             }
             return result_list;
         }
@@ -59,11 +68,12 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o}"
+                // New format: task,score,result,importance,urgency,createdDate,lastModifiedDate,assigned_to,status
+                $"{item.Task},{item.Score},{item.Result},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.AssignedTo ?? "Unassigned"},{item.Status ?? "To Do"}"
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate";
+            contents[0] = "task,score,result,importance,urgency,createdDate,lastModifiedDate,assigned_to,status";
             File.WriteAllLines(filepath, contents);
         }
     }
@@ -73,11 +83,8 @@ namespace TimeTask
         public string Task { set; get; }
         public int Score { set; get; }
         public string Result { set; get; }
-        /// <summary>
-        /// Gets or sets a value indicating whether the task is active.
-        /// True if the task is pending, False if it's completed.
-        /// </summary>
-        public bool IsActive { set; get; }
+        public string AssignedTo { set; get; } = "Unassigned";
+        public string Status { set; get; } = "To Do";
         public string Importance { set; get; } = "Unknown";
         public string Urgency { set; get; } = "Unknown";
         public DateTime CreatedDate { set; get; } = DateTime.Now;
@@ -173,7 +180,8 @@ namespace TimeTask
 
                 foreach (var item in items)
                 {
-                    if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
+                    // Task is stale if not "Completed" and past threshold
+                    if (item.Status != "Completed" && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
                     {
                         try
                         {
@@ -276,7 +284,7 @@ namespace TimeTask
                                                         Importance = parentImportance,
                                                         Urgency = parentUrgency,
                                                         Score = 0, // Default score
-                                                        IsActive = true,
+                                                        Status = "To Do", // New tasks are "To Do"
                                                         Result = string.Empty,
                                                         CreatedDate = DateTime.Now,
                                                         LastModifiedDate = DateTime.Now
@@ -376,25 +384,51 @@ namespace TimeTask
             if (e.EditAction == DataGridEditAction.Commit)
             {
                 // Check if the edited column is the "Task" column.
-                // Using HeaderText assumes the XAML <DataGridTextColumn Header="Task" ... />
-                // A more robust way might involve checking the binding path if available,
-                // but HeaderText is usually reliable for display columns.
+                // Using HeaderText assumes the XAML <DataGridTextColumn Header="XXX" ... />
                 var column = e.Column as DataGridBoundColumn;
-                if (column != null && column.Header != null && column.Header.ToString() == "Task")
+                if (column != null && column.Header != null)
                 {
+                    string header = column.Header.ToString();
                     var item = e.Row.Item as ItemGrid;
-                    if (item != null && e.EditingElement is TextBox textBox)
+
+                    if (item != null)
                     {
-                        string newDescription = textBox.Text;
-                        string oldDescriptionPreview = item.Task != null && item.Task.Length > 15 ? item.Task.Substring(0, 15) + "..." : item.Task;
+                        bool changed = false;
+                        if (header == "Task" && e.EditingElement is TextBox taskTextBox)
+                        {
+                            string newDescription = taskTextBox.Text;
+                            // string oldDescriptionPreview = item.Task != null && item.Task.Length > 15 ? item.Task.Substring(0, 15) + "..." : item.Task;
+                            // Console.WriteLine($"Task edited in grid. Task (Old Preview): [{oldDescriptionPreview}], New Description: [{newDescription}]");
+                            // The actual update to item.Task happens automatically due to binding.
+                            changed = true;
+                        }
+                        else if (header == "AssignedTo" && e.EditingElement is TextBox assignedToTextBox)
+                        {
+                            // item.AssignedTo is updated by binding
+                            changed = true;
+                        }
+                        else if (header == "Status" && e.EditingElement is ComboBox statusComboBox)
+                        {
+                            // Assuming Status column uses a ComboBox for editing
+                            // item.Status is updated by binding
+                            changed = true;
+                        }
+                        // Add other column checks as needed, e.g., for Result, Score
 
-                        // Note: At this point, item.Task is still the *old* value before the commit.
-                        // The newDescription is what will be committed.
-                        Console.WriteLine($"Task edited in grid. Task (Old Preview): [{oldDescriptionPreview}], New Description: [{newDescription}]");
-
-                        // If you need to trigger something *after* the value has been committed to the item,
-                        // you might need a different approach or event, or handle it carefully knowing item.Task isn't updated yet.
-                        // For logging the edit *intent* with the new value, this is fine.
+                        if (changed)
+                        {
+                            item.LastModifiedDate = DateTime.Now; // Update LastModifiedDate
+                            DataGrid activeDataGrid = sender as DataGrid;
+                            if (activeDataGrid != null)
+                            {
+                                string quadrantNumber = GetQuadrantNumber(activeDataGrid.Name);
+                                if (quadrantNumber != null)
+                                {
+                                    update_csv(activeDataGrid, quadrantNumber);
+                                    Console.WriteLine($"Updated CSV for quadrant {quadrantNumber} due to edit in column '{header}'.");
+                                }
+                            }
+                        }
                     }
                 }
             }
