@@ -290,5 +290,188 @@ namespace TimeTask.Tests
             Assert.AreEqual("Unknown Quadrant", MainWindow.GetQuadrantName(4));
             Assert.AreEqual("Unknown Quadrant", MainWindow.GetQuadrantName(-1));
         }
+
+        // --- Tests for Task Reordering (Same Quadrant) ---
+
+        [TestMethod]
+        public void ProcessTaskReorder_ValidMove_UpdatesOrderAndScores()
+        {
+            // Arrange
+            var item1 = new ItemGrid { Task = "Task 1", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            var item2 = new ItemGrid { Task = "Task 2", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            var item3 = new ItemGrid { Task = "Task 3", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            var list = new List<ItemGrid> { item1, item2, item3 };
+            DateTime originalLastModified = item1.LastModifiedDate;
+
+            // Act: Move item1 (index 0) to be before item3 (current index 2, so visualTargetIndex = 2)
+            // This means item1 will end up at index 1.
+            bool result = MainWindow.ProcessTaskReorder(item1, list, 0, 2);
+
+            // Assert
+            Assert.IsTrue(result, "ProcessTaskReorder should return true for a successful move.");
+            Assert.AreEqual(3, list.Count, "List count should remain the same.");
+            Assert.AreEqual(item2, list[0], "Item2 should now be at index 0.");
+            Assert.AreEqual(item1, list[1], "Item1 should now be at index 1.");
+            Assert.AreEqual(item3, list[2], "Item3 should now be at index 2.");
+
+            Assert.AreEqual(3, list[0].Score, "Score of item at index 0 is incorrect."); // item2
+            Assert.AreEqual(2, list[1].Score, "Score of item at index 1 is incorrect."); // item1
+            Assert.AreEqual(1, list[2].Score, "Score of item at index 2 is incorrect."); // item3
+            Assert.IsTrue(item1.LastModifiedDate > originalLastModified, "Moved item's LastModifiedDate should be updated.");
+        }
+
+        [TestMethod]
+        public void ProcessTaskReorder_MoveToBeginning_UpdatesOrderAndScores()
+        {
+            // Arrange
+            var item1 = new ItemGrid { Task = "Task 1", Score = 0 };
+            var item2 = new ItemGrid { Task = "Task 2", Score = 0 };
+            var item3 = new ItemGrid { Task = "Task 3", Score = 0 };
+            var list = new List<ItemGrid> { item1, item2, item3 };
+
+            // Act: Move item3 (index 2) to the beginning (visualTargetIndex = 0)
+            bool result = MainWindow.ProcessTaskReorder(item3, list, 2, 0);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(item3, list[0]);
+            Assert.AreEqual(item1, list[1]);
+            Assert.AreEqual(item2, list[2]);
+
+            Assert.AreEqual(3, list[0].Score); // item3
+            Assert.AreEqual(2, list[1].Score); // item1
+            Assert.AreEqual(1, list[2].Score); // item2
+        }
+
+        [TestMethod]
+        public void ProcessTaskReorder_MoveToEnd_UpdatesOrderAndScores()
+        {
+            // Arrange
+            var item1 = new ItemGrid { Task = "Task 1", Score = 0 };
+            var item2 = new ItemGrid { Task = "Task 2", Score = 0 };
+            var item3 = new ItemGrid { Task = "Task 3", Score = 0 };
+            var list = new List<ItemGrid> { item1, item2, item3 };
+
+            // Act: Move item1 (index 0) to the end (visualTargetIndex = 3, which is list.Count)
+            bool result = MainWindow.ProcessTaskReorder(item1, list, 0, 3);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(item2, list[0]);
+            Assert.AreEqual(item3, list[1]);
+            Assert.AreEqual(item1, list[2]);
+
+            Assert.AreEqual(3, list[0].Score); // item2
+            Assert.AreEqual(2, list[1].Score); // item3
+            Assert.AreEqual(1, list[2].Score); // item1
+        }
+
+
+        [TestMethod]
+        public void ProcessTaskReorder_NoActualMove_ReturnsFalse_OrderAndScoresUnchanged()
+        {
+            // Arrange
+            var item1 = new ItemGrid { Task = "Task 1", Score = 3 };
+            var item2 = new ItemGrid { Task = "Task 2", Score = 2 };
+            var item3 = new ItemGrid { Task = "Task 3", Score = 1 };
+            var list = new List<ItemGrid> { item1, item2, item3 };
+            var originalListOrder = list.ToList(); // Shallow copy for order comparison
+            DateTime originalLastModified = item2.LastModifiedDate;
+
+            // Act: Try to move item2 (index 1) to visualTargetIndex 1 (before itself)
+            bool result = MainWindow.ProcessTaskReorder(item2, list, 1, 1);
+
+            // Assert
+            Assert.IsFalse(result, "ProcessTaskReorder should return false for no actual move.");
+            CollectionAssert.AreEqual(originalListOrder, list, "List order should not change.");
+            Assert.AreEqual(3, list[0].Score, "Item1 score should not change.");
+            Assert.AreEqual(2, list[1].Score, "Item2 score should not change.");
+            Assert.AreEqual(1, list[2].Score, "Item3 score should not change.");
+            Assert.AreEqual(originalLastModified, item2.LastModifiedDate, "LastModifiedDate should not change for no-op.");
+
+            // Act: Try to move item2 (index 1) to visualTargetIndex 2 (before item at index 2, which is item3)
+            // This means item2 stays in its place relative to item3.
+            result = MainWindow.ProcessTaskReorder(item2, list, 1, 2);
+             Assert.IsFalse(result, "ProcessTaskReorder should return false for no actual move (case 2).");
+            CollectionAssert.AreEqual(originalListOrder, list, "List order should not change (case 2).");
+
+        }
+
+        [TestMethod]
+        public void ReorderWithinSameQuadrant_CsvUpdatesAfterReorder()
+        {
+            // Arrange
+            var item1 = new ItemGrid { Task = "Alpha", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            var item2 = new ItemGrid { Task = "Beta", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            var list = new List<ItemGrid> { item1, item2 };
+
+            DataGrid mockDataGrid = CreateMockDataGrid(list, "task1"); // Simulate task1 DataGrid
+
+            // Act: Move item2 (index 1) to the beginning (visualTargetIndex = 0)
+            // This will be called by Quadrant_Drop, which then calls update_csv.
+            // We test ProcessTaskReorder directly, then simulate the update_csv call.
+            bool reorderResult = MainWindow.ProcessTaskReorder(item2, list, 1, 0);
+            Assert.IsTrue(reorderResult, "Reorder failed");
+
+            // Simulate CSV update that would happen in Quadrant_Drop
+            UpdateCsvForTest(mockDataGrid, "1");
+
+            // Assert
+            var updatedListFromCsv = HelperClass.ReadCsv(Path.Combine(_testDataPath, "1.csv"));
+            Assert.IsNotNull(updatedListFromCsv);
+            Assert.AreEqual(2, updatedListFromCsv.Count);
+            Assert.AreEqual("Beta", updatedListFromCsv[0].Task); // New first item
+            Assert.AreEqual(2, updatedListFromCsv[0].Score);     // Score for new first item
+            Assert.AreEqual("Alpha", updatedListFromCsv[1].Task); // New second item
+            Assert.AreEqual(1, updatedListFromCsv[1].Score);      // Score for new second item
+        }
+
+        [TestMethod]
+        public void MovingTaskToDifferentQuadrant_UpdatesScoresInBothLists()
+        {
+            // Arrange
+            var itemS1 = new ItemGrid { Task = "Source1", Score = 20 };
+            var itemS2 = new ItemGrid { Task = "Source2", Score = 10 }; // This will be moved
+            var itemT1 = new ItemGrid { Task = "Target1", Score = 50 };
+
+            var sourceList = new List<ItemGrid> { itemS1, itemS2 };
+            var targetList = new List<ItemGrid> { itemT1 };
+
+            string sourceDataGridName = "task1"; // Not directly used by ProcessTaskDrop for logic, but for context
+            string targetDataGridName = "task2";
+
+            // Act
+            // Simulate the core logic of moving an item
+            bool moved = MainWindow.ProcessTaskDrop(itemS2, sourceList, targetList, targetDataGridName);
+            Assert.IsTrue(moved, "ProcessTaskDrop failed.");
+
+            // After ProcessTaskDrop, Quadrant_Drop updates scores. We simulate that here.
+            // Update scores for the target list
+            for (int i = 0; i < targetList.Count; i++)
+            {
+                targetList[i].Score = targetList.Count - i;
+            }
+            // And for source list
+            for (int i = 0; i < sourceList.Count; i++)
+            {
+                sourceList[i].Score = sourceList.Count - i;
+            }
+
+            // Assert
+            // Source list checks
+            Assert.AreEqual(1, sourceList.Count, "Source list count is wrong.");
+            Assert.AreEqual(itemS1, sourceList[0], "Incorrect item in source list.");
+            Assert.AreEqual(1, sourceList[0].Score, "Score in source list not updated correctly."); // itemS1 score
+
+            // Target list checks
+            Assert.AreEqual(2, targetList.Count, "Target list count is wrong.");
+            Assert.IsTrue(targetList.Contains(itemS2), "Moved item not in target list.");
+            // Order in target list: itemT1, itemS2 (assuming Add appends)
+            Assert.AreEqual(itemT1, targetList[0]);
+            Assert.AreEqual(itemS2, targetList[1]);
+            Assert.AreEqual(2, targetList[0].Score, "Score of original target item not updated."); // itemT1 score
+            Assert.AreEqual(1, targetList[1].Score, "Score of moved item not updated in target list."); // itemS2 score
+        }
+
     }
 }

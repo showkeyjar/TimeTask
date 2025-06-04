@@ -641,6 +641,48 @@ namespace TimeTask
             return true;
         }
 
+        internal static bool ProcessTaskReorder(ItemGrid draggedItem, List<ItemGrid> list, int originalIndex, int visualTargetIndex)
+        {
+            if (list == null || draggedItem == null || !list.Contains(draggedItem))
+            {
+                return false; // Should not happen if called correctly
+            }
+
+            // If visualTargetIndex is where the item already is or would be inserted right after itself, effectively not changing order.
+            // An item at 'originalIndex' is proposed to be inserted *before* 'visualTargetIndex'.
+            // No change if:
+            // 1. visualTargetIndex == originalIndex (drop onto self, insert before self - no change)
+            // 2. visualTargetIndex == originalIndex + 1 (drop onto item after self, insert before item after self - no change)
+            if (visualTargetIndex == originalIndex || visualTargetIndex == originalIndex + 1)
+            {
+                return false; // No actual move
+            }
+
+            list.RemoveAt(originalIndex); // Remove from old position first
+
+            // Adjust targetIndex for insertion based on original position
+            int actualInsertionIndex = visualTargetIndex;
+            if (originalIndex < visualTargetIndex)
+            {
+                actualInsertionIndex--; // The list shifted, so the visual target index is now one less
+            }
+
+            // Ensure actualInsertionIndex is within bounds
+            if (actualInsertionIndex < 0) actualInsertionIndex = 0;
+            if (actualInsertionIndex > list.Count) actualInsertionIndex = list.Count;
+
+
+            list.Insert(actualInsertionIndex, draggedItem);
+            draggedItem.LastModifiedDate = DateTime.Now;
+
+            // Update scores
+            for (int i = 0; i < list.Count; i++)
+            {
+                list[i].Score = list.Count - i;
+            }
+            return true;
+        }
+
         private void Quadrant_Drop(object sender, DragEventArgs e)
         {
             if (_draggedItem == null || _sourceDataGrid == null)
@@ -651,7 +693,7 @@ namespace TimeTask
             }
 
             DataGrid targetDataGrid = sender as DataGrid;
-            if (targetDataGrid == null || targetDataGrid == _sourceDataGrid)
+    if (targetDataGrid == null)
             {
                 _draggedItem = null;
                 _sourceDataGrid = null;
@@ -661,26 +703,86 @@ namespace TimeTask
 
             if (e.Data.GetDataPresent(typeof(ItemGrid)))
             {
-                ItemGrid droppedItem = _draggedItem;
-                var sourceList = _sourceDataGrid.ItemsSource as List<ItemGrid>;
-                var targetList = targetDataGrid.ItemsSource as List<ItemGrid>;
+        ItemGrid draggedItem = _draggedItem; // Renamed for clarity
+        var sourceList = _sourceDataGrid.ItemsSource as List<ItemGrid>; // This is also the targetList if quadrants are the same
 
-                if (targetList == null)
+        if (targetDataGrid == _sourceDataGrid) // Reordering within the same quadrant
                 {
-                    targetList = new List<ItemGrid>();
-                    targetDataGrid.ItemsSource = targetList;
+            if (sourceList != null && draggedItem != null && sourceList.Contains(draggedItem))
+            {
+                // Determine visual drop position (index in the list as currently displayed)
+                Point mousePosition = e.GetPosition(targetDataGrid);
+                int visualDropIndex = -1;
+                for (int i = 0; i < targetDataGrid.Items.Count; i++)
+                {
+                    var row = (DataGridRow)targetDataGrid.ItemContainerGenerator.ContainerFromIndex(i);
+                    if (row != null)
+                    {
+                        // Using Point(0,0) relative to the row for its top-left corner
+                        Point rowTopLeftInGrid = row.TransformToAncestor(targetDataGrid).Transform(new Point(0, 0));
+                        if (mousePosition.Y < rowTopLeftInGrid.Y + row.ActualHeight / 2)
+                        {
+                            visualDropIndex = i; // Drop will be before this item
+                            break;
+                        }
+                    }
                 }
 
-                if (ProcessTaskDrop(droppedItem, sourceList, targetList, targetDataGrid.Name))
+                if (visualDropIndex == -1) // Dropped below all items or on empty grid
                 {
-                    string sourceQuadrantNumber = GetQuadrantNumber(_sourceDataGrid.Name);
-                    string targetQuadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
+                    visualDropIndex = targetDataGrid.Items.Count; // Target is to append (insert before conceptual item at Count)
+                }
 
-                    if (sourceQuadrantNumber != null) update_csv(_sourceDataGrid, sourceQuadrantNumber);
-                    if (targetQuadrantNumber != null) update_csv(targetDataGrid, targetQuadrantNumber);
+                int originalIndex = sourceList.IndexOf(draggedItem);
 
-                    RefreshDataGrid(_sourceDataGrid);
+                // Call the testable helper method
+                // The visualDropIndex is the index in the list *before* removal, where the item should be inserted.
+                if (ProcessTaskReorder(draggedItem, sourceList, originalIndex, visualDropIndex))
+                {
                     RefreshDataGrid(targetDataGrid);
+                    string quadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
+                    if (quadrantNumber != null) update_csv(targetDataGrid, quadrantNumber);
+                }
+                // If ProcessTaskReorder returns false (no actual move), we do nothing here,
+                // _draggedItem and _sourceDataGrid are cleared at the end of Quadrant_Drop.
+            }
+        }
+        else // Moving to a different quadrant
+                {
+            var targetList = targetDataGrid.ItemsSource as List<ItemGrid>;
+            if (targetList == null)
+            {
+                targetList = new List<ItemGrid>();
+                targetDataGrid.ItemsSource = targetList;
+            }
+
+            if (ProcessTaskDrop(draggedItem, sourceList, targetList, targetDataGrid.Name))
+            {
+                string sourceQuadrantNumber = GetQuadrantNumber(_sourceDataGrid.Name);
+                string targetQuadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
+
+                // Update scores for the source list (optional, but good for consistency if scores mean global order)
+                // For now, let's assume scores are quadrant-local unless specified otherwise
+                // Update scores for the target list (ProcessTaskDrop doesn't do this, but should it?)
+                // The requirement implies scores are relative to the list they are in.
+                // Let's add score recalculation for the target list here as well.
+                for (int i = 0; i < targetList.Count; i++)
+                {
+                    targetList[i].Score = targetList.Count - i;
+                }
+                 // And for source list
+                for (int i = 0; i < sourceList.Count; i++)
+                {
+                    sourceList[i].Score = sourceList.Count - i;
+                }
+
+
+                if (sourceQuadrantNumber != null) update_csv(_sourceDataGrid, sourceQuadrantNumber);
+                if (targetQuadrantNumber != null) update_csv(targetDataGrid, targetQuadrantNumber);
+
+                RefreshDataGrid(_sourceDataGrid);
+                RefreshDataGrid(targetDataGrid);
+            }
                 }
             }
             _draggedItem = null;
