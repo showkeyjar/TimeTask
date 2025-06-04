@@ -31,6 +31,50 @@
 
    任务管理功能，管理用户的任务
 
+6. 看板视图 (Kanban View)
+   - 提供看板方法管理任务流程 (Backlog, To Do, In Progress, Done).
+   - 支持拖拽任务卡片，设置WIP限制 (Work-In-Progress Limits)。
+
+## Kanban Board Functionality
+
+The application now includes a Kanban board view, offering an alternative workflow for managing tasks visually as they move through different stages of completion.
+
+### Accessing the Kanban Board
+A toggle button labeled "Kanban View" (or "Quadrant View" when the Kanban board is active) is available in the main window. Clicking this button switches between the traditional Eisenhower matrix (quadrant) view and the new Kanban board view.
+
+### Columns
+The Kanban board features the following default columns, representing typical stages of a task lifecycle:
+-   **Backlog:** Tasks that are planned but not yet started. New tasks created via the "Add Task" window are initially placed here.
+-   **To Do:** Tasks that are ready to be worked on.
+-   **In Progress:** Tasks that are currently being actively worked on.
+-   **Done:** Tasks that have been completed.
+
+### Drag & Drop
+Tasks can be easily moved between columns by clicking and dragging a task card from one column to another. This action updates the task's `KanbanStage` property, and the change is saved to the corresponding CSV data file.
+
+### Work-In-Progress (WIP) Limits
+To help manage focus and prevent bottlenecks, WIP limits are implemented for certain columns:
+-   **To Do:** Limit of 5 tasks.
+-   **In Progress:** Limit of 3 tasks.
+
+When the number of tasks in a column with a WIP limit exceeds that limit, the column header will visually change:
+-   The background color of the header turns to pale red.
+-   The header text updates to show the current count versus the limit and indicates that the limit is exceeded (e.g., "In Progress (4/3) - LIMIT EXCEEDED").
+This provides an immediate visual cue to address the overload in that stage.
+
+### Task Creation
+When new tasks are created using the "Add Task" functionality, they are automatically assigned to the "Backlog" stage on the Kanban board with a default order of 0.
+
+### Interaction with Eisenhower Matrix
+The Kanban board provides an alternative view of your tasks; it does not replace the underlying Eisenhower matrix categorization:
+-   Tasks retain their **Importance** and **Urgency** properties regardless of their Kanban stage.
+-   The Kanban board is a different way to visualize and manage workflow. Tasks still belong to one of the four primary CSV data files (`1.csv`, `2.csv`, `3.csv`, `4.csv`) based on their Importance/Urgency. Moving a task between Kanban columns updates its `KanbanStage` but does not change its Importance/Urgency or the CSV file it's stored in.
+
+### Data File Updates
+To support the Kanban board, the following columns have been added to the task data CSV files:
+-   `kanbanStage`: Stores the current Kanban stage of the task (e.g., "Backlog", "To Do").
+-   `kanbanOrder`: Stores the display order of the task within its Kanban column (though explicit reordering UI within a column is not yet implemented, this field is for future use and default ordering).
+
 ## LLM Provider Configuration
 
 This application uses Large Language Models (LLMs) to provide features like automatic task classification, smart reminders, and task decomposition. The primary supported provider is Zhipu AI, but the configuration is flexible. To enable these features, you need to configure your API key and other relevant settings.

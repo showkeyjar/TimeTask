@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Reflection;
-using TimeTask; // Assuming ItemGrid and HelperClass are in this namespace
+// using TimeTask; // No longer needed as ItemGrid and HelperClass are in the same namespace
 using System.Windows; // Required for DragDrop, DragEventArgs,DataObject, DragDropEffects
 using System; // Required for DateTime
 using System.Windows.Media; // Required for Brushes
 
-namespace KanbanApp
+namespace TimeTask // Corrected namespace
 {
     /// <summary>
     /// Interaction logic for KanbanBoardView.xaml
@@ -245,7 +245,8 @@ namespace KanbanApp
                 string filePath = Path.Combine(dataFolderPath, csvFileName);
 
                 // Get all tasks that BELONG to this CSV file (quadrant)
-                List<ItemGrid> tasksForSpecificQuadrant = GetAllTasksForOriginalQuadrant(droppedItem.Importance, droppedItem.Urgency);
+                // Updated call to pass the instance collections
+                List<ItemGrid> tasksForSpecificQuadrant = GetAllTasksForOriginalQuadrant(droppedItem.Importance, droppedItem.Urgency, this.BacklogTasks, this.ToDoTasks, this.InProgressTasks, this.DoneTasks);
 
                 // Ensure the droppedItem in this list has the updated KanbanStage
                 // This is implicitly handled if GetAllTasksForOriginalQuadrant correctly pulls from the updated ObservableCollections

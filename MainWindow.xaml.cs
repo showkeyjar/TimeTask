@@ -13,7 +13,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
-using KanbanApp; // Required for KanbanBoardView
+// using KanbanApp; // No longer needed as KanbanBoardView is now in TimeTask namespace
 
 namespace TimeTask
 {
