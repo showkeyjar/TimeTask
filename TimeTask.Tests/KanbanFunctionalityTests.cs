@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Collections.ObjectModel; // For ObservableCollection in KanbanBoardView tests
-using KanbanApp; // Namespace of KanbanBoardView (which now contains the static helpers)
+// using KanbanApp; // KanbanBoardView is now in TimeTask namespace
 
 namespace TimeTask.Tests
 {
