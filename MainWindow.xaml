@@ -44,21 +44,30 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Grid x:Name="TaskGrid" Width="780" Height="630">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <Grid Width="780" Height="630"> <!-- Main container Grid -->
         <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>    <!-- Row 0 for Quadrant 1 & 2 (combines old Row 0 and 1) -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for Quadrant 3 & 4 (combines old Row 2 and 3) -->
+            <RowDefinition Height="Auto"/> <!-- Row for the switch button -->
+            <RowDefinition Height="*"/>    <!-- Row for the content (Quadrants or Kanban) -->
         </Grid.RowDefinitions>
 
-        <!-- Quadrant 1: Important & Urgent -->
-        <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
+        <Button x:Name="SwitchViewButton" Content="Kanban View" Click="SwitchViewButton_Click" Margin="5" HorizontalAlignment="Left"/>
+
+        <!-- Container for Quadrant View -->
+        <Grid x:Name="QuadrantViewGrid" Grid.Row="1" Visibility="Visible">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Quadrant 1: Important & Urgent -->
+            <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
@@ -142,5 +151,10 @@
             </Grid>
         </Border>
         
-    </Grid>
+        </Grid> <!-- End of QuadrantViewGrid -->
+
+        <!-- Kanban Board View -->
+        <local:KanbanBoardView x:Name="KanbanView" Grid.Row="1" Visibility="Collapsed" />
+
+    </Grid> <!-- End of Main container Grid -->
 </Window>

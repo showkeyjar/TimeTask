@@ -154,7 +154,9 @@ namespace TimeTask
                     IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
-                    Result = string.Empty
+                    Result = string.Empty,
+                    KanbanStage = "Backlog", // Explicitly set KanbanStage
+                    KanbanOrder = 0          // Explicitly set KanbanOrder
                 };
 
                 IsTaskAdded = true;
