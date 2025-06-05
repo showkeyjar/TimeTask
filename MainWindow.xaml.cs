@@ -15,7 +15,6 @@ using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
 using System.Globalization; // Required for CultureInfo
 using System.Windows.Data; // Required for IMultiValueConverter
-using System.Collections.HashSet; // For HashSet
 using System.Threading; // For Timer (though DispatcherTimer is in System.Windows.Threading)
 
 namespace TimeTask
