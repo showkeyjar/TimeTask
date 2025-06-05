@@ -5,38 +5,104 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="Add New Task" Height="300" Width="400"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Row 0 for Task Description Label -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for TaskDescriptionTextBox -->
-            <RowDefinition Height="Auto"/> <!-- Row 2 for Clarification Border -->
-            <RowDefinition Height="Auto"/> <!-- Row 3 for Add to List Label -->
-            <RowDefinition Height="Auto"/> <!-- Row 4 for LlmSuggestionText -->
-            <RowDefinition Height="Auto"/> <!-- Row 5 for ListSelectorComboBox -->
-            <RowDefinition Height="Auto"/> <!-- Row 6 for Buttons StackPanel -->
+        Height="Auto" Width="400"
+        WindowStartupLocation="CenterScreen" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+    <Border CornerRadius="10" Background="#FFFFE0" BorderBrush="#AAAAAA" BorderThickness="1" Margin="5">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="2" Color="Gray" Opacity="0.3" BlurRadius="5"/>
+        </Border.Effect>
+        <Grid> <!-- This grid will contain the close button and the main content grid -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- For the close button area -->
+                <RowDefinition Height="*"/>    <!-- For the main content -->
+            </Grid.RowDefinitions>
+
+            <Button x:Name="CloseButton" Content="✕" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Width="25" Height="25" Margin="0,5,5,0" FontFamily="Arial" FontWeight="Bold"
+                    Foreground="Gray" Background="Transparent" BorderBrush="{x:Null}" Click="CloseButton_Click">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFE0E0E0"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Grid Grid.Row="1" Margin="15,0,15,15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Task Description Label -->
+                    <RowDefinition Height="*"/>    <!-- TaskDescriptionTextBox -->
+            <RowDefinition Height="Auto"/> <!-- Clarification Border -->
+            <RowDefinition Height="Auto"/> <!-- Add to List Label -->
+            <RowDefinition Height="Auto"/> <!-- LlmSuggestionText -->
+            <RowDefinition Height="Auto"/> <!-- EnableReminderCheckBox -->
+            <RowDefinition Height="Auto"/> <!-- ReminderControlsPanel -->
+            <RowDefinition Height="Auto"/> <!-- ListSelectorComboBox -->
+            <RowDefinition Height="Auto"/> <!-- Buttons StackPanel -->
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10"/> <!-- Increased bottom margin -->
+        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60" BorderBrush="#CCCCCC" BorderThickness="1"/>
 
         <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
             <StackPanel>
                 <TextBlock Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Visible"/>
-                <!-- Visibility here is Visible because parent Border controls overall show/hide -->
                 <Button Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
-                 <!-- Visibility here is Visible because parent Border controls overall show/hide -->
             </StackPanel>
         </Border>
         
         <TextBlock Grid.Row="3" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
         <TextBlock Grid.Row="4" Name="LlmSuggestionText" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
-        <ComboBox Grid.Row="5" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
 
-        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
-            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
+        <CheckBox Grid.Row="5" Name="EnableReminderCheckBox" Content="Set Reminder" Margin="0,5,0,5" IsChecked="False"/>
+
+        <StackPanel Grid.Row="6" Name="ReminderControlsPanel" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsChecked, ElementName=EnableReminderCheckBox, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBlock Text="Reminder Date:" Margin="0,0,0,2"/>
+            <DatePicker Name="ReminderDatePicker" Margin="0,0,0,5"/>
+            <TextBlock Text="Reminder Time:" Margin="0,0,0,2"/>
+            <StackPanel Orientation="Horizontal">
+                <ComboBox Name="ReminderHourComboBox" Width="50" Margin="0,0,5,0"/>
+                <TextBlock Text=":" VerticalAlignment="Center"/>
+                <ComboBox Name="ReminderMinuteComboBox" Width="50" Margin="5,0,0,0"/>
+            </StackPanel>
         </StackPanel>
-    </Grid>
+
+        <ComboBox Grid.Row="7" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
+
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+        </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
 </Window>
