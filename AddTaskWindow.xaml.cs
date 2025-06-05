@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Windows;
+using System.Windows.Input; // Required for MouseButtonEventArgs, MouseButtonState
 using System.Threading.Tasks; // For async operations
 
 namespace TimeTask
@@ -242,6 +243,20 @@ namespace TimeTask
                 case 3: return ("Low", "Low");     // Not Important & Not Urgent
                 default: return ("Medium", "Medium"); // Default if index is unexpected
             }
+        }
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                this.DragMove();
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.DialogResult = false;
+            this.Close();
         }
     }
 } // Closing brace for namespace TimeTask

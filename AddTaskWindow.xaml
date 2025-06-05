@@ -5,15 +5,50 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="Add New Task" Height="Auto" Width="400"
-        WindowStartupLocation="CenterScreen" SizeToContent="Height">
+        Height="Auto" Width="400"
+        WindowStartupLocation="CenterScreen" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Task Description Label -->
-            <RowDefinition Height="*"/>    <!-- TaskDescriptionTextBox -->
+    <Border CornerRadius="10" Background="#FFFFE0" BorderBrush="#AAAAAA" BorderThickness="1" Margin="5">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="2" Color="Gray" Opacity="0.3" BlurRadius="5"/>
+        </Border.Effect>
+        <Grid> <!-- This grid will contain the close button and the main content grid -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- For the close button area -->
+                <RowDefinition Height="*"/>    <!-- For the main content -->
+            </Grid.RowDefinitions>
+
+            <Button x:Name="CloseButton" Content="✕" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Width="25" Height="25" Margin="0,5,5,0" FontFamily="Arial" FontWeight="Bold"
+                    Foreground="Gray" Background="Transparent" BorderBrush="{x:Null}" Click="CloseButton_Click">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFE0E0E0"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Grid Grid.Row="1" Margin="15,0,15,15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Task Description Label -->
+                    <RowDefinition Height="*"/>    <!-- TaskDescriptionTextBox -->
             <RowDefinition Height="Auto"/> <!-- Clarification Border -->
             <RowDefinition Height="Auto"/> <!-- Add to List Label -->
             <RowDefinition Height="Auto"/> <!-- LlmSuggestionText -->
@@ -24,7 +59,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60"/>
+        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60" BorderBrush="#CCCCCC" BorderThickness="1"/>
 
         <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
             <StackPanel>
@@ -52,8 +87,22 @@
         <ComboBox Grid.Row="7" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
 
         <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click"/>
-            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click"/>
+            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
         </StackPanel>
-    </Grid>
+            </Grid>
+        </Grid>
+    </Border>
 </Window>
