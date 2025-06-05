@@ -46,6 +46,15 @@
         </Style>
     </Window.Resources>
     <Grid x:Name="TaskGrid" Width="780" Height="630">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>    <!-- Row 0 for Quadrant 1 & 2 (combines old Row 0 and 1) -->
+            <RowDefinition Height="*"/>    <!-- Row 1 for Quadrant 3 & 4 (combines old Row 2 and 3) -->
+        </Grid.RowDefinitions>
+
         <!-- Settings Button -->
         <Button x:Name="SettingsButton"
                 Content="⚙"
@@ -77,14 +86,6 @@
                 </Style>
             </Button.Style>
         </Button>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>    <!-- Row 0 for Quadrant 1 & 2 (combines old Row 0 and 1) -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for Quadrant 3 & 4 (combines old Row 2 and 3) -->
-        </Grid.RowDefinitions>
 
         <!-- Quadrant 1: Important & Urgent -->
         <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
