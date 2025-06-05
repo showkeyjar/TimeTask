@@ -13,6 +13,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
+using System.Globalization; // Required for CultureInfo
+using System.Windows.Data; // Required for IMultiValueConverter
 
 namespace TimeTask
 {
@@ -41,7 +43,8 @@ namespace TimeTask
                     Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
                     Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
                     CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
-                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now
+                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now,
+                    ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -59,11 +62,11 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o}"
+                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""}"
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate";
+            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime";
             File.WriteAllLines(filepath, contents);
         }
     }
@@ -82,6 +85,7 @@ namespace TimeTask
         public string Urgency { set; get; } = "Unknown";
         public DateTime CreatedDate { set; get; } = DateTime.Now;
         public DateTime LastModifiedDate { set; get; } = DateTime.Now;
+        public DateTime? ReminderTime { get; set; } = null;
 
     }
 
@@ -96,6 +100,7 @@ namespace TimeTask
         private LlmService _llmService;
         private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
+        private System.Windows.Threading.DispatcherTimer _reminderTimer;
 
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
@@ -369,6 +374,61 @@ namespace TimeTask
             task2.CellEditEnding += DataGrid_CellEditEnding;
             task3.CellEditEnding += DataGrid_CellEditEnding;
             task4.CellEditEnding += DataGrid_CellEditEnding;
+
+            // Initialize and start the reminder timer
+            _reminderTimer = new System.Windows.Threading.DispatcherTimer();
+            _reminderTimer.Interval = TimeSpan.FromSeconds(30); // Check every 30 seconds
+            _reminderTimer.Tick += ReminderTimer_Tick;
+            _reminderTimer.Start();
+        }
+
+        private void ReminderTimer_Tick(object sender, EventArgs e)
+        {
+            DateTime now = DateTime.Now;
+            bool changesMadeOverall = false; // To track if any CSV needs update across all grids
+
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" }; // To identify which CSV to update
+
+            for (int i = 0; i < dataGrids.Length; i++)
+            {
+                DataGrid currentGrid = dataGrids[i];
+                bool changesMadeInCurrentGrid = false; // Track changes for the current grid/CSV
+
+                if (currentGrid.ItemsSource is List<ItemGrid> tasks)
+                {
+                    // Iterating on a copy for safe modification is complex with shared ItemGrid objects.
+                    // Direct modification and then saving is simpler if UI updates are handled carefully.
+                    foreach (ItemGrid task in tasks)
+                    {
+                        if (task.IsActive && task.ReminderTime.HasValue && task.ReminderTime.Value <= now)
+                        {
+                            // Display reminder
+                            // Ensure MessageBox is shown on the UI thread if timer runs on a different thread.
+                            // DispatcherTimer's Tick event runs on the Dispatcher's thread, so direct UI access is safe.
+                            MessageBox.Show(this, $"Reminder: {task.Task}", "Task Reminder", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                            // Mark reminder as shown by clearing it
+                            task.ReminderTime = null;
+                            task.LastModifiedDate = now; // Update last modified date
+                            changesMadeInCurrentGrid = true;
+                            changesMadeOverall = true;
+                        }
+                    }
+
+                    if (changesMadeInCurrentGrid)
+                    {
+                        // update_csv uses the ItemsSource of the DataGrid, which is the 'tasks' list.
+                        // So, modifications to 'task' objects within 'tasks' list are directly saved.
+                        update_csv(currentGrid, csvFiles[i].Replace(".csv", ""));
+
+                        // Optional: Refresh the specific DataGrid if clearing ReminderTime should reflect visually.
+                        // This is important if there's a column bound to ReminderTime or its existence.
+                        RefreshDataGrid(currentGrid);
+                    }
+                }
+            }
+            // No overall 'changesMadeOverall' check needed here for saving, as each grid is saved individually if changed.
         }
 
         private void DataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -788,6 +848,38 @@ namespace TimeTask
             _draggedItem = null;
             _sourceDataGrid = null;
             e.Handled = true;
+        }
+    }
+}
+
+// Add this class within the TimeTask namespace, but outside the MainWindow class.
+namespace TimeTask
+{
+    public class TaskWithReminderIndicatorConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values == null || values.Length < 2)
+                return string.Empty;
+
+            string taskDescription = values[0] as string ?? string.Empty;
+            DateTime? reminderTime = null;
+
+            if (values[1] != null && values[1] != DependencyProperty.UnsetValue)
+            {
+                reminderTime = values[1] as DateTime?;
+            }
+
+            if (reminderTime.HasValue)
+            {
+                return $"{taskDescription} ⏰";
+            }
+            return taskDescription;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -31,6 +31,16 @@ namespace TimeTask
                 "不重要不紧急"  // Not Important & Not Urgent
             };
             ListSelectorComboBox.SelectedIndex = 0; // Default to "重要且紧急"
+
+            // Populate Reminder Time ComboBoxes
+            for (int i = 0; i < 24; i++) ReminderHourComboBox.Items.Add(i.ToString("D2"));
+            for (int i = 0; i < 60; i++) ReminderMinuteComboBox.Items.Add(i.ToString("D2"));
+
+            // Set default selections
+            EnableReminderCheckBox.IsChecked = false;
+            ReminderDatePicker.SelectedDate = DateTime.Today;
+            ReminderHourComboBox.SelectedIndex = 0; // Default to "00"
+            ReminderMinuteComboBox.SelectedIndex = 0; // Default to "00"
         }
 
         // Removed older synchronous AddTaskButton_Click method. The async version below is used.
@@ -145,6 +155,26 @@ namespace TimeTask
                 // Update NewTask's Importance and Urgency based on the final ComboBox selection
                 var (finalImportance, finalUrgency) = GetPriorityFromIndex(SelectedListIndex);
 
+                DateTime? reminderTime = null;
+                if (EnableReminderCheckBox.IsChecked == true && ReminderDatePicker.SelectedDate.HasValue)
+                {
+                    DateTime date = ReminderDatePicker.SelectedDate.Value;
+                    int hour = 0;
+                    int minute = 0;
+
+                    if (ReminderHourComboBox.SelectedItem != null && int.TryParse(ReminderHourComboBox.SelectedItem.ToString(), out int h))
+                    {
+                        hour = h;
+                    }
+                    if (ReminderMinuteComboBox.SelectedItem != null && int.TryParse(ReminderMinuteComboBox.SelectedItem.ToString(), out int m))
+                    {
+                        minute = m;
+                    }
+                    // Ensure hour and minute are parsed successfully, otherwise they remain 0 or previously parsed value.
+                    // A more robust solution might involve explicit validation here if 00:00 is not always a desired default.
+                    reminderTime = new DateTime(date.Year, date.Month, date.Day, hour, minute, 0);
+                }
+
                 NewTask = new ItemGrid
                 {
                     Task = TaskDescription,
@@ -154,7 +184,8 @@ namespace TimeTask
                     IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
-                    Result = string.Empty
+                    Result = string.Empty,
+                    ReminderTime = reminderTime
                 };
 
                 IsTaskAdded = true;
