@@ -15,6 +15,8 @@ using System.Windows.Media; // Added for VisualTreeHelper
 using System.Threading.Tasks; // Added for Task.Delay and async/await
 using System.Globalization; // Required for CultureInfo
 using System.Windows.Data; // Required for IMultiValueConverter
+using System.Collections.HashSet; // For HashSet
+using System.Threading; // For Timer (though DispatcherTimer is in System.Windows.Threading)
 
 namespace TimeTask
 {
@@ -86,6 +88,11 @@ namespace TimeTask
         public DateTime CreatedDate { set; get; } = DateTime.Now;
         public DateTime LastModifiedDate { set; get; } = DateTime.Now;
         public DateTime? ReminderTime { get; set; } = null;
+        public string TaskType { get; set; }
+        public DateTime? CompletionTime { get; set; }
+        public string CompletionStatus { get; set; }
+        public string AssignedRole { get; set; }
+        public string SourceTaskID { get; set; } // To map to SourceTaskID from the database
 
     }
 
@@ -101,6 +108,11 @@ namespace TimeTask
         private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
+
+        private DatabaseService _databaseService;
+        private System.Windows.Threading.DispatcherTimer _syncTimer;
+        private HashSet<string> _syncedTaskSourceIDs = new HashSet<string>();
+        private bool _isFirstSyncAttempted = false; // To control initial sync message
 
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
@@ -139,6 +151,16 @@ namespace TimeTask
                 {
                     Console.WriteLine($"Error reading CSV file: {filePath}. Or file is empty/new.");
                     items = new List<ItemGrid>();
+                }
+                else
+                {
+                    foreach (var item in items)
+                    {
+                        if (!string.IsNullOrWhiteSpace(item.SourceTaskID) && !_syncedTaskSourceIDs.Contains(item.SourceTaskID))
+                        {
+                            _syncedTaskSourceIDs.Add(item.SourceTaskID);
+                        }
+                    }
                 }
                 
                 bool updated = false; // This variable is now effectively unused in this part of the loop
@@ -380,6 +402,156 @@ namespace TimeTask
             _reminderTimer.Interval = TimeSpan.FromSeconds(30); // Check every 30 seconds
             _reminderTimer.Tick += ReminderTimer_Tick;
             _reminderTimer.Start();
+
+            InitializeSyncService();
+        }
+
+        private void InitializeSyncService()
+        {
+            try
+            {
+                string connectionString = Properties.Settings.Default.TeamTasksDbConnectionString;
+                if (Properties.Settings.Default.EnableTeamSync)
+                {
+                    if (!string.IsNullOrWhiteSpace(connectionString))
+                    {
+                        _databaseService = new DatabaseService(connectionString);
+                        Console.WriteLine("DatabaseService initialized with connection string.");
+
+                        if (_syncTimer == null)
+                        {
+                            _syncTimer = new System.Windows.Threading.DispatcherTimer();
+                            _syncTimer.Tick += SyncTimer_Tick;
+                        }
+                        _syncTimer.Interval = TimeSpan.FromMinutes(Properties.Settings.Default.SyncIntervalMinutes > 0 ? Properties.Settings.Default.SyncIntervalMinutes : 30);
+                        _syncTimer.Start();
+                        Console.WriteLine($"Sync timer started. Interval: {_syncTimer.Interval.TotalMinutes} minutes.");
+
+                        // Perform an initial sync immediately if enabled
+                        Task.Run(() => SyncTimer_Tick(this, EventArgs.Empty));
+                    }
+                    else
+                    {
+                        Console.WriteLine("Team Sync is enabled but connection string is missing. Sync service not started.");
+                        if (!_isFirstSyncAttempted)
+                        {
+                             // MessageBox.Show(this, "Team Task Synchronization is enabled, but the database connection string is not configured. Please configure it in Settings.", "Sync Configuration Needed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            _isFirstSyncAttempted = true; // Show message only once per app load initially
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Team Sync is disabled. Sync service not started.");
+                    if (_syncTimer != null)
+                    {
+                        _syncTimer.Stop();
+                        Console.WriteLine("Sync timer stopped.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing sync service: {ex.Message}");
+                MessageBox.Show(this, $"Error initializing synchronization service: {ex.Message}", "Sync Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void SyncTimer_Tick(object sender, EventArgs e)
+        {
+            if (!Properties.Settings.Default.EnableTeamSync || _databaseService == null)
+            {
+                if (_syncTimer != null) _syncTimer.Stop(); // Stop if disabled or service not available
+                Console.WriteLine("SyncTimer_Tick: Sync disabled or DatabaseService not available. Timer stopped.");
+                return;
+            }
+
+            Console.WriteLine("SyncTimer_Tick: Attempting to sync team tasks...");
+            try
+            {
+                string userRole = Properties.Settings.Default.TeamRole;
+                List<ItemGrid> newTasks = await Task.Run(() => _databaseService.GetTeamTasks(userRole)); // Run DB call on background thread
+
+                if (newTasks == null)
+                {
+                    Console.WriteLine("SyncTimer_Tick: GetTeamTasks returned null. Skipping update.");
+                    if (!_isFirstSyncAttempted)
+                    {
+                        // MessageBox.Show(this, "Could not connect to the team task database. Please check settings and network.", "Sync Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        _isFirstSyncAttempted = true;
+                    }
+                    return;
+                }
+                 _isFirstSyncAttempted = true; // Mark that an attempt was made
+
+                int addedCount = 0;
+                var task1List = task1.ItemsSource as List<ItemGrid>;
+                if (task1List == null)
+                {
+                    // This needs to be on UI thread if we assign it back
+                    await Dispatcher.InvokeAsync(() => {
+                        task1List = new List<ItemGrid>();
+                        task1.ItemsSource = task1List;
+                    });
+                }
+
+                foreach (var dbTask in newTasks)
+                {
+                    if (!string.IsNullOrWhiteSpace(dbTask.SourceTaskID) && _syncedTaskSourceIDs.Contains(dbTask.SourceTaskID))
+                    {
+                        continue; // Skip already synced task
+                    }
+
+                    // Ensure properties are set for the quadrant
+                    dbTask.Importance = "High"; // Default for "Important & Urgent"
+                    dbTask.Urgency = "High";   // Default for "Important & Urgent"
+                    // Score will be set on refresh/add
+
+                    // Operations on task1List must be on UI thread
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        // Double check task1List is not null if it was created within Dispatcher.InvokeAsync
+                        if (task1.ItemsSource is List<ItemGrid> currentList) {
+                           currentList.Add(dbTask);
+                            if (!string.IsNullOrWhiteSpace(dbTask.SourceTaskID))
+                            {
+                                _syncedTaskSourceIDs.Add(dbTask.SourceTaskID);
+                            }
+                            addedCount++;
+                        } else {
+                             // Fallback or error if task1List is unexpectedly null
+                            task1List = new List<ItemGrid>();
+                            task1.ItemsSource = task1List;
+                            task1List.Add(dbTask);
+                            if (!string.IsNullOrWhiteSpace(dbTask.SourceTaskID))
+                            {
+                                _syncedTaskSourceIDs.Add(dbTask.SourceTaskID);
+                            }
+                            addedCount++;
+                            Console.WriteLine("SyncTimer_Tick: task1.ItemsSource was null and re-initialized on UI thread.");
+                        }
+                    });
+                }
+
+                if (addedCount > 0)
+                {
+                    Console.WriteLine($"SyncTimer_Tick: Added {addedCount} new tasks to 'Important & Urgent'.");
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        RefreshDataGrid(task1);
+                        update_csv(task1, "1"); // Persist to CSV
+                    });
+                }
+                else
+                {
+                    Console.WriteLine("SyncTimer_Tick: No new tasks to add.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during scheduled sync: {ex.Message}");
+                // Avoid showing MessageBox repeatedly from timer tick. Log is better.
+            }
         }
 
         private void ReminderTimer_Tick(object sender, EventArgs e)
@@ -944,6 +1116,10 @@ namespace TimeTask
                 // for example, if LLM is used to process tasks on load.
                 // loadDataGridView(); // Consider if this is needed and its implications.
                 // For now, just re-initializing the service.
+
+                // Re-initialize sync service with potentially new settings
+                if (_syncTimer != null) _syncTimer.Stop(); // Stop existing timer before re-init
+                InitializeSyncService();
             }
         }
     }
