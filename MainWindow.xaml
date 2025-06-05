@@ -62,7 +62,16 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Label Grid.Row="0" Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                    <Label Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Button x:Name="AddUrgentImportantTaskButton" Content="+" Tag="0" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAFFDADA" BorderBrush="#88FFDADA" Foreground="White">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="12.5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325" IsReadOnly="True">
@@ -96,7 +105,16 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Label Grid.Row="0" Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                    <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="12.5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325" IsReadOnly="True">
@@ -130,7 +148,16 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Label Grid.Row="0" Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                    <Label Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Button x:Name="AddNotImportantUrgentTaskButton" Content="+" Tag="2" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD9FFD9" BorderBrush="#88D9FFD9" Foreground="White">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="12.5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325" IsReadOnly="True">
@@ -164,7 +191,16 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Label Grid.Row="0" Content="不重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,5" FontWeight="Bold" FontSize="14" VerticalAlignment="Top" Foreground="White" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                    <Label Content="不重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Button x:Name="AddNotImportantNotUrgentTaskButton" Content="+" Tag="3" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAE0E0E0" BorderBrush="#88E0E0E0" Foreground="White">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="12.5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325" IsReadOnly="True">

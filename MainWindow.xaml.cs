@@ -849,6 +849,72 @@ namespace TimeTask
             _sourceDataGrid = null;
             e.Handled = true;
         }
+
+        private void AddQuickTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button clickedButton && clickedButton.Tag is string tagString)
+            {
+                if (int.TryParse(tagString, out int quadrantIndex))
+                {
+                    // Ensure _llmService is available (it's initialized in MainWindow's constructor)
+                    if (_llmService == null)
+                    {
+                        MessageBox.Show("LLM Service is not available.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    // This constructor signature will be updated in the next subtask.
+                    // For now, this code assumes AddTaskWindow can take quadrantIndex.
+                    AddTaskWindow addTaskWindow = new AddTaskWindow(_llmService, quadrantIndex);
+                    bool? dialogResult = addTaskWindow.ShowDialog();
+
+                    if (dialogResult == true && addTaskWindow.IsTaskAdded && addTaskWindow.NewTask != null)
+                    {
+                        ItemGrid newTask = addTaskWindow.NewTask;
+
+                        int finalQuadrantIndex = AddTaskWindow.GetIndexFromPriority(newTask.Importance, newTask.Urgency);
+                        DataGrid targetDataGrid = null;
+
+                        switch (finalQuadrantIndex)
+                        {
+                            case 0: targetDataGrid = task1; break;
+                            case 1: targetDataGrid = task2; break;
+                            case 2: targetDataGrid = task3; break;
+                            case 3: targetDataGrid = task4; break;
+                            default:
+                                MessageBox.Show("Invalid quadrant specified for the new task after dialog.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                                return;
+                        }
+
+                        string csvFileNumber = GetQuadrantNumber(targetDataGrid.Name);
+
+                        List<ItemGrid> items = targetDataGrid.ItemsSource as List<ItemGrid>;
+                        if (items == null)
+                        {
+                            items = new List<ItemGrid>();
+                            targetDataGrid.ItemsSource = items;
+                        }
+
+                        items.Add(newTask);
+                        // Re-score all items in the list for consistent ordering
+                        for (int i = 0; i < items.Count; i++)
+                        {
+                            items[i].Score = items.Count - i;
+                        }
+
+                        RefreshDataGrid(targetDataGrid);
+                        if (!string.IsNullOrEmpty(csvFileNumber))
+                        {
+                            update_csv(targetDataGrid, csvFileNumber);
+                        }
+                        else
+                        {
+                             MessageBox.Show($"Could not determine CSV file for quadrant: {targetDataGrid.Name}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -18,7 +18,7 @@ namespace TimeTask
         public bool IsTaskAdded { get; private set; } = false;
         public ItemGrid NewTask { get; private set; } // The newly created task object
 
-        public AddTaskWindow(LlmService llmService)
+        public AddTaskWindow(LlmService llmService, int? defaultQuadrantIndex = null)
         {
             InitializeComponent();
             _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
@@ -31,6 +31,15 @@ namespace TimeTask
                 "不重要不紧急"  // Not Important & Not Urgent
             };
             ListSelectorComboBox.SelectedIndex = 0; // Default to "重要且紧急"
+
+            // Pre-select based on defaultQuadrantIndex if provided
+            if (defaultQuadrantIndex.HasValue)
+            {
+                if (defaultQuadrantIndex.Value >= 0 && defaultQuadrantIndex.Value < ListSelectorComboBox.Items.Count)
+                {
+                    ListSelectorComboBox.SelectedIndex = defaultQuadrantIndex.Value;
+                }
+            }
 
             // Populate Reminder Time ComboBoxes
             for (int i = 0; i < 24; i++) ReminderHourComboBox.Items.Add(i.ToString("D2"));
@@ -206,7 +215,7 @@ namespace TimeTask
         }
 
         // Helper method to map LLM priority to ComboBox index
-        internal static int GetIndexFromPriority(string importance, string urgency)
+        public static int GetIndexFromPriority(string importance, string urgency)
         {
             // Normalize inputs to lower case for robust comparison
             importance = importance?.ToLowerInvariant() ?? "unknown";
@@ -223,7 +232,7 @@ namespace TimeTask
         }
 
         // Helper method to map ComboBox index back to Importance/Urgency strings
-        internal static (string Importance, string Urgency) GetPriorityFromIndex(int index)
+        public static (string Importance, string Urgency) GetPriorityFromIndex(int index)
         {
             switch (index)
             {
