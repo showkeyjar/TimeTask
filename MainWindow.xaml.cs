@@ -915,10 +915,44 @@ namespace TimeTask
                 }
             }
         }
+
+        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            LlmSettingsWindow settingsWindow = new LlmSettingsWindow();
+            settingsWindow.Owner = this; // Set the owner for proper modal behavior and centering
+
+            // ShowDialog returns a nullable bool (bool?). True if OK/Save, False if Cancel, Null if just closed.
+            bool? dialogResult = settingsWindow.ShowDialog();
+
+            if (dialogResult == true) // This implies settings were saved and DialogResult was set to true in LlmSettingsWindow
+            {
+                // Check if _llmService is null, though it should be initialized in the constructor
+                if (_llmService == null)
+                {
+                    _llmService = LlmService.Create(); // Or handle error appropriately
+                    MessageBox.Show("LLM Service was not initialized. It has been initialized now. Please try your operation again.", "Service Re-initialized", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    // Assuming LlmService will have a public method to reload its config.
+                    // This method needs to be added in the next step.
+                    _llmService.ReloadConfigAndReinitialize();
+                    MessageBox.Show("LLM settings have been updated and the service has been re-initialized.", "Settings Updated", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+
+                // Optionally, you might want to refresh or reload data that depends on LLM service,
+                // for example, if LLM is used to process tasks on load.
+                // loadDataGridView(); // Consider if this is needed and its implications.
+                // For now, just re-initializing the service.
+            }
+        }
     }
 }
 
 // Add this class within the TimeTask namespace, but outside the MainWindow class.
+// The namespace TimeTask is already declared above, so we are effectively adding to it.
+// No need to redeclare "namespace TimeTask" if the class is meant to be in the same one.
+// However, the original file has two namespace blocks. Let's keep that structure.
 namespace TimeTask
 {
     public class TaskWithReminderIndicatorConverter : IMultiValueConverter
