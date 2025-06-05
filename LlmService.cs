@@ -590,5 +590,13 @@ namespace TimeTask
         {
             return new LlmService();
         }
+
+        public void ReloadConfigAndReinitialize()
+        {
+            Console.WriteLine("LlmService: Reloading configuration and re-initializing...");
+            LoadLlmConfig();         // Reloads API key, base URL, and model name from App.config
+            InitializeOpenAiService(); // Re-creates the OpenAIService instance with new settings
+            Console.WriteLine("LlmService: Re-initialization complete.");
+        }
     }
 }
