@@ -33,20 +33,132 @@ namespace TimeTask
             }
 
             // Load new Properties.Settings.Default settings
+            // EnableTeamSync
             try
             {
                 EnableTeamSyncCheckBox.IsChecked = (bool)Properties.Settings.Default["EnableTeamSync"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'EnableTeamSync' not found. Defaulting to false. Error: {ex.Message}");
+                EnableTeamSyncCheckBox.IsChecked = false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'EnableTeamSync'. Defaulting to false. Error: {ex.Message}");
+                EnableTeamSyncCheckBox.IsChecked = false;
+            }
+
+            // TeamRole
+            try
+            {
                 TeamRoleTextBox.Text = (string)Properties.Settings.Default["TeamRole"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'TeamRole' not found. Defaulting to empty. Error: {ex.Message}");
+                TeamRoleTextBox.Text = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'TeamRole'. Defaulting to empty. Error: {ex.Message}");
+                TeamRoleTextBox.Text = string.Empty;
+            }
+
+            // DbHost
+            try
+            {
                 DbHostTextBox.Text = (string)Properties.Settings.Default["DbHost"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbHost' not found. Defaulting to empty. Error: {ex.Message}");
+                DbHostTextBox.Text = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbHost'. Defaulting to empty. Error: {ex.Message}");
+                DbHostTextBox.Text = string.Empty;
+            }
+
+            // DbPort
+            try
+            {
                 DbPortTextBox.Text = (string)Properties.Settings.Default["DbPort"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbPort' not found. Defaulting to 5432. Error: {ex.Message}");
+                DbPortTextBox.Text = "5432";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbPort'. Defaulting to 5432. Error: {ex.Message}");
+                DbPortTextBox.Text = "5432";
+            }
+
+            // DbName
+            try
+            {
                 DbNameTextBox.Text = (string)Properties.Settings.Default["DbName"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbName' not found. Defaulting to empty. Error: {ex.Message}");
+                DbNameTextBox.Text = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbName'. Defaulting to empty. Error: {ex.Message}");
+                DbNameTextBox.Text = string.Empty;
+            }
+
+            // DbUser
+            try
+            {
                 DbUserTextBox.Text = (string)Properties.Settings.Default["DbUser"];
-                DbPasswordBox.Password = (string)Properties.Settings.Default["DbPassword"]; // Assuming plain text storage
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbUser' not found. Defaulting to empty. Error: {ex.Message}");
+                DbUserTextBox.Text = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbUser'. Defaulting to empty. Error: {ex.Message}");
+                DbUserTextBox.Text = string.Empty;
+            }
+
+            // DbPassword
+            try
+            {
+                DbPasswordBox.Password = (string)Properties.Settings.Default["DbPassword"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbPassword' not found. Defaulting to empty. Error: {ex.Message}");
+                DbPasswordBox.Password = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbPassword'. Defaulting to empty. Error: {ex.Message}");
+                DbPasswordBox.Password = string.Empty;
+            }
+
+            // SyncIntervalMinutes
+            try
+            {
                 SyncIntervalTextBox.Text = ((int)Properties.Settings.Default["SyncIntervalMinutes"]).ToString();
             }
-            catch (Exception ex) // Catch a more general exception for property settings
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                MessageBox.Show(this, "Error loading user settings: " + ex.Message, "Settings Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"INFO: Settings property 'SyncIntervalMinutes' not found. Defaulting to 30. Error: {ex.Message}");
+                SyncIntervalTextBox.Text = "30";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'SyncIntervalMinutes'. Defaulting to 30. Error: {ex.Message}");
+                SyncIntervalTextBox.Text = "30";
             }
         }
 
