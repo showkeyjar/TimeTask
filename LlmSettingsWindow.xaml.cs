@@ -1,6 +1,7 @@
 using System;
 using System.Configuration;
 using System.Windows;
+using System.Collections.Generic; // Added for List<string>
 
 namespace TimeTask
 {
@@ -12,10 +13,40 @@ namespace TimeTask
         {
             InitializeComponent();
             LoadSettings();
+            // It's good practice to handle the Loaded event for UI element interactions if needed,
+            // but for direct property setting based on loaded XAML, constructor is fine.
+            // For this task, direct access after InitializeComponent is acceptable.
+            // Consider adding a LlmSettingsWindow_Loaded event handler if more complex setup is needed.
+            EnableTeamSyncCheckBox.Click += EnableTeamSyncCheckBox_Click;
+        }
+
+        private void UpdateTeamSyncControlsEnabledState()
+        {
+            bool isEnabled = EnableTeamSyncCheckBox.IsChecked ?? false;
+            if (TeamSyncDetailsPanel != null) // Check if the panel exists (it should if XAML is updated)
+            {
+                TeamSyncDetailsPanel.IsEnabled = isEnabled;
+            }
+            else // Fallback if panel wasn't created, disable individual controls
+            {
+                TeamRoleComboBox.IsEnabled = isEnabled;
+                DbHostTextBox.IsEnabled = isEnabled;
+                DbPortTextBox.IsEnabled = isEnabled;
+                DbNameTextBox.IsEnabled = isEnabled;
+                DbUserTextBox.IsEnabled = isEnabled;
+                DbPasswordBox.IsEnabled = isEnabled;
+                SyncIntervalTextBox.IsEnabled = isEnabled;
+            }
+        }
+
+        private void EnableTeamSyncCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateTeamSyncControlsEnabledState();
         }
 
         private void LoadSettings()
         {
+            // Load existing App.config settings
             try
             {
                 ApiKeyTextBox.Text = ConfigurationManager.AppSettings["OpenAIApiKey"] ?? string.Empty;
@@ -24,18 +55,172 @@ namespace TimeTask
             }
             catch (ConfigurationErrorsException ex)
             {
-                MessageBox.Show(this, "Error loading configuration: " + ex.Message, "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, "Error loading App.config settings: " + ex.Message, "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+
+            // Load new Properties.Settings.Default settings
+            // EnableTeamSync
+            try
+            {
+                EnableTeamSyncCheckBox.IsChecked = (bool)Properties.Settings.Default["EnableTeamSync"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'EnableTeamSync' not found. Defaulting to false. Error: {ex.Message}");
+                EnableTeamSyncCheckBox.IsChecked = false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'EnableTeamSync'. Defaulting to false. Error: {ex.Message}");
+                EnableTeamSyncCheckBox.IsChecked = false;
+            }
+
+            // TeamRole
+            List<string> agileRoles = new List<string> {
+                "Developer",
+                "Product Owner",
+                "Scrum Master",
+                "QA/Tester",
+                "Analyst",
+                "Team Lead",
+                "Designer",
+                "DevOps Engineer",
+                "Any", // For roles not explicitly listed or to see all tasks
+                "Unassigned" // For tasks specifically marked as unassigned
+            };
+            TeamRoleComboBox.ItemsSource = agileRoles;
+
+            string savedRole = string.Empty;
+            try
+            {
+                savedRole = (string)Properties.Settings.Default["TeamRole"];
+                if (!string.IsNullOrEmpty(savedRole) && agileRoles.Contains(savedRole))
+                {
+                    TeamRoleComboBox.SelectedItem = savedRole;
+                }
+                else if (agileRoles.Count > 0)
+                {
+                    TeamRoleComboBox.SelectedIndex = 0; // Default to the first role
+                }
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'TeamRole' not found. Defaulting to first item. Error: {ex.Message}");
+                if (agileRoles.Count > 0) TeamRoleComboBox.SelectedIndex = 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'TeamRole'. Defaulting to first item. Error: {ex.Message}");
+                if (agileRoles.Count > 0) TeamRoleComboBox.SelectedIndex = 0;
+            }
+
+            // DbHost
+            string dbHost = string.Empty;
+            try
+            {
+                dbHost = (string)Properties.Settings.Default["DbHost"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbHost' not found. Defaulting to 'localhost'. Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbHost'. Defaulting to 'localhost'. Error: {ex.Message}");
+            }
+            DbHostTextBox.Text = !string.IsNullOrWhiteSpace(dbHost) ? dbHost : "localhost";
+
+            // DbPort
+            string dbPort = string.Empty;
+            try
+            {
+                dbPort = (string)Properties.Settings.Default["DbPort"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbPort' not found. Defaulting to '5432'. Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbPort'. Defaulting to '5432'. Error: {ex.Message}");
+            }
+            DbPortTextBox.Text = !string.IsNullOrWhiteSpace(dbPort) ? dbPort : "5432";
+
+            // DbName
+            string dbName = string.Empty;
+            try
+            {
+                dbName = (string)Properties.Settings.Default["DbName"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbName' not found. Defaulting to 'team_tasks_db'. Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbName'. Defaulting to 'team_tasks_db'. Error: {ex.Message}");
+            }
+            DbNameTextBox.Text = !string.IsNullOrWhiteSpace(dbName) ? dbName : "team_tasks_db";
+
+            // DbUser
+            string dbUser = string.Empty;
+            try
+            {
+                dbUser = (string)Properties.Settings.Default["DbUser"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbUser' not found. Defaulting to 'postgres'. Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbUser'. Defaulting to 'postgres'. Error: {ex.Message}");
+            }
+            DbUserTextBox.Text = !string.IsNullOrWhiteSpace(dbUser) ? dbUser : "postgres";
+
+            // DbPassword
+            string dbPassword = string.Empty;
+            try
+            {
+                dbPassword = (string)Properties.Settings.Default["DbPassword"];
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'DbPassword' not found. Defaulting to '123456'. Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'DbPassword'. Defaulting to '123456'. Error: {ex.Message}");
+            }
+            DbPasswordBox.Password = !string.IsNullOrWhiteSpace(dbPassword) ? dbPassword : "123456";
+
+            // SyncIntervalMinutes
+            try
+            {
+                SyncIntervalTextBox.Text = ((int)Properties.Settings.Default["SyncIntervalMinutes"]).ToString();
+            }
+            catch (System.Configuration.SettingsPropertyNotFoundException ex)
+            {
+                Console.WriteLine($"INFO: Settings property 'SyncIntervalMinutes' not found. Defaulting to 30. Error: {ex.Message}");
+                SyncIntervalTextBox.Text = "30";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR: Error loading setting 'SyncIntervalMinutes'. Defaulting to 30. Error: {ex.Message}");
+                SyncIntervalTextBox.Text = "30";
+            }
+            UpdateTeamSyncControlsEnabledState(); // Call after all settings are loaded
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
+            // Save existing App.config settings
             try
             {
                 Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 AppSettingsSection appSettings = config.AppSettings;
 
-                // Add or update settings
+                // Add or update App.config settings
                 if (appSettings.Settings["OpenAIApiKey"] == null)
                     appSettings.Settings.Add("OpenAIApiKey", ApiKeyTextBox.Text);
                 else
@@ -51,11 +236,7 @@ namespace TimeTask
                 else
                     appSettings.Settings["LlmModelName"].Value = ModelNameTextBox.Text;
 
-                // Ensure LlmProvider key exists, defaulting to "zhipu" or empty if user clears it
-                // This key is not directly used by LlmService's core logic for Betalgo library but is in App.config
-                // For consistency with the existing App.config, we manage it.
-                // A more advanced settings UI might have a dropdown for known providers that then sets URL/model.
-                string providerValue = string.Empty; // Default to empty if not "zhipu" or similar
+                string providerValue = string.Empty;
                 if (!string.IsNullOrWhiteSpace(ApiBaseUrlTextBox.Text) && ApiBaseUrlTextBox.Text.Contains("bigmodel.cn"))
                 {
                     providerValue = "zhipu";
@@ -64,25 +245,98 @@ namespace TimeTask
                 {
                     providerValue = "openai";
                 }
-                // If other known providers are added, their conditions can be here.
 
                 if (appSettings.Settings["LlmProvider"] == null)
                     appSettings.Settings.Add("LlmProvider", providerValue);
                 else
                     appSettings.Settings["LlmProvider"].Value = providerValue;
 
-
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
-
-                SettingsSaved = true;
-                MessageBox.Show(this, "Settings saved successfully. The application may need to re-initialize services to use new settings.", "Settings Saved", MessageBoxButton.OK, MessageBoxImage.Information);
-                this.DialogResult = true; // Automatically closes the window and signals success
-                this.Close();
             }
             catch (ConfigurationErrorsException ex)
             {
-                MessageBox.Show(this, "Error saving configuration: " + ex.Message, "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, "Error saving App.config settings: " + ex.Message, "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                SettingsSaved = false;
+                this.DialogResult = false;
+                return; // Exit if App.config saving fails
+            }
+
+            // Save new Properties.Settings.Default settings
+            try
+            {
+                try { Properties.Settings.Default["EnableTeamSync"] = EnableTeamSyncCheckBox.IsChecked ?? false; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'EnableTeamSync'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'EnableTeamSync'. General error. Error: {ex.Message}"); }
+
+                try
+                {
+                    if (TeamRoleComboBox.SelectedItem != null)
+                    {
+                        Properties.Settings.Default["TeamRole"] = TeamRoleComboBox.SelectedItem as string;
+                    }
+                    else
+                    {
+                        Properties.Settings.Default["TeamRole"] = string.Empty;
+                    }
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamRole'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamRole'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbHost"] = DbHostTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbHost'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbHost'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbPort"] = DbPortTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPort'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPort'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbName"] = DbNameTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbName'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbName'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbUser"] = DbUserTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbUser'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbUser'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbPassword"] = DbPasswordBox.Password; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPassword'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPassword'. General error. Error: {ex.Message}"); }
+
+                try
+                {
+                    if (int.TryParse(SyncIntervalTextBox.Text, out int interval))
+                    {
+                        Properties.Settings.Default["SyncIntervalMinutes"] = interval;
+                    }
+                    else
+                    {
+                        Properties.Settings.Default["SyncIntervalMinutes"] = 30; // Default
+                        MessageBox.Show(this, "Invalid Sync Interval. It has been reset to default (30 minutes).", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        SyncIntervalTextBox.Text = "30"; // Update UI
+                    }
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'SyncIntervalMinutes'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'SyncIntervalMinutes'. General error. Error: {ex.Message}"); }
+
+                try
+                {
+                    string connString = $"Host={DbHostTextBox.Text};Port={DbPortTextBox.Text};Username={DbUserTextBox.Text};Password={DbPasswordBox.Password};Database={DbNameTextBox.Text};";
+                    Properties.Settings.Default["TeamTasksDbConnectionString"] = connString;
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamTasksDbConnectionString'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamTasksDbConnectionString'. General error. Error: {ex.Message}"); }
+
+                Properties.Settings.Default.Save();
+
+                SettingsSaved = true;
+                MessageBox.Show(this, "All settings saved successfully. The application may need to re-initialize services to use new settings.", "Settings Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                this.DialogResult = true; // Automatically closes the window and signals success
+                this.Close();
+            }
+            catch (Exception ex) // Catch a more general exception for property settings
+            {
+                MessageBox.Show(this, "Error saving user settings: " + ex.Message, "Settings Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 SettingsSaved = false;
                 this.DialogResult = false;
             }

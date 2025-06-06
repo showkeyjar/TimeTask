@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="LLM Settings" Height="250" Width="400"
+        Title="LLM Settings" Height="550" MaxHeight="600" Width="400"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="#E5E5E5">
     <Window.Resources>
         <Style TargetType="TextBox">
@@ -59,14 +59,18 @@
             <Setter Property="Foreground" Value="#333333"/>
         </Style>
     </Window.Resources>
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Row 0 -->
+                <RowDefinition Height="Auto"/> <!-- Row 1 -->
+            <RowDefinition Height="Auto"/> <!-- Row 2 -->
+            <RowDefinition Height="Auto"/> <!-- Row 3 -->
+            <RowDefinition Height="Auto"/> <!-- Row 4: Separator -->
+            <RowDefinition Height="Auto"/> <!-- Row 5: Team Task Sync TextBlock -->
+            <RowDefinition Height="Auto"/> <!-- Row 6: StackPanel for Team Sync Settings -->
+            <RowDefinition Height="*"/>    <!-- Row 7: Spacer -->
+            <RowDefinition Height="Auto"/> <!-- Row 8: Buttons -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -84,9 +88,35 @@
         <Label Grid.Row="3" Grid.Column="0" Content="Model Name:" VerticalAlignment="Center" Margin="0,0,10,0"/>
         <TextBox Grid.Row="3" Grid.Column="1" x:Name="ModelNameTextBox" Margin="0,5" ToolTip="Default: gpt-3.5-turbo"/>
 
-        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <!-- Team Task Synchronization Settings -->
+        <Separator Grid.Row="4" Grid.ColumnSpan="2" Margin="0,10"/>
+        <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Text="Team Task Synchronization" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+        <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Margin="10,0,10,10"> <!-- Adjusted margin for bottom spacing -->
+            <CheckBox Name="EnableTeamSyncCheckBox" Content="Enable Team Task Synchronization" Margin="0,5"/>
+            <StackPanel Name="TeamSyncDetailsPanel" Margin="10,0,0,0">
+                <TextBlock Text="Team Role:" Margin="0,5,0,0"/>
+                <ComboBox Name="TeamRoleComboBox" Margin="0,0,0,5"/>
+
+                <TextBlock Text="Database Host:" Margin="0,5,0,0"/>
+                <TextBox Name="DbHostTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Port:" Margin="0,5,0,0"/>
+                <TextBox Name="DbPortTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Name:" Margin="0,5,0,0"/>
+                <TextBox Name="DbNameTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database User:" Margin="0,5,0,0"/>
+                <TextBox Name="DbUserTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Password:" Margin="0,5,0,0"/>
+                <PasswordBox Name="DbPasswordBox" Margin="0,0,0,5"/>
+
+                <TextBlock Text="Sync Interval (minutes):" Margin="0,5,0,0"/>
+                <TextBox Name="SyncIntervalTextBox" Margin="0,0,0,5"/>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"> <!-- Changed Grid.Row to 8 -->
             <Button x:Name="SaveButton" Content="Save" Margin="0,0,10,0" Click="SaveButton_Click" Style="{StaticResource DialogButtonStyle}"/>
             <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="CancelButton_Click" Style="{StaticResource DialogButtonStyle}"/>
         </StackPanel>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
 </Window>
