@@ -265,36 +265,67 @@ namespace TimeTask
             // Save new Properties.Settings.Default settings
             try
             {
-                Properties.Settings.Default["EnableTeamSync"] = EnableTeamSyncCheckBox.IsChecked ?? false;
-                if (TeamRoleComboBox.SelectedItem != null)
-                {
-                    Properties.Settings.Default["TeamRole"] = TeamRoleComboBox.SelectedItem as string;
-                }
-                else
-                {
-                    Properties.Settings.Default["TeamRole"] = string.Empty; // Or the first item, or a specific default
-                }
-                Properties.Settings.Default["DbHost"] = DbHostTextBox.Text;
-                Properties.Settings.Default["DbPort"] = DbPortTextBox.Text;
-                Properties.Settings.Default["DbName"] = DbNameTextBox.Text;
-                Properties.Settings.Default["DbUser"] = DbUserTextBox.Text;
-                Properties.Settings.Default["DbPassword"] = DbPasswordBox.Password; // Store plain text
+                try { Properties.Settings.Default["EnableTeamSync"] = EnableTeamSyncCheckBox.IsChecked ?? false; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'EnableTeamSync'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'EnableTeamSync'. General error. Error: {ex.Message}"); }
 
-                if (int.TryParse(SyncIntervalTextBox.Text, out int interval))
+                try
                 {
-                    Properties.Settings.Default["SyncIntervalMinutes"] = interval;
+                    if (TeamRoleComboBox.SelectedItem != null)
+                    {
+                        Properties.Settings.Default["TeamRole"] = TeamRoleComboBox.SelectedItem as string;
+                    }
+                    else
+                    {
+                        Properties.Settings.Default["TeamRole"] = string.Empty;
+                    }
                 }
-                else
-                {
-                    // Handle error or default if parsing fails
-                    Properties.Settings.Default["SyncIntervalMinutes"] = 30; // Default
-                    MessageBox.Show(this, "Invalid Sync Interval. It has been reset to default (30 minutes).", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    SyncIntervalTextBox.Text = "30"; // Update UI
-                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamRole'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamRole'. General error. Error: {ex.Message}"); }
 
-                // Construct and save the connection string
-                string connString = $"Host={DbHostTextBox.Text};Port={DbPortTextBox.Text};Username={DbUserTextBox.Text};Password={DbPasswordBox.Password};Database={DbNameTextBox.Text};";
-                Properties.Settings.Default["TeamTasksDbConnectionString"] = connString;
+                try { Properties.Settings.Default["DbHost"] = DbHostTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbHost'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbHost'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbPort"] = DbPortTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPort'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPort'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbName"] = DbNameTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbName'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbName'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbUser"] = DbUserTextBox.Text; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbUser'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbUser'. General error. Error: {ex.Message}"); }
+
+                try { Properties.Settings.Default["DbPassword"] = DbPasswordBox.Password; }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPassword'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'DbPassword'. General error. Error: {ex.Message}"); }
+
+                try
+                {
+                    if (int.TryParse(SyncIntervalTextBox.Text, out int interval))
+                    {
+                        Properties.Settings.Default["SyncIntervalMinutes"] = interval;
+                    }
+                    else
+                    {
+                        Properties.Settings.Default["SyncIntervalMinutes"] = 30; // Default
+                        MessageBox.Show(this, "Invalid Sync Interval. It has been reset to default (30 minutes).", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        SyncIntervalTextBox.Text = "30"; // Update UI
+                    }
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'SyncIntervalMinutes'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'SyncIntervalMinutes'. General error. Error: {ex.Message}"); }
+
+                try
+                {
+                    string connString = $"Host={DbHostTextBox.Text};Port={DbPortTextBox.Text};Username={DbUserTextBox.Text};Password={DbPasswordBox.Password};Database={DbNameTextBox.Text};";
+                    Properties.Settings.Default["TeamTasksDbConnectionString"] = connString;
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamTasksDbConnectionString'. Property not found. Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"ERROR: Could not save setting 'TeamTasksDbConnectionString'. General error. Error: {ex.Message}"); }
 
                 Properties.Settings.Default.Save();
 
