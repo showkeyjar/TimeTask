@@ -16,6 +16,7 @@ using System.Threading.Tasks; // Added for Task.Delay and async/await
 using System.Globalization; // Required for CultureInfo
 using System.Windows.Data; // Required for IMultiValueConverter
 using System.Threading; // For Timer (though DispatcherTimer is in System.Windows.Threading)
+using System.Configuration; // Required for SettingsPropertyNotFoundException
 
 namespace TimeTask
 {
@@ -409,8 +410,37 @@ namespace TimeTask
         {
             try
             {
-                string connectionString = (string)Properties.Settings.Default["TeamTasksDbConnectionString"];
-                if ((bool)Properties.Settings.Default["EnableTeamSync"])
+                string connectionString = null;
+                try
+                {
+                    connectionString = (string)Properties.Settings.Default["TeamTasksDbConnectionString"];
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex)
+                {
+                    Console.WriteLine($"INFO: Settings property 'TeamTasksDbConnectionString' not found during initial load. This is expected if settings haven't been saved yet. Defaulting to empty. Error: {ex.Message}");
+                    connectionString = string.Empty;
+                }
+                catch (Exception ex) // Catch other potential issues during access
+                {
+                    Console.WriteLine($"ERROR: Error accessing setting 'TeamTasksDbConnectionString'. Defaulting to empty. Error: {ex.Message}");
+                    connectionString = string.Empty;
+                }
+
+                bool enableSync = false;
+                try
+                {
+                    enableSync = (bool)Properties.Settings.Default["EnableTeamSync"];
+                }
+                catch (System.Configuration.SettingsPropertyNotFoundException ex)
+                {
+                    Console.WriteLine($"INFO: Settings property 'EnableTeamSync' not found. Defaulting to false. Error: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"ERROR: Error accessing setting 'EnableTeamSync'. Defaulting to false. Error: {ex.Message}");
+                }
+
+                if (enableSync)
                 {
                     if (!string.IsNullOrWhiteSpace(connectionString))
                     {
@@ -422,9 +452,24 @@ namespace TimeTask
                             _syncTimer = new System.Windows.Threading.DispatcherTimer();
                             _syncTimer.Tick += SyncTimer_Tick;
                         }
-                        _syncTimer.Interval = TimeSpan.FromMinutes((int)Properties.Settings.Default["SyncIntervalMinutes"] > 0 ? (int)Properties.Settings.Default["SyncIntervalMinutes"] : 30);
+
+                        int syncInterval = 30; // Default interval
+                        try
+                        {
+                            syncInterval = (int)Properties.Settings.Default["SyncIntervalMinutes"];
+                            if (syncInterval <= 0) syncInterval = 30; // Ensure positive interval
+                        }
+                        catch (System.Configuration.SettingsPropertyNotFoundException ex)
+                        {
+                            Console.WriteLine($"INFO: Settings property 'SyncIntervalMinutes' not found. Defaulting to 30. Error: {ex.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"ERROR: Error accessing setting 'SyncIntervalMinutes'. Defaulting to 30. Error: {ex.Message}");
+                        }
+                        _syncTimer.Interval = TimeSpan.FromMinutes(syncInterval);
                         _syncTimer.Start();
-                        Console.WriteLine($"Sync timer started. Interval: {_syncTimer.Interval.TotalMinutes} minutes.");
+                        Console.WriteLine($"Sync timer started. Interval: {syncInterval} minutes.");
 
                         // Perform an initial sync immediately if enabled
                         Task.Run(() => SyncTimer_Tick(this, EventArgs.Empty));
@@ -458,7 +503,17 @@ namespace TimeTask
 
         private async void SyncTimer_Tick(object sender, EventArgs e)
         {
-            if (!(bool)Properties.Settings.Default["EnableTeamSync"] || _databaseService == null)
+            bool enableSync = false;
+            try
+            {
+                enableSync = (bool)Properties.Settings.Default["EnableTeamSync"];
+            }
+            catch (Exception ex) // Simplified catch for brevity in this specific check
+            {
+                Console.WriteLine($"ERROR: Error accessing 'EnableTeamSync' in SyncTimer_Tick. Defaulting to false. Error: {ex.Message}");
+            }
+
+            if (!enableSync || _databaseService == null)
             {
                 if (_syncTimer != null) _syncTimer.Stop(); // Stop if disabled or service not available
                 Console.WriteLine("SyncTimer_Tick: Sync disabled or DatabaseService not available. Timer stopped.");
@@ -468,7 +523,15 @@ namespace TimeTask
             Console.WriteLine("SyncTimer_Tick: Attempting to sync team tasks...");
             try
             {
-                string userRole = (string)Properties.Settings.Default["TeamRole"];
+                string userRole = string.Empty;
+                try
+                {
+                    userRole = (string)Properties.Settings.Default["TeamRole"];
+                }
+                catch (Exception ex) // Simplified catch
+                {
+                     Console.WriteLine($"ERROR: Error accessing 'TeamRole' in SyncTimer_Tick. Defaulting to empty. Error: {ex.Message}");
+                }
                 List<ItemGrid> newTasks = await Task.Run(() => _databaseService.GetTeamTasks(userRole)); // Run DB call on background thread
 
                 if (newTasks == null)
