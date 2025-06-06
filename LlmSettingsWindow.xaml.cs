@@ -35,14 +35,14 @@ namespace TimeTask
             // Load new Properties.Settings.Default settings
             try
             {
-                EnableTeamSyncCheckBox.IsChecked = Properties.Settings.Default.EnableTeamSync;
-                TeamRoleTextBox.Text = Properties.Settings.Default.TeamRole;
-                DbHostTextBox.Text = Properties.Settings.Default.DbHost;
-                DbPortTextBox.Text = Properties.Settings.Default.DbPort;
-                DbNameTextBox.Text = Properties.Settings.Default.DbName;
-                DbUserTextBox.Text = Properties.Settings.Default.DbUser;
-                DbPasswordBox.Password = Properties.Settings.Default.DbPassword; // Assuming plain text storage
-                SyncIntervalTextBox.Text = Properties.Settings.Default.SyncIntervalMinutes.ToString();
+                EnableTeamSyncCheckBox.IsChecked = (bool)Properties.Settings.Default["EnableTeamSync"];
+                TeamRoleTextBox.Text = (string)Properties.Settings.Default["TeamRole"];
+                DbHostTextBox.Text = (string)Properties.Settings.Default["DbHost"];
+                DbPortTextBox.Text = (string)Properties.Settings.Default["DbPort"];
+                DbNameTextBox.Text = (string)Properties.Settings.Default["DbName"];
+                DbUserTextBox.Text = (string)Properties.Settings.Default["DbUser"];
+                DbPasswordBox.Password = (string)Properties.Settings.Default["DbPassword"]; // Assuming plain text storage
+                SyncIntervalTextBox.Text = ((int)Properties.Settings.Default["SyncIntervalMinutes"]).ToString();
             }
             catch (Exception ex) // Catch a more general exception for property settings
             {
@@ -103,29 +103,29 @@ namespace TimeTask
             // Save new Properties.Settings.Default settings
             try
             {
-                Properties.Settings.Default.EnableTeamSync = EnableTeamSyncCheckBox.IsChecked ?? false;
-                Properties.Settings.Default.TeamRole = TeamRoleTextBox.Text;
-                Properties.Settings.Default.DbHost = DbHostTextBox.Text;
-                Properties.Settings.Default.DbPort = DbPortTextBox.Text;
-                Properties.Settings.Default.DbName = DbNameTextBox.Text;
-                Properties.Settings.Default.DbUser = DbUserTextBox.Text;
-                Properties.Settings.Default.DbPassword = DbPasswordBox.Password; // Store plain text
+                Properties.Settings.Default["EnableTeamSync"] = EnableTeamSyncCheckBox.IsChecked ?? false;
+                Properties.Settings.Default["TeamRole"] = TeamRoleTextBox.Text;
+                Properties.Settings.Default["DbHost"] = DbHostTextBox.Text;
+                Properties.Settings.Default["DbPort"] = DbPortTextBox.Text;
+                Properties.Settings.Default["DbName"] = DbNameTextBox.Text;
+                Properties.Settings.Default["DbUser"] = DbUserTextBox.Text;
+                Properties.Settings.Default["DbPassword"] = DbPasswordBox.Password; // Store plain text
 
                 if (int.TryParse(SyncIntervalTextBox.Text, out int interval))
                 {
-                    Properties.Settings.Default.SyncIntervalMinutes = interval;
+                    Properties.Settings.Default["SyncIntervalMinutes"] = interval;
                 }
                 else
                 {
                     // Handle error or default if parsing fails
-                    Properties.Settings.Default.SyncIntervalMinutes = 30; // Default
+                    Properties.Settings.Default["SyncIntervalMinutes"] = 30; // Default
                     MessageBox.Show(this, "Invalid Sync Interval. It has been reset to default (30 minutes).", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     SyncIntervalTextBox.Text = "30"; // Update UI
                 }
 
                 // Construct and save the connection string
                 string connString = $"Host={DbHostTextBox.Text};Port={DbPortTextBox.Text};Username={DbUserTextBox.Text};Password={DbPasswordBox.Password};Database={DbNameTextBox.Text};";
-                Properties.Settings.Default.TeamTasksDbConnectionString = connString;
+                Properties.Settings.Default["TeamTasksDbConnectionString"] = connString;
 
                 Properties.Settings.Default.Save();
 

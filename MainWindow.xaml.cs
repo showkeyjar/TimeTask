@@ -409,8 +409,8 @@ namespace TimeTask
         {
             try
             {
-                string connectionString = Properties.Settings.Default.TeamTasksDbConnectionString;
-                if (Properties.Settings.Default.EnableTeamSync)
+                string connectionString = (string)Properties.Settings.Default["TeamTasksDbConnectionString"];
+                if ((bool)Properties.Settings.Default["EnableTeamSync"])
                 {
                     if (!string.IsNullOrWhiteSpace(connectionString))
                     {
@@ -422,7 +422,7 @@ namespace TimeTask
                             _syncTimer = new System.Windows.Threading.DispatcherTimer();
                             _syncTimer.Tick += SyncTimer_Tick;
                         }
-                        _syncTimer.Interval = TimeSpan.FromMinutes(Properties.Settings.Default.SyncIntervalMinutes > 0 ? Properties.Settings.Default.SyncIntervalMinutes : 30);
+                        _syncTimer.Interval = TimeSpan.FromMinutes((int)Properties.Settings.Default["SyncIntervalMinutes"] > 0 ? (int)Properties.Settings.Default["SyncIntervalMinutes"] : 30);
                         _syncTimer.Start();
                         Console.WriteLine($"Sync timer started. Interval: {_syncTimer.Interval.TotalMinutes} minutes.");
 
@@ -458,7 +458,7 @@ namespace TimeTask
 
         private async void SyncTimer_Tick(object sender, EventArgs e)
         {
-            if (!Properties.Settings.Default.EnableTeamSync || _databaseService == null)
+            if (!(bool)Properties.Settings.Default["EnableTeamSync"] || _databaseService == null)
             {
                 if (_syncTimer != null) _syncTimer.Stop(); // Stop if disabled or service not available
                 Console.WriteLine("SyncTimer_Tick: Sync disabled or DatabaseService not available. Timer stopped.");
@@ -468,7 +468,7 @@ namespace TimeTask
             Console.WriteLine("SyncTimer_Tick: Attempting to sync team tasks...");
             try
             {
-                string userRole = Properties.Settings.Default.TeamRole;
+                string userRole = (string)Properties.Settings.Default["TeamRole"];
                 List<ItemGrid> newTasks = await Task.Run(() => _databaseService.GetTeamTasks(userRole)); // Run DB call on background thread
 
                 if (newTasks == null)
@@ -556,7 +556,7 @@ namespace TimeTask
         private void ReminderTimer_Tick(object sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-            bool changesMadeOverall = false; // To track if any CSV needs update across all grids
+            // bool changesMadeOverall = false; // To track if any CSV needs update across all grids
 
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" }; // To identify which CSV to update
