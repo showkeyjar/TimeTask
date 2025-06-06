@@ -583,7 +583,7 @@ namespace TimeTask
                             task.ReminderTime = null;
                             task.LastModifiedDate = now; // Update last modified date
                             changesMadeInCurrentGrid = true;
-                            changesMadeOverall = true;
+                            // changesMadeOverall = true;
                         }
                     }
 
