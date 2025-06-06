@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="LLM Settings" Height="550" Width="400"
+        Title="LLM Settings" Height="550" MaxHeight="600" Width="400"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="#E5E5E5">
     <Window.Resources>
         <Style TargetType="TextBox">
@@ -59,10 +59,11 @@
             <Setter Property="Foreground" Value="#333333"/>
         </Style>
     </Window.Resources>
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Row 0 -->
-            <RowDefinition Height="Auto"/> <!-- Row 1 -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Row 0 -->
+                <RowDefinition Height="Auto"/> <!-- Row 1 -->
             <RowDefinition Height="Auto"/> <!-- Row 2 -->
             <RowDefinition Height="Auto"/> <!-- Row 3 -->
             <RowDefinition Height="Auto"/> <!-- Row 4: Separator -->
@@ -116,5 +117,6 @@
             <Button x:Name="SaveButton" Content="Save" Margin="0,0,10,0" Click="SaveButton_Click" Style="{StaticResource DialogButtonStyle}"/>
             <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="CancelButton_Click" Style="{StaticResource DialogButtonStyle}"/>
         </StackPanel>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
 </Window>
