@@ -17,6 +17,31 @@ namespace TimeTask
             // but for direct property setting based on loaded XAML, constructor is fine.
             // For this task, direct access after InitializeComponent is acceptable.
             // Consider adding a LlmSettingsWindow_Loaded event handler if more complex setup is needed.
+            EnableTeamSyncCheckBox.Click += EnableTeamSyncCheckBox_Click;
+        }
+
+        private void UpdateTeamSyncControlsEnabledState()
+        {
+            bool isEnabled = EnableTeamSyncCheckBox.IsChecked ?? false;
+            if (TeamSyncDetailsPanel != null) // Check if the panel exists (it should if XAML is updated)
+            {
+                TeamSyncDetailsPanel.IsEnabled = isEnabled;
+            }
+            else // Fallback if panel wasn't created, disable individual controls
+            {
+                TeamRoleComboBox.IsEnabled = isEnabled;
+                DbHostTextBox.IsEnabled = isEnabled;
+                DbPortTextBox.IsEnabled = isEnabled;
+                DbNameTextBox.IsEnabled = isEnabled;
+                DbUserTextBox.IsEnabled = isEnabled;
+                DbPasswordBox.IsEnabled = isEnabled;
+                SyncIntervalTextBox.IsEnabled = isEnabled;
+            }
+        }
+
+        private void EnableTeamSyncCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateTeamSyncControlsEnabledState();
         }
 
         private void LoadSettings()
@@ -90,84 +115,84 @@ namespace TimeTask
             }
 
             // DbHost
+            string dbHost = string.Empty;
             try
             {
-                DbHostTextBox.Text = (string)Properties.Settings.Default["DbHost"];
+                dbHost = (string)Properties.Settings.Default["DbHost"];
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'DbHost' not found. Defaulting to empty. Error: {ex.Message}");
-                DbHostTextBox.Text = string.Empty;
+                Console.WriteLine($"INFO: Settings property 'DbHost' not found. Defaulting to 'localhost'. Error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'DbHost'. Defaulting to empty. Error: {ex.Message}");
-                DbHostTextBox.Text = string.Empty;
+                Console.WriteLine($"ERROR: Error loading setting 'DbHost'. Defaulting to 'localhost'. Error: {ex.Message}");
             }
+            DbHostTextBox.Text = !string.IsNullOrWhiteSpace(dbHost) ? dbHost : "localhost";
 
             // DbPort
+            string dbPort = string.Empty;
             try
             {
-                DbPortTextBox.Text = (string)Properties.Settings.Default["DbPort"];
+                dbPort = (string)Properties.Settings.Default["DbPort"];
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'DbPort' not found. Defaulting to 5432. Error: {ex.Message}");
-                DbPortTextBox.Text = "5432";
+                Console.WriteLine($"INFO: Settings property 'DbPort' not found. Defaulting to '5432'. Error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'DbPort'. Defaulting to 5432. Error: {ex.Message}");
-                DbPortTextBox.Text = "5432";
+                Console.WriteLine($"ERROR: Error loading setting 'DbPort'. Defaulting to '5432'. Error: {ex.Message}");
             }
+            DbPortTextBox.Text = !string.IsNullOrWhiteSpace(dbPort) ? dbPort : "5432";
 
             // DbName
+            string dbName = string.Empty;
             try
             {
-                DbNameTextBox.Text = (string)Properties.Settings.Default["DbName"];
+                dbName = (string)Properties.Settings.Default["DbName"];
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'DbName' not found. Defaulting to empty. Error: {ex.Message}");
-                DbNameTextBox.Text = string.Empty;
+                Console.WriteLine($"INFO: Settings property 'DbName' not found. Defaulting to 'team_tasks_db'. Error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'DbName'. Defaulting to empty. Error: {ex.Message}");
-                DbNameTextBox.Text = string.Empty;
+                Console.WriteLine($"ERROR: Error loading setting 'DbName'. Defaulting to 'team_tasks_db'. Error: {ex.Message}");
             }
+            DbNameTextBox.Text = !string.IsNullOrWhiteSpace(dbName) ? dbName : "team_tasks_db";
 
             // DbUser
+            string dbUser = string.Empty;
             try
             {
-                DbUserTextBox.Text = (string)Properties.Settings.Default["DbUser"];
+                dbUser = (string)Properties.Settings.Default["DbUser"];
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'DbUser' not found. Defaulting to empty. Error: {ex.Message}");
-                DbUserTextBox.Text = string.Empty;
+                Console.WriteLine($"INFO: Settings property 'DbUser' not found. Defaulting to 'postgres'. Error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'DbUser'. Defaulting to empty. Error: {ex.Message}");
-                DbUserTextBox.Text = string.Empty;
+                Console.WriteLine($"ERROR: Error loading setting 'DbUser'. Defaulting to 'postgres'. Error: {ex.Message}");
             }
+            DbUserTextBox.Text = !string.IsNullOrWhiteSpace(dbUser) ? dbUser : "postgres";
 
             // DbPassword
+            string dbPassword = string.Empty;
             try
             {
-                DbPasswordBox.Password = (string)Properties.Settings.Default["DbPassword"];
+                dbPassword = (string)Properties.Settings.Default["DbPassword"];
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'DbPassword' not found. Defaulting to empty. Error: {ex.Message}");
-                DbPasswordBox.Password = string.Empty;
+                Console.WriteLine($"INFO: Settings property 'DbPassword' not found. Defaulting to '123456'. Error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'DbPassword'. Defaulting to empty. Error: {ex.Message}");
-                DbPasswordBox.Password = string.Empty;
+                Console.WriteLine($"ERROR: Error loading setting 'DbPassword'. Defaulting to '123456'. Error: {ex.Message}");
             }
+            DbPasswordBox.Password = !string.IsNullOrWhiteSpace(dbPassword) ? dbPassword : "123456";
 
             // SyncIntervalMinutes
             try
@@ -184,6 +209,7 @@ namespace TimeTask
                 Console.WriteLine($"ERROR: Error loading setting 'SyncIntervalMinutes'. Defaulting to 30. Error: {ex.Message}");
                 SyncIntervalTextBox.Text = "30";
             }
+            UpdateTeamSyncControlsEnabledState(); // Call after all settings are loaded
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)

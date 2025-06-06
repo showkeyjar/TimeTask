@@ -92,22 +92,24 @@
         <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Text="Team Task Synchronization" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
         <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Margin="10,0,10,10"> <!-- Adjusted margin for bottom spacing -->
             <CheckBox Name="EnableTeamSyncCheckBox" Content="Enable Team Task Synchronization" Margin="0,5"/>
-            <TextBlock Text="Team Role:" Margin="0,5,0,0"/>
-            <ComboBox Name="TeamRoleComboBox" Margin="0,0,0,5"/>
+            <StackPanel Name="TeamSyncDetailsPanel" Margin="10,0,0,0">
+                <TextBlock Text="Team Role:" Margin="0,5,0,0"/>
+                <ComboBox Name="TeamRoleComboBox" Margin="0,0,0,5"/>
 
-            <TextBlock Text="Database Host:" Margin="0,5,0,0"/>
-            <TextBox Name="DbHostTextBox" Margin="0,0,0,5"/>
-            <TextBlock Text="Database Port:" Margin="0,5,0,0"/>
-            <TextBox Name="DbPortTextBox" Margin="0,0,0,5"/>
-            <TextBlock Text="Database Name:" Margin="0,5,0,0"/>
-            <TextBox Name="DbNameTextBox" Margin="0,0,0,5"/>
-            <TextBlock Text="Database User:" Margin="0,5,0,0"/>
-            <TextBox Name="DbUserTextBox" Margin="0,0,0,5"/>
-            <TextBlock Text="Database Password:" Margin="0,5,0,0"/>
-            <PasswordBox Name="DbPasswordBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Host:" Margin="0,5,0,0"/>
+                <TextBox Name="DbHostTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Port:" Margin="0,5,0,0"/>
+                <TextBox Name="DbPortTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Name:" Margin="0,5,0,0"/>
+                <TextBox Name="DbNameTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database User:" Margin="0,5,0,0"/>
+                <TextBox Name="DbUserTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Database Password:" Margin="0,5,0,0"/>
+                <PasswordBox Name="DbPasswordBox" Margin="0,0,0,5"/>
 
-            <TextBlock Text="Sync Interval (minutes):" Margin="0,5,0,0"/>
-            <TextBox Name="SyncIntervalTextBox" Margin="0,0,0,5"/>
+                <TextBlock Text="Sync Interval (minutes):" Margin="0,5,0,0"/>
+                <TextBox Name="SyncIntervalTextBox" Margin="0,0,0,5"/>
+            </StackPanel>
         </StackPanel>
 
         <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"> <!-- Changed Grid.Row to 8 -->
