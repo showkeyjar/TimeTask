@@ -1,6 +1,7 @@
 using System;
 using System.Configuration;
 using System.Windows;
+using System.Collections.Generic; // Added for List<string>
 
 namespace TimeTask
 {
@@ -50,19 +51,42 @@ namespace TimeTask
             }
 
             // TeamRole
+            List<string> agileRoles = new List<string> {
+                "Developer",
+                "Product Owner",
+                "Scrum Master",
+                "QA/Tester",
+                "Analyst",
+                "Team Lead",
+                "Designer",
+                "DevOps Engineer",
+                "Any", // For roles not explicitly listed or to see all tasks
+                "Unassigned" // For tasks specifically marked as unassigned
+            };
+            TeamRoleComboBox.ItemsSource = agileRoles;
+
+            string savedRole = string.Empty;
             try
             {
-                TeamRoleTextBox.Text = (string)Properties.Settings.Default["TeamRole"];
+                savedRole = (string)Properties.Settings.Default["TeamRole"];
+                if (!string.IsNullOrEmpty(savedRole) && agileRoles.Contains(savedRole))
+                {
+                    TeamRoleComboBox.SelectedItem = savedRole;
+                }
+                else if (agileRoles.Count > 0)
+                {
+                    TeamRoleComboBox.SelectedIndex = 0; // Default to the first role
+                }
             }
             catch (System.Configuration.SettingsPropertyNotFoundException ex)
             {
-                Console.WriteLine($"INFO: Settings property 'TeamRole' not found. Defaulting to empty. Error: {ex.Message}");
-                TeamRoleTextBox.Text = string.Empty;
+                Console.WriteLine($"INFO: Settings property 'TeamRole' not found. Defaulting to first item. Error: {ex.Message}");
+                if (agileRoles.Count > 0) TeamRoleComboBox.SelectedIndex = 0;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: Error loading setting 'TeamRole'. Defaulting to empty. Error: {ex.Message}");
-                TeamRoleTextBox.Text = string.Empty;
+                Console.WriteLine($"ERROR: Error loading setting 'TeamRole'. Defaulting to first item. Error: {ex.Message}");
+                if (agileRoles.Count > 0) TeamRoleComboBox.SelectedIndex = 0;
             }
 
             // DbHost
@@ -216,7 +240,14 @@ namespace TimeTask
             try
             {
                 Properties.Settings.Default["EnableTeamSync"] = EnableTeamSyncCheckBox.IsChecked ?? false;
-                Properties.Settings.Default["TeamRole"] = TeamRoleTextBox.Text;
+                if (TeamRoleComboBox.SelectedItem != null)
+                {
+                    Properties.Settings.Default["TeamRole"] = TeamRoleComboBox.SelectedItem as string;
+                }
+                else
+                {
+                    Properties.Settings.Default["TeamRole"] = string.Empty; // Or the first item, or a specific default
+                }
                 Properties.Settings.Default["DbHost"] = DbHostTextBox.Text;
                 Properties.Settings.Default["DbPort"] = DbPortTextBox.Text;
                 Properties.Settings.Default["DbName"] = DbNameTextBox.Text;
