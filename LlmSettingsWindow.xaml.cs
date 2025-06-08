@@ -2,6 +2,11 @@ using System;
 using System.Configuration;
 using System.Windows;
 using System.Collections.Generic; // Added for List<string>
+using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
+using System.Threading.Tasks; // For Task
+using System.Linq; // For FirstOrDefault
+
 
 namespace TimeTask
 {
@@ -347,6 +352,88 @@ namespace TimeTask
             SettingsSaved = false;
             this.DialogResult = false; // Automatically closes the window and signals cancellation
             this.Close();
+        }
+
+        private async void TestLlmConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            TestLlmConnectionButton.IsEnabled = false;
+            TestResultTextBlock.Text = "Testing connection, please wait...";
+
+            string apiKey = ApiKeyTextBox.Text;
+            string apiBaseUrl = ApiBaseUrlTextBox.Text; // This can be empty
+            string modelName = ModelNameTextBox.Text;
+
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                TestResultTextBlock.Text = "Error: API Key cannot be empty.";
+                TestLlmConnectionButton.IsEnabled = true;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(modelName))
+            {
+                // Use a default model if empty, as LlmService does, or show error
+                // For testing, it's better to ensure user provides one or use a known valid default
+                modelName = "gpt-3.5-turbo"; // A common default
+                TestResultTextBlock.Text = $"Info: Model Name was empty, using default '{modelName}'.\n";
+            } else {
+                TestResultTextBlock.Text = ""; // Clear previous messages if any
+            }
+
+
+            try
+            {
+                var options = new OpenAIOptions()
+                {
+                    ApiKey = apiKey
+                };
+
+                if (!string.IsNullOrWhiteSpace(apiBaseUrl))
+                {
+                    options.BaseDomain = apiBaseUrl;
+                }
+
+                // Use a specific provider for the temporary service, not the one from LlmService global config.
+                // The Betalgo library itself handles the OpenAI endpoint by default if BaseDomain is not set.
+                var tempLlmService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options);
+
+                var completionResult = await tempLlmService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+                {
+                    Messages = new List<ChatMessage>
+                    {
+                        ChatMessage.FromSystem("You are a helpful assistant."), // Optional system message
+                        ChatMessage.FromUser("Hello!")
+                    },
+                    Model = modelName,
+                    MaxTokens = 50 // Keep it short and low-cost
+                });
+
+                if (completionResult.Successful)
+                {
+                    string responseMessage = completionResult.Choices.FirstOrDefault()?.Message.Content ?? "No content received.";
+                    TestResultTextBlock.Text += $"Success! LLM responded: \"{responseMessage.Substring(0, Math.Min(responseMessage.Length, 100))}...\"";
+                }
+                else
+                {
+                    if (completionResult.Error == null)
+                    {
+                        TestResultTextBlock.Text += "Test failed. Unknown error structure from LLM service.";
+                    }
+                    else
+                    {
+                        TestResultTextBlock.Text += $"Test failed. Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TestResultTextBlock.Text += $"Test failed. Exception: {ex.Message}";
+                // Consider logging ex.ToString() for more details if a logging mechanism exists
+            }
+            finally
+            {
+                TestLlmConnectionButton.IsEnabled = true;
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ using System.Linq;
 
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
+using System.Text.Json; // Added for System.Text.Json
 using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
 using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo)
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
@@ -27,9 +28,17 @@ namespace TimeTask
         Unknown
     }
 
+    public class ProposedDailyTask
+    {
+        public int Day { get; set; }
+        public string TaskDescription { get; set; }
+        public string Quadrant { get; set; }
+        public string EstimatedTime { get; set; }
+    }
+
     public class LlmService : ILlmService
     {
-        private IOpenAIService _openAiService; 
+        private IOpenAIService _openAiService;
         private string _apiKey;
         private string _apiBaseUrl; // New field for API Base URL
         private string _modelName;  // New field for Model Name
@@ -93,11 +102,107 @@ namespace TimeTask
             "Suggestion1: Ready to complete it now?\n" +
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
+
+        private const string GoalDecompositionSystemPrompt = @"
+      You are an expert goal planning assistant. Your task is to take a user's long-term goal and a specified duration, and break it down into a series of smaller, actionable daily tasks. For each task, you must also categorize it into one of four quadrants based on its importance and urgency, and provide an estimated time for completion.
+
+      The four quadrants are:
+      1.  ""Important & Urgent""
+      2.  ""Important & Not Urgent""
+      3.  ""Not Important & Urgent""
+      4.  ""Not Important & Not Urgent""
+
+      The user will provide the goal and duration. You need to generate a plan of daily (or near-daily) tasks that will help the user achieve their goal within the given timeframe.
+
+      Respond with a JSON array of task objects. Each object should have the following fields:
+      -   ""task_description"": A string describing the task.
+      -   ""quadrant"": A string representing one of the four quadrant categories (e.g., ""Important & Urgent"").
+      -   ""estimated_time"": A string describing the estimated time to complete the task (e.g., ""1 hour"", ""30 minutes"").
+      -   ""day"": An integer representing the day number in the plan (e.g., 1, 2, 3...). This is relative to the start of the plan.
+
+      Example Input from User:
+      Goal: ""I want to learn Python programming for web development.""
+      Duration: ""3 months""
+
+      Example JSON Output:
+      [
+        {
+          ""day"": 1,
+          ""task_description"": ""Set up Python development environment (install Python, VS Code, Git)."",
+          ""quadrant"": ""Important & Urgent"",
+          ""estimated_time"": ""2 hours""
+        },
+        {
+          ""day"": 1,
+          ""task_description"": ""Complete Chapter 1 of Python basics tutorial (variables, data types)."",
+          ""quadrant"": ""Important & Not Urgent"",
+          ""estimated_time"": ""1.5 hours""
+        }
+      ]
+
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. If the goal is very long-term, you might group tasks by week, but individual tasks should still be daily or completable within a day. Focus on creating a practical and actionable plan.
+      User Input:
+      Goal: ""{userGoal}""
+      Duration: ""{userDuration}""
+      "; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
             LoadLlmConfig(); // Renamed from LoadApiKeyFromConfig
             InitializeOpenAiService();
+        }
+
+        public async Task<List<ProposedDailyTask>> DecomposeGoalIntoDailyTasksAsync(string goal, string durationString)
+        {
+            if (string.IsNullOrWhiteSpace(goal) || string.IsNullOrWhiteSpace(durationString))
+            {
+                Console.WriteLine("Goal or duration string is empty for DecomposeGoalIntoDailyTasksAsync.");
+                return new List<ProposedDailyTask>();
+            }
+
+            string fullPrompt = GoalDecompositionSystemPrompt
+                .Replace("{userGoal}", goal)
+                .Replace("{userDuration}", durationString);
+
+            string llmResponse = await GetCompletionAsync(fullPrompt);
+
+            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            {
+                Console.WriteLine($"LLM did not provide a valid response for goal decomposition. Goal: '{goal}'. Response: {llmResponse}");
+                return new List<ProposedDailyTask>(); // Or throw an exception
+            }
+
+            try
+            {
+                // Clean the response if it's wrapped in markdown ```json ... ```
+                llmResponse = llmResponse.Trim();
+                if (llmResponse.StartsWith("```json"))
+                {
+                    llmResponse = llmResponse.Substring(7);
+                }
+                if (llmResponse.EndsWith("```"))
+                {
+                    llmResponse = llmResponse.Substring(0, llmResponse.Length - 3);
+                }
+                llmResponse = llmResponse.Trim();
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
+                };
+                List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
+                return tasks ?? new List<ProposedDailyTask>();
+            }
+            catch (JsonException jsonEx)
+            {
+                Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
+                return new List<ProposedDailyTask>(); // Or throw
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An unexpected error occurred during goal decomposition: {ex.Message}. Response was: {llmResponse}");
+                return new List<ProposedDailyTask>(); // Or throw
+            }
         }
 
         internal string FormatTimeSpan(TimeSpan ts)

@@ -12,6 +12,8 @@
         <local:TaskWithReminderIndicatorConverter x:Key="TaskReminderConverter"/>
         <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown"/>
+            <EventSetter Event="PreviewMouseMove" Handler="DataGridRow_PreviewMouseMove"/>
+            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="DataGridRow_PreviewMouseLeftButtonUp"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="DataGridRow">
@@ -56,36 +58,61 @@
         </Grid.RowDefinitions>
 
         <!-- Settings Button -->
-        <Button x:Name="SettingsButton"
-                Content="⚙"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Width="30"
-                Height="30"
-                Margin="0,10,10,0"
-                FontSize="16"
-                FontWeight="Bold"
-                ToolTip="Open LLM Settings"
-                Click="SettingsButton_Click"
-                Panel.ZIndex="100">
-            <Button.Resources>
-                <Style TargetType="Border">
-                    <Setter Property="CornerRadius" Value="15"/>
-                </Style>
-            </Button.Resources>
-            <Button.Style>
-                <Style TargetType="Button">
-                    <Setter Property="Background" Value="#DDDDDD"/>
-                    <Setter Property="BorderBrush" Value="#AAAAAA"/>
-                    <Setter Property="Foreground" Value="#333333"/>
-                    <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#EEEEEE"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </Button.Style>
-        </Button>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="100" Margin="0,10,10,0">
+            <Button x:Name="LongTermGoalButton"
+                    Content="Set Long-Term Goal"
+                    Width="Auto"
+                    Height="30"
+                    Margin="0,0,5,0"
+                    Padding="10,0"
+                    FontSize="14"
+                    ToolTip="Set or update your long-term goal"
+                    Click="LongTermGoalButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#333333"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button x:Name="SettingsButton"
+                    Content="⚙"
+                    Width="30"
+                    Height="30"
+                    FontSize="16"
+                    FontWeight="Bold"
+                    ToolTip="Open LLM Settings"
+                    Click="SettingsButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#333333"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </StackPanel>
 
         <!-- Quadrant 1: Important & Urgent -->
         <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">

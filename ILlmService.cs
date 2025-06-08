@@ -17,6 +17,8 @@ namespace TimeTask
 
         Task<(string reminder, List<string> suggestions)> GenerateTaskReminderAsync(string taskDescription, TimeSpan timeSinceLastModified);
 
+        Task<List<ProposedDailyTask>> DecomposeGoalIntoDailyTasksAsync(string goal, string durationString);
+
         Task<string> GetCompletionAsync(string prompt); // General purpose completion method
     }
 }

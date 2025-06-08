@@ -116,6 +116,7 @@ namespace TimeTask
 
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
+        private Point? _dragStartPoint; // To store the starting point of a potential drag
 
         [DllImport("user32.dll", SetLastError = true)]
         static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
@@ -837,41 +838,89 @@ namespace TimeTask
 
         private void DataGridRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // Check if the click originated from the delete button first
+            if (e.OriginalSource is Button button && button.Name == "PART_DeleteButton")
+            {
+                // If it's the delete button, let it handle its click, don't interfere.
+                // And don't treat it as a drag initiation.
+                _dragStartPoint = null; // Ensure no drag starts
+                _draggedItem = null;
+                _sourceDataGrid = null;
+                return;
+            }
+
+            // Also, ensure that we are dealing with the primary mouse button for drag
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                // Check if the click originated from the delete button
-                DependencyObject dep = (DependencyObject)e.OriginalSource;
-                while (dep != null && !(dep is DataGridRow))
+                DataGridRow row = sender as DataGridRow; // The sender is the DataGridRow
+                if (row == null || !row.IsSelected)
                 {
-                    if (dep is Button button && button.Name == "PART_DeleteButton")
-                    {
-                        // Click was on the delete button, so don't start drag
-                        return;
-                    }
-                    dep = VisualTreeHelper.GetParent(dep);
+                    // If row is null, or you want to be more specific,
+                    // you can try to find the parent row from e.OriginalSource as before.
+                    // row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
                 }
 
-                DataGridRow row = e.Source as DataGridRow;
-                if (row == null)
-                {
-                    // If the source isn't the row itself (e.g. a cell), try to find the parent row.
-                    // This part of your existing logic seems correct for finding the row.
-                    row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
-                }
 
                 if (row != null && row.Item is ItemGrid item)
                 {
+                    _dragStartPoint = e.GetPosition(null); // Get position relative to the screen or a top-level window
                     _draggedItem = item;
                     _sourceDataGrid = FindParent<DataGrid>(row);
-                    if (_sourceDataGrid != null)
+                    // Do NOT call DragDrop.DoDragDrop here.
+                    // Do NOT set e.Handled = true here, to allow the DataGrid to process the click for focus/selection.
+                }
+                else
+                {
+                    // Click was not on a valid item or row, clear drag state
+                    _dragStartPoint = null;
+                    _draggedItem = null;
+                    _sourceDataGrid = null;
+                }
+            }
+            else // Not a left-button press, clear drag state
+            {
+                 _dragStartPoint = null;
+                 _draggedItem = null;
+                 _sourceDataGrid = null;
+            }
+        }
+
+        private void DataGridRow_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_dragStartPoint.HasValue && e.LeftButton == MouseButtonState.Pressed && _draggedItem != null && _sourceDataGrid != null)
+            {
+                Point currentPosition = e.GetPosition(null);
+                Vector diff = _dragStartPoint.Value - currentPosition;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    // Start the drag operation
+                    // The 'sender' here is the DataGridRow. We pass it as the drag source.
+                    DataGridRow row = sender as DataGridRow;
+                    if (row != null)
                     {
-                        // Ensure that we are not trying to drag if the source was PART_DeleteButton
-                        // The check above should handle this, but as a safeguard for _sourceDataGrid being set
-                        // by FindParent<DataGrid>(row) even if the click was on a button within that row.
-                        // However, the initial check on e.OriginalSource is more direct.
                         DragDrop.DoDragDrop(row, _draggedItem, DragDropEffects.Move);
                     }
+
+                    // Reset stored drag data after DragDrop completes
+                    _dragStartPoint = null;
+                    _draggedItem = null;
+                    _sourceDataGrid = null;
+                    // e.Handled can optionally be set to true here if needed,
+                    // but DoDragDrop usually takes over input sufficiently.
                 }
+            }
+        }
+
+        private void DataGridRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // If the mouse button is released and a drag hasn't started, clear drag state.
+            if (_dragStartPoint.HasValue)
+            {
+                _dragStartPoint = null;
+                _draggedItem = null;
+                _sourceDataGrid = null;
             }
         }
 
@@ -1182,6 +1231,125 @@ namespace TimeTask
                 // Re-initialize sync service with potentially new settings
                 if (_syncTimer != null) _syncTimer.Stop(); // Stop existing timer before re-init
                 InitializeSyncService();
+            }
+        }
+
+        private async void LongTermGoalButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetLongTermGoalWindow goalDialog = new SetLongTermGoalWindow
+            {
+                Owner = this
+            };
+
+            if (goalDialog.ShowDialog() == true)
+            {
+                string userGoal = goalDialog.GoalDescription;
+                string userDuration = goalDialog.Duration;
+
+                if (_llmService == null)
+                {
+                    MessageBox.Show("LLM Service is not available. Cannot decompose goal.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Show some kind of loading indicator here if possible (optional for now)
+                List<ProposedDailyTask> proposedTasks = null;
+                try
+                {
+                    // This is an async call, so the method should be async void
+                    proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoal, userDuration);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return; // Stop further processing
+                }
+                // Hide loading indicator here
+
+                if (proposedTasks == null || !proposedTasks.Any())
+                {
+                    MessageBox.Show("The LLM could not break down this goal into daily tasks, or no tasks were returned. Please try a different goal or phrasing.", "No Tasks Generated", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
+                {
+                    Owner = this
+                };
+
+                if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
+                {
+                    int tasksAddedCount = 0;
+                    foreach (var taskToAdd in confirmDialog.SelectedTasks)
+                    {
+                        var newItem = new ItemGrid
+                        {
+                            Task = taskToAdd.TaskDescription + (!string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : ""),
+                            // Importance and Urgency need to be mapped from taskToAdd.Quadrant
+                            // Score will be set on refresh/add
+                            IsActive = true,
+                            Result = string.Empty,
+                            CreatedDate = DateTime.Now, // Consider if 'Day' from ProposedDailyTask should influence this
+                            LastModifiedDate = DateTime.Now
+                        };
+
+                        // Map Quadrant string to Importance and Urgency
+                        // And determine target DataGrid
+                        DataGrid targetGrid = null;
+                        string targetCsvNumber = null;
+
+                        switch (taskToAdd.Quadrant?.ToLowerInvariant())
+                        {
+                            case "important & urgent":
+                                newItem.Importance = "High"; newItem.Urgency = "High";
+                                targetGrid = task1; targetCsvNumber = "1";
+                                break;
+                            case "important & not urgent":
+                                newItem.Importance = "High"; newItem.Urgency = "Low";
+                                targetGrid = task2; targetCsvNumber = "2";
+                                break;
+                            case "not important & urgent":
+                                newItem.Importance = "Low"; newItem.Urgency = "High";
+                                targetGrid = task3; targetCsvNumber = "3";
+                                break;
+                            case "not important & not urgent":
+                                newItem.Importance = "Low"; newItem.Urgency = "Low";
+                                targetGrid = task4; targetCsvNumber = "4";
+                                break;
+                            default:
+                                Console.WriteLine($"Unknown quadrant: {taskToAdd.Quadrant}. Defaulting to Important & Urgent.");
+                                newItem.Importance = "High"; newItem.Urgency = "High"; // Default
+                                targetGrid = task1; targetCsvNumber = "1";
+                                break;
+                        }
+
+                        if (targetGrid != null)
+                        {
+                            var items = targetGrid.ItemsSource as List<ItemGrid>;
+                            if (items == null)
+                            {
+                                items = new List<ItemGrid>();
+                                targetGrid.ItemsSource = items;
+                            }
+                            items.Add(newItem);
+                            // Re-score items in this grid
+                            for (int i = 0; i < items.Count; i++)
+                            {
+                                items[i].Score = items.Count - i;
+                            }
+                            RefreshDataGrid(targetGrid); // Refresh the specific grid
+                            if (targetCsvNumber != null)
+                            {
+                                update_csv(targetGrid, targetCsvNumber);
+                            }
+                            tasksAddedCount++;
+                        }
+                    }
+                    if (tasksAddedCount > 0)
+                    {
+                         MessageBox.Show($"{tasksAddedCount} new daily task(s) have been added to your plan.", "Tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
             }
         }
     }
