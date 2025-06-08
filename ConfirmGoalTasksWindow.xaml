@@ -1,0 +1,35 @@
+<Window x:Class="TimeTask.ConfirmGoalTasksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TimeTask"
+        mc:Ignorable="d"
+        Title="Review and Confirm Daily Tasks" Height="450" Width="600">
+    <DockPanel Margin="10">
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap">
+            Review the proposed daily tasks below. Select the ones you want to add to your plan.
+        </TextBlock>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Name="AddButton" Content="Add Selected Tasks" Click="AddButton_Click" Margin="0,0,10,0" Padding="10,5"/>
+            <Button Name="CancelButton" Content="Cancel" Click="CancelButton_Click" IsCancel="True" Padding="10,5"/>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ListBox Name="TasksListBox">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type local:SelectableProposedTask}">
+                        <StackPanel Orientation="Horizontal" Margin="5">
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Day, StringFormat='Day {0}: '}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0"/>
+                            <TextBlock Text="{Binding TaskDescription}" VerticalAlignment="Center" Margin="5,0" Width="250" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Quadrant}" VerticalAlignment="Center" Margin="5,0" Width="120"/>
+                            <TextBlock Text="{Binding EstimatedTime, StringFormat='({0})'}" VerticalAlignment="Center" Margin="5,0"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

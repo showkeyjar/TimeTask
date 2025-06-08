@@ -513,4 +513,115 @@ namespace TimeTask.Tests
             Assert.AreEqual(2, suggestions.Count, "Suggestion3 with N/A should not be added.");
         }
     }
+
+    [TestClass]
+    public class LlmServiceGoalDecompositionTests
+    {
+        // Helper to simulate the JSON parsing part of DecomposeGoalIntoDailyTasksAsync
+        private List<ProposedDailyTask> ParseGoalDecompositionJson(string jsonResponse)
+        {
+            if (string.IsNullOrWhiteSpace(jsonResponse) || jsonResponse.StartsWith("LLM dummy response") || jsonResponse.StartsWith("Error from LLM"))
+            {
+                return new List<ProposedDailyTask>();
+            }
+            try
+            {
+                jsonResponse = jsonResponse.Trim();
+                if (jsonResponse.StartsWith("```json")) { jsonResponse = jsonResponse.Substring(7); }
+                if (jsonResponse.EndsWith("```")) { jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3); }
+                jsonResponse = jsonResponse.Trim();
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return System.Text.Json.JsonSerializer.Deserialize<List<ProposedDailyTask>>(jsonResponse, options) ?? new List<ProposedDailyTask>();
+            }
+            catch { return new List<ProposedDailyTask>(); } // Simplified error handling for test helper
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_ValidJsonMultipleTasks_ReturnsCorrectTasks()
+        {
+            string mockJsonResponse = @"
+        [
+          { ""day"": 1, ""task_description"": ""Task 1"", ""quadrant"": ""Important & Urgent"", ""estimated_time"": ""1 hour"" },
+          { ""day"": 2, ""task_description"": ""Task 2"", ""quadrant"": ""Important & Not Urgent"", ""estimated_time"": ""30 mins"" }
+        ]";
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual(1, result[0].Day);
+            Assert.AreEqual("Task 1", result[0].TaskDescription);
+            Assert.AreEqual("Important & Urgent", result[0].Quadrant);
+            Assert.AreEqual("1 hour", result[0].EstimatedTime);
+            Assert.AreEqual(2, result[1].Day);
+            Assert.AreEqual("Task 2", result[1].TaskDescription);
+            Assert.AreEqual("Important & Not Urgent", result[1].Quadrant);
+            Assert.AreEqual("30 mins", result[1].EstimatedTime);
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_ValidJsonSingleTask_ReturnsCorrectTask()
+        {
+            string mockJsonResponse = @"[{""day"":1,""task_description"":""Single Task"",""quadrant"":""Low & Low"",""estimated_time"":""2h""}]"; // Using different quadrant for variety
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual(1, result[0].Day);
+            Assert.AreEqual("Single Task", result[0].TaskDescription);
+            Assert.AreEqual("Low & Low", result[0].Quadrant);
+            Assert.AreEqual("2h", result[0].EstimatedTime);
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_EmptyJsonArray_ReturnsEmptyList()
+        {
+            string mockJsonResponse = "[]";
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(0, result.Count);
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_JsonWrappedInMarkdown_ParsesCorrectly()
+        {
+            string mockJsonResponse = @"```json
+        [
+          { ""day"": 1, ""task_description"": ""Task 1"", ""quadrant"": ""Important & Urgent"", ""estimated_time"": ""1 hour"" }
+        ]
+        ```";
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("Task 1", result[0].TaskDescription);
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_MalformedJson_ReturnsEmptyList()
+        {
+            string mockJsonResponse = "[{\"day\":1, \"task_description\":\"Task 1\""; // Malformed JSON
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(0, result.Count);
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_JsonWithMissingFields_ParsesWithDefaults()
+        {
+            string mockJsonResponse = @"[{""task_description"":""Task with missing fields""}]";
+            var result = ParseGoalDecompositionJson(mockJsonResponse);
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("Task with missing fields", result[0].TaskDescription);
+            Assert.AreEqual(0, result[0].Day); // Default for int
+            Assert.IsNull(result[0].Quadrant); // Default for string
+            Assert.IsNull(result[0].EstimatedTime); // Default for string
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_NullOrEmptyResponse_ReturnsEmptyList()
+        {
+            Assert.AreEqual(0, ParseGoalDecompositionJson(null).Count, "Null response should return empty list.");
+            Assert.AreEqual(0, ParseGoalDecompositionJson("").Count, "Empty string response should return empty list.");
+            Assert.AreEqual(0, ParseGoalDecompositionJson("  ").Count, "Whitespace response should return empty list.");
+        }
+
+        [TestMethod]
+        public void ParseGoalDecomposition_DummyErrorResponses_ReturnsEmptyList()
+        {
+            Assert.AreEqual(0, ParseGoalDecompositionJson("LLM dummy response (Configuration Error: API key missing or placeholder). Prompt: ...").Count, "Dummy response should return empty list.");
+            Assert.AreEqual(0, ParseGoalDecompositionJson("Error from LLM: Some error message.").Count, "Error from LLM response should return empty list.");
+        }
+    }
 }
