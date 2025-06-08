@@ -12,6 +12,8 @@
         <local:TaskWithReminderIndicatorConverter x:Key="TaskReminderConverter"/>
         <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown"/>
+            <EventSetter Event="PreviewMouseMove" Handler="DataGridRow_PreviewMouseMove"/>
+            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="DataGridRow_PreviewMouseLeftButtonUp"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="DataGridRow">

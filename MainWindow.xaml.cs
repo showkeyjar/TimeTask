@@ -116,6 +116,7 @@ namespace TimeTask
 
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
+        private Point? _dragStartPoint; // To store the starting point of a potential drag
 
         [DllImport("user32.dll", SetLastError = true)]
         static extern int SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
@@ -837,41 +838,89 @@ namespace TimeTask
 
         private void DataGridRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // Check if the click originated from the delete button first
+            if (e.OriginalSource is Button button && button.Name == "PART_DeleteButton")
+            {
+                // If it's the delete button, let it handle its click, don't interfere.
+                // And don't treat it as a drag initiation.
+                _dragStartPoint = null; // Ensure no drag starts
+                _draggedItem = null;
+                _sourceDataGrid = null;
+                return;
+            }
+
+            // Also, ensure that we are dealing with the primary mouse button for drag
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                // Check if the click originated from the delete button
-                DependencyObject dep = (DependencyObject)e.OriginalSource;
-                while (dep != null && !(dep is DataGridRow))
+                DataGridRow row = sender as DataGridRow; // The sender is the DataGridRow
+                if (row == null || !row.IsSelected)
                 {
-                    if (dep is Button button && button.Name == "PART_DeleteButton")
-                    {
-                        // Click was on the delete button, so don't start drag
-                        return;
-                    }
-                    dep = VisualTreeHelper.GetParent(dep);
+                    // If row is null, or you want to be more specific,
+                    // you can try to find the parent row from e.OriginalSource as before.
+                    // row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
                 }
 
-                DataGridRow row = e.Source as DataGridRow;
-                if (row == null)
-                {
-                    // If the source isn't the row itself (e.g. a cell), try to find the parent row.
-                    // This part of your existing logic seems correct for finding the row.
-                    row = FindParent<DataGridRow>((DependencyObject)e.OriginalSource);
-                }
 
                 if (row != null && row.Item is ItemGrid item)
                 {
+                    _dragStartPoint = e.GetPosition(null); // Get position relative to the screen or a top-level window
                     _draggedItem = item;
                     _sourceDataGrid = FindParent<DataGrid>(row);
-                    if (_sourceDataGrid != null)
+                    // Do NOT call DragDrop.DoDragDrop here.
+                    // Do NOT set e.Handled = true here, to allow the DataGrid to process the click for focus/selection.
+                }
+                else
+                {
+                    // Click was not on a valid item or row, clear drag state
+                    _dragStartPoint = null;
+                    _draggedItem = null;
+                    _sourceDataGrid = null;
+                }
+            }
+            else // Not a left-button press, clear drag state
+            {
+                 _dragStartPoint = null;
+                 _draggedItem = null;
+                 _sourceDataGrid = null;
+            }
+        }
+
+        private void DataGridRow_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_dragStartPoint.HasValue && e.LeftButton == MouseButtonState.Pressed && _draggedItem != null && _sourceDataGrid != null)
+            {
+                Point currentPosition = e.GetPosition(null);
+                Vector diff = _dragStartPoint.Value - currentPosition;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    // Start the drag operation
+                    // The 'sender' here is the DataGridRow. We pass it as the drag source.
+                    DataGridRow row = sender as DataGridRow;
+                    if (row != null)
                     {
-                        // Ensure that we are not trying to drag if the source was PART_DeleteButton
-                        // The check above should handle this, but as a safeguard for _sourceDataGrid being set
-                        // by FindParent<DataGrid>(row) even if the click was on a button within that row.
-                        // However, the initial check on e.OriginalSource is more direct.
                         DragDrop.DoDragDrop(row, _draggedItem, DragDropEffects.Move);
                     }
+
+                    // Reset stored drag data after DragDrop completes
+                    _dragStartPoint = null;
+                    _draggedItem = null;
+                    _sourceDataGrid = null;
+                    // e.Handled can optionally be set to true here if needed,
+                    // but DoDragDrop usually takes over input sufficiently.
                 }
+            }
+        }
+
+        private void DataGridRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // If the mouse button is released and a drag hasn't started, clear drag state.
+            if (_dragStartPoint.HasValue)
+            {
+                _dragStartPoint = null;
+                _draggedItem = null;
+                _sourceDataGrid = null;
             }
         }
 
