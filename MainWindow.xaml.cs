@@ -384,6 +384,98 @@ namespace TimeTask
             }
         }
 
+        public void DataGrid_MouseDoubleClick_AddTask(object sender, MouseButtonEventArgs e)
+        {
+            DataGrid dataGrid = sender as DataGrid;
+            if (dataGrid == null) return;
+
+            // Check if the double-click was on an empty area
+            var hitTestResult = VisualTreeHelper.HitTest(dataGrid, e.GetPosition(dataGrid));
+            if (hitTestResult != null)
+            {
+                var visualHit = hitTestResult.VisualHit;
+                while (visualHit != null && visualHit != dataGrid)
+                {
+                    if (visualHit is DataGridRow || visualHit is System.Windows.Controls.Primitives.DataGridColumnHeader || visualHit is DataGridCell)
+                    {
+                        return; // Click was on a row, header, or cell, not empty space
+                    }
+                    visualHit = VisualTreeHelper.GetParent(visualHit);
+                }
+            }
+            else
+            {
+                // Should not happen if click is within the DataGrid bounds
+                return;
+            }
+
+            int quadrantIndex = -1;
+            switch (dataGrid.Name)
+            {
+                case "task1": quadrantIndex = 0; break;
+                case "task2": quadrantIndex = 1; break;
+                case "task3": quadrantIndex = 2; break;
+                case "task4": quadrantIndex = 3; break;
+            }
+
+            if (quadrantIndex == -1)
+            {
+                Console.WriteLine($"Error: Could not determine quadrant index for DataGrid named {dataGrid.Name}");
+                return;
+            }
+
+            if (_llmService == null)
+            {
+                MessageBox.Show("LLM Service is not available.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            AddTaskWindow addTaskWindow = new AddTaskWindow(_llmService, quadrantIndex);
+            bool? dialogResult = addTaskWindow.ShowDialog();
+
+            if (dialogResult == true && addTaskWindow.IsTaskAdded && addTaskWindow.NewTask != null)
+            {
+                ItemGrid newTask = addTaskWindow.NewTask;
+                int finalQuadrantIndex = AddTaskWindow.GetIndexFromPriority(newTask.Importance, newTask.Urgency);
+                DataGrid targetDataGrid = null;
+
+                switch (finalQuadrantIndex)
+                {
+                    case 0: targetDataGrid = task1; break;
+                    case 1: targetDataGrid = task2; break;
+                    case 2: targetDataGrid = task3; break;
+                    case 3: targetDataGrid = task4; break;
+                    default:
+                        MessageBox.Show("Invalid quadrant specified for the new task after dialog.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                }
+
+                string csvFileNumber = GetQuadrantNumber(targetDataGrid.Name);
+                List<ItemGrid> items = targetDataGrid.ItemsSource as List<ItemGrid>;
+                if (items == null)
+                {
+                    items = new List<ItemGrid>();
+                    targetDataGrid.ItemsSource = items;
+                }
+
+                items.Add(newTask);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    items[i].Score = items.Count - i;
+                }
+
+                RefreshDataGrid(targetDataGrid);
+                if (!string.IsNullOrEmpty(csvFileNumber))
+                {
+                    update_csv(targetDataGrid, csvFileNumber);
+                }
+                else
+                {
+                    MessageBox.Show($"Could not determine CSV file for quadrant: {targetDataGrid.Name}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -671,25 +763,34 @@ namespace TimeTask
             if (e.EditAction == DataGridEditAction.Commit)
             {
                 // Check if the edited column is the "Task" column.
-                // Using HeaderText assumes the XAML <DataGridTextColumn Header="Task" ... />
-                // A more robust way might involve checking the binding path if available,
-                // but HeaderText is usually reliable for display columns.
-                var column = e.Column as DataGridBoundColumn;
-                if (column != null && column.Header != null && column.Header.ToString() == "Task")
+                // Using HeaderText assumes the XAML <DataGridTemplateColumn Header="Task" ... />
+                // For DataGridTemplateColumn, e.Column.Header is correct.
+                if (e.Column.Header != null && e.Column.Header.ToString() == "Task")
                 {
                     var item = e.Row.Item as ItemGrid;
                     if (item != null && e.EditingElement is TextBox textBox)
                     {
                         string newDescription = textBox.Text;
-                        string oldDescriptionPreview = item.Task != null && item.Task.Length > 15 ? item.Task.Substring(0, 15) + "..." : item.Task;
+                        // The newDescription is what the user entered.
+                        // item.Task will be updated by the binding mechanism after this event if not handled.
+                        // We will update it manually here.
 
-                        // Note: At this point, item.Task is still the *old* value before the commit.
-                        // The newDescription is what will be committed.
-                        Console.WriteLine($"Task edited in grid. Task (Old Preview): [{oldDescriptionPreview}], New Description: [{newDescription}]");
+                        item.Task = newDescription; // Update the task description
+                        item.LastModifiedDate = DateTime.Now; // Update the last modified date
 
-                        // If you need to trigger something *after* the value has been committed to the item,
-                        // you might need a different approach or event, or handle it carefully knowing item.Task isn't updated yet.
-                        // For logging the edit *intent* with the new value, this is fine.
+                        Console.WriteLine($"Task edited in grid. Task ID (if available): [{item.SourceTaskID}], New Description: [{newDescription}]");
+
+                        DataGrid sourceGrid = sender as DataGrid;
+                        if (sourceGrid != null)
+                        {
+                            string quadrantNumber = GetQuadrantNumber(sourceGrid.Name);
+                            if (!string.IsNullOrEmpty(quadrantNumber))
+                            {
+                                update_csv(sourceGrid, quadrantNumber);
+                                // RefreshDataGrid(sourceGrid); // Optional: Usually binding handles UI update.
+                                                            // If not, or if sorting/filtering needs re-evaluation based on new text, uncomment.
+                            }
+                        }
                     }
                 }
             }
