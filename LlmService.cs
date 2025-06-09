@@ -141,12 +141,13 @@ namespace TimeTask
         }
       ]
 
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. If the goal is very long-term, you might group tasks by week, but individual tasks should still be daily or completable within a day. Focus on creating a practical and actionable plan.
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan.
+If a detailed daily plan for the entire `{userDuration}` is too long for a single response, please provide a detailed daily task plan for the **first 4 weeks** only. This will serve as a template for the user to understand the structure and continue the plan. Ensure this plan for the first 4 weeks is complete and follows all formatting rules.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
 
-IMPORTANT: Your entire response MUST be a valid JSON array of task objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array."; // Note the {userGoal} and {userDuration} placeholders.
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the specified period (either full duration or the first 4 weeks sample), starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
