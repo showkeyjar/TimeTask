@@ -142,7 +142,7 @@ namespace TimeTask
       ]
 
       Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan.
-If a detailed daily plan for the entire `{userDuration}` is too long for a single response, please provide a detailed daily task plan for the **first 3 weeks** only. This will serve as a template for the user to understand the structure and continue the plan. Ensure this plan for the first 3 weeks is complete and follows all formatting rules.
+If a detailed daily plan for the entire `{userDuration}` is too long for a single response, please provide a detailed daily task plan for the **first 2 weeks** only. This will serve as a template for the user to understand the structure and continue the plan. Ensure this plan for the first 2 weeks is complete and follows all formatting rules.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
