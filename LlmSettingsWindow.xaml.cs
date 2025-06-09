@@ -440,16 +440,22 @@ namespace TimeTask
             }
             catch (System.Text.Json.JsonException jsonExOuter)
             {
-                string detailedErrorMessage = $"Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}";
+                string expectedErrorType = "Betalgo.Ranul.OpenAl.ObjectModels.ResponseModels.Error"; // The type mentioned in the exception
+                string fullParserMessage = jsonExOuter.Message; // This usually contains the nested exception message
+
                 if (jsonExOuter.Path == "$.error")
                 {
-                    TestResultTextBlock.Text += "Test failed. The LLM returned an error, but its format could not be understood by the client library. " +
-                                                "This can happen with custom API Base URLs if the LLM's error structure differs from the standard OpenAI format. " +
-                                                $"Technical details: {detailedErrorMessage}";
+                    TestResultTextBlock.Text += "Test failed. The LLM returned an error. " +
+                                                $"The client library attempted to interpret the error details (found at JSON path '{jsonExOuter.Path}') as a '{expectedErrorType}' object. " +
+                                                "However, the content at this path is not compatible. " +
+                                                $"(Parsing failed near Line {jsonExOuter.LineNumber}, Position {jsonExOuter.BytePositionInLine} within this specific error field. Full parser message: \"{fullParserMessage}\"). " +
+                                                "Consider checking your LLM's documentation for its specific error response format, especially if using a custom API Base URL.";
                 }
-                else
+                else // General parsing error not specific to '$.error'
                 {
-                    TestResultTextBlock.Text += $"Test failed. Could not parse the entire LLM response. {detailedErrorMessage}";
+                    TestResultTextBlock.Text += $"Test failed. Could not parse the entire LLM response. " +
+                                                $"Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. " +
+                                                $"Details: {fullParserMessage}";
                 }
             }
             catch (Exception ex)
