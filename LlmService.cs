@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
@@ -649,8 +650,13 @@ namespace TimeTask
                 Console.WriteLine($"LlmService: Using custom API Base URL: {_apiBaseUrl}");
             }
 
-            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options);
-            Console.WriteLine($"LlmService: Initialized OpenAIService. Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
+            var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(120)
+            };
+
+            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options, httpClient);
+            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient (120s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
 
         public async Task<string> GetCompletionAsync(string prompt)
