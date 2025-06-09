@@ -153,7 +153,7 @@ namespace TimeTask
         }
 
         // Constructor for dependency injection, typically for testing
-        internal LlmService(IOpenAIService openAiService, string apiKey, string? apiBaseUrl, string modelName)
+        internal LlmService(IOpenAIService openAiService, string apiKey, string apiBaseUrl, string modelName)
         {
             _openAiService = openAiService ?? throw new ArgumentNullException(nameof(openAiService));
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
