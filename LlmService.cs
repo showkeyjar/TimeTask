@@ -683,7 +683,7 @@ namespace TimeTask
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 150 
+                    MaxTokens = 2048
                 });
 
                 if (completionResult.Successful)
