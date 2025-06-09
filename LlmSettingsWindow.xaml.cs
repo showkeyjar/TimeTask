@@ -440,7 +440,17 @@ namespace TimeTask
             }
             catch (System.Text.Json.JsonException jsonExOuter)
             {
-                TestResultTextBlock.Text += $"Test failed. Could not parse the entire LLM response. Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}";
+                string detailedErrorMessage = $"Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}";
+                if (jsonExOuter.Path == "$.error")
+                {
+                    TestResultTextBlock.Text += "Test failed. The LLM returned an error, but its format could not be understood by the client library. " +
+                                                "This can happen with custom API Base URLs if the LLM's error structure differs from the standard OpenAI format. " +
+                                                $"Technical details: {detailedErrorMessage}";
+                }
+                else
+                {
+                    TestResultTextBlock.Text += $"Test failed. Could not parse the entire LLM response. {detailedErrorMessage}";
+                }
             }
             catch (Exception ex)
             {
