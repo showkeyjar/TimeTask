@@ -152,6 +152,23 @@ namespace TimeTask
             InitializeOpenAiService();
         }
 
+        // Constructor for dependency injection, typically for testing
+        internal LlmService(IOpenAIService openAiService, string apiKey, string? apiBaseUrl, string modelName)
+        {
+            _openAiService = openAiService ?? throw new ArgumentNullException(nameof(openAiService));
+            _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
+            _apiBaseUrl = apiBaseUrl; // Can be null
+            _modelName = modelName ?? throw new ArgumentNullException(nameof(modelName));
+
+            // Ensure critical fields are not placeholder values if GetCompletionAsync relies on them
+            if (_apiKey == PlaceholderApiKey)
+            {
+                // Or throw, or handle as per service's expectation for injected services.
+                Console.WriteLine("Warning: LlmService injected with a placeholder API key.");
+            }
+            Console.WriteLine($"LlmService: Initialized with injected IOpenAIService. Model: {_modelName}. API Key Loaded: {!string.IsNullOrWhiteSpace(_apiKey) && _apiKey != PlaceholderApiKey}. Base URL: '{_apiBaseUrl ?? "OpenAI Default"}'");
+        }
+
         public async Task<List<ProposedDailyTask>> DecomposeGoalIntoDailyTasksAsync(string goal, string durationString)
         {
             if (string.IsNullOrWhiteSpace(goal) || string.IsNullOrWhiteSpace(durationString))
@@ -671,23 +688,40 @@ namespace TimeTask
 
                 if (completionResult.Successful)
                 {
-                    return completionResult.Choices.FirstOrDefault()?.Message.Content; 
+                    return completionResult.Choices.FirstOrDefault()?.Message.Content;
                 }
-                else
+                else // Not successful
                 {
-                    if (completionResult.Error == null)
+                    try // Inner try for parsing the Error object
                     {
-                        Console.WriteLine("LLM API Error: Unknown error structure from Betalgo.Ranul.OpenAI library.");
-                        throw new Exception("Unknown LLM Error");
+                        if (completionResult.Error == null)
+                        {
+                            Console.WriteLine("LLM API Error: Call was not successful but Error object is null.");
+                            return "Error from LLM: Unknown error (null error object).";
+                        }
+                        // Accessing these properties might trigger JsonException if the Error object itself is malformed
+                        string errorMessage = completionResult.Error.Message;
+                        string errorCode = completionResult.Error.Code;
+                        string errorType = completionResult.Error.Type;
+                        Console.WriteLine($"LLM API Error: {errorMessage} (Code: {errorCode}, Type: {errorType})");
+                        return $"Error from LLM: {errorMessage}";
                     }
-                    Console.WriteLine($"LLM API Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})");
-                    return $"Error from LLM: {completionResult.Error.Message}";
+                    catch (System.Text.Json.JsonException jsonExInner)
+                    {
+                        Console.WriteLine($"Error deserializing the LLM error object. Path: {jsonExInner.Path}, Line: {jsonExInner.LineNumber}, Pos: {jsonExInner.BytePositionInLine}. Details: {jsonExInner.Message}");
+                        return $"Error from LLM: Could not parse the error details from response. Details: {jsonExInner.Message}";
+                    }
                 }
             }
-            catch (Exception ex)
+            catch (System.Text.Json.JsonException jsonExOuter) // For issues with the entire response
             {
-                Console.WriteLine($"Exception during LLM call: {ex.Message}");
-                return await Task.FromResult($"LLM dummy response (due to exception) for: {prompt}");
+                Console.WriteLine($"Error deserializing the entire LLM response. Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}");
+                return $"Error from LLM: Could not parse the entire response. Details: {jsonExOuter.Message}";
+            }
+            catch (Exception ex) // General catch-all
+            {
+                Console.WriteLine($"Exception during LLM call: {ex.ToString()}"); // Use ToString()
+                return await Task.FromResult($"LLM dummy response (due to exception: {ex.Message}) for: {prompt}"); // Keep original return style
             }
         }
 

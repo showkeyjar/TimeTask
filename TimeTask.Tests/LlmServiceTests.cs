@@ -1,6 +1,14 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Collections.Generic;
+using System.Threading.Tasks; // For Task
+using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest
+using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels; // For ChatCompletionCreateResponse, ChatChoiceResponse
+using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels; // For ResponseMessage
+using System.Collections.Generic; // For List
+using System.Text.Json; // For JsonException and JsonSerializer
+using System.Net.Http; // Required by IOpenAIService
 using System.Linq;
 using TimeTask; // Reference to the main project namespace
 
@@ -511,6 +519,96 @@ namespace TimeTask.Tests
             Assert.AreEqual("Reminder text.", reminder);
             Assert.IsNotNull(suggestions);
             Assert.AreEqual(2, suggestions.Count, "Suggestion3 with N/A should not be added.");
+        }
+
+        [TestMethod]
+        public async Task GetCompletionAsync_WhenApiThrowsJsonException_ReturnsErrorStringAndLogs()
+        {
+            // Arrange
+            var mockOpenAiService = new MockOpenAIServiceForJsonException(throwJsonExceptionOnCreateCompletion: true);
+            // Use non-placeholder values for API key and a valid model name for the LlmService instance
+            var llmService = new LlmService(mockOpenAiService, "VALID_API_KEY_FOR_TEST", "http://localhost/v1", "gpt-test-model");
+            string prompt = "Test prompt for JsonException scenario";
+
+            // Act
+            string result = await llmService.GetCompletionAsync(prompt);
+
+            // Assert
+            Assert.IsNotNull(result, "Result should not be null.");
+            // Check that the result string indicates a parsing error as per the implemented catch block
+            Assert.IsTrue(result.Contains("Error from LLM: Could not parse the entire response."), $"Unexpected result format: {result}");
+            Assert.IsTrue(result.Contains("Details:"), $"Result should contain details of JsonException: {result}");
+        }
+    }
+
+    // Mock classes defined within the TimeTask.Tests namespace
+    public class MockOpenAIServiceForJsonException : IOpenAIService
+    {
+        private readonly bool _throwJsonExceptionOnCreateCompletion;
+
+        public MockOpenAIServiceForJsonException(bool throwJsonExceptionOnCreateCompletion)
+        {
+            _throwJsonExceptionOnCreateCompletion = throwJsonExceptionOnCreateCompletion;
+            ChatCompletion = new MockChatCompletionForJsonException(_throwJsonExceptionOnCreateCompletion);
+        }
+
+        public IChatCompletionService ChatCompletion { get; }
+        public IModelService Models => throw new NotImplementedException();
+        public IFileService Files => throw new NotImplementedException();
+        public IFineTuneService FineTunes => throw new NotImplementedException();
+        public IImageService Images => throw new NotImplementedException();
+        public IEmbeddingService Embeddings => throw new NotImplementedException();
+        public IAudioService Audio => throw new NotImplementedException();
+        public IModerationService Moderations => throw new NotImplementedException();
+        public ICompletionsService Completions => throw new NotImplementedException();
+        public IEditService Edits => throw new NotImplementedException();
+        public HttpClient HttpClient => throw new NotImplementedException();
+
+        public void SetDefaultModelId(string modelId) { /* Do nothing */ }
+    }
+
+    public class MockChatCompletionForJsonException : IChatCompletionService
+    {
+        private readonly bool _throwJsonException;
+
+        public MockChatCompletionForJsonException(bool throwJsonException)
+        {
+            _throwJsonException = throwJsonException;
+        }
+
+        public Task<ChatCompletionCreateResponse> CreateCompletion(ChatCompletionCreateRequest chatCompletionCreateRequest, string? modelId = null, CancellationToken cancellationToken = default)
+        {
+            if (_throwJsonException)
+            {
+                try
+                {
+                    // Force a JsonException by parsing invalid JSON
+                    JsonSerializer.Deserialize<object>("{\"malformed_json\": ");
+                }
+                catch (JsonException ex)
+                {
+                    // Re-throw the caught JsonException to simulate the library throwing it with details
+                    throw new JsonException(ex.Message, ex.Path, ex.LineNumber, ex.BytePositionInLine, ex);
+                }
+            }
+            // This part is for completeness if the mock was used to simulate success
+            var successfulResponse = new ChatCompletionCreateResponse
+            {
+                Successful = true,
+                Choices = new List<ChatChoiceResponse>
+                {
+                    new ChatChoiceResponse { Message = new ResponseMessage { Role = "assistant", Content = "Test content"} }
+                },
+                Model = modelId ?? "test-mock-model",
+                Id = "mock-completion-id",
+                Created = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+            return Task.FromResult(successfulResponse);
+        }
+
+        public IAsyncEnumerable<ChatCompletionCreateResponse> CreateCompletionAsStream(ChatCompletionCreateRequest chatCompletionCreateRequest, string? modelId = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 
