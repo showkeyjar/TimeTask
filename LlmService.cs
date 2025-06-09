@@ -141,13 +141,12 @@ namespace TimeTask
         }
       ]
 
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan.
-If a detailed daily plan for the entire `{userDuration}` is too long for a single response, please provide a detailed daily task plan for the **first 2 weeks** only. This will serve as a template for the user to understand the structure and continue the plan. Ensure this plan for the first 2 weeks is complete and follows all formatting rules.
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan for the entire `{userDuration}`.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
 
-IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the specified period (either full duration or the first 4 weeks sample), starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
@@ -691,7 +690,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 2048
+                    MaxTokens = 8192
                 });
 
                 if (completionResult.Successful)
