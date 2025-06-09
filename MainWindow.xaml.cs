@@ -105,6 +105,7 @@ namespace TimeTask
     public partial class MainWindow : Window
     {
         private LlmService _llmService;
+        private string _loadingStatus; // Added for loading message simulation
         private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
         private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
@@ -1354,31 +1355,30 @@ namespace TimeTask
                 }
 
                 // Show some kind of loading indicator here if possible (optional for now)
+                _loadingStatus = "Decomposing goal, please wait...";
+                Console.WriteLine(_loadingStatus); // For debugging/visibility, actual UI would bind
+
                 List<ProposedDailyTask> proposedTasks = null;
                 try
                 {
                     // This is an async call, so the method should be async void
                     proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoal, userDuration);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return; // Stop further processing
-                }
-                // Hide loading indicator here
 
-                if (proposedTasks == null || !proposedTasks.Any())
-                {
-                    MessageBox.Show("The LLM could not break down this goal into daily tasks, or no tasks were returned. Please try a different goal or phrasing.", "No Tasks Generated", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
+                    // The MessageBox calls for results or errors will serve as the end of the loading state.
+                    // No specific "completion message" beyond those is needed for _loadingStatus here.
 
-                ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
-                {
-                    Owner = this
-                };
+                    if (proposedTasks == null || !proposedTasks.Any())
+                    {
+                        MessageBox.Show("The LLM could not break down this goal into daily tasks, or no tasks were returned. Please try a different goal or phrasing.", "No Tasks Generated", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
 
-                if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
+                    ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
+                    {
+                        Owner = this
+                    };
+
+                    if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
                 {
                     int tasksAddedCount = 0;
                     foreach (var taskToAdd in confirmDialog.SelectedTasks)
@@ -1450,6 +1450,17 @@ namespace TimeTask
                     {
                          MessageBox.Show($"{tasksAddedCount} new daily task(s) have been added to your plan.", "Tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
+                }
+                // Catch block for _llmService.DecomposeGoalIntoDailyTasksAsync and subsequent processing
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    // return; // Return is implicitly handled by finally and end of method
+                }
+                finally
+                {
+                    _loadingStatus = "";
+                    Console.WriteLine("Loading finished."); // For debugging/visibility
                 }
             }
         }

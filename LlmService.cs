@@ -181,7 +181,8 @@ namespace TimeTask
                 .Replace("{userGoal}", goal)
                 .Replace("{userDuration}", durationString);
 
-            string llmResponse = await GetCompletionAsync(fullPrompt);
+            // Pass a higher maxTokens for goal decomposition as it's expected to be a longer response
+            string llmResponse = await GetCompletionAsync(fullPrompt, 1500);
 
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -213,6 +214,7 @@ namespace TimeTask
             catch (JsonException jsonEx)
             {
                 Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"LLM response that failed JSON parsing: {llmResponse}"); // Added logging for the raw response
                 return new List<ProposedDailyTask>(); // Or throw
             }
             catch (Exception ex)
@@ -320,6 +322,7 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(taskDescription)) return (string.Empty, new List<string>());
             string formattedAge = FormatTimeSpan(timeSinceLastModified);
             string fullPrompt = TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
+            // Uses default maxTokens (150)
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -411,6 +414,7 @@ namespace TimeTask
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (DecompositionStatus.Unknown, new List<string>());
             string fullPrompt = TaskDecompositionSystemPrompt + taskDescription;
+            // Uses default maxTokens (150)
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -501,6 +505,7 @@ namespace TimeTask
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (ClarityStatus.Unknown, "Task description cannot be empty.");
             string fullPrompt = ClarityAnalysisSystemPrompt + taskDescription;
+            // Uses default maxTokens (150)
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -589,6 +594,7 @@ namespace TimeTask
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return ("Unknown", "Unknown");
             string fullPrompt = PrioritizationSystemPrompt + taskDescription;
+            // Uses default maxTokens (150)
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -653,7 +659,8 @@ namespace TimeTask
             Console.WriteLine($"LlmService: Initialized OpenAIService. Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
 
-        public async Task<string> GetCompletionAsync(string prompt)
+        // Modified signature to include optional maxTokens
+        public async Task<string> GetCompletionAsync(string prompt, int? maxTokens = null)
         {
             if (_openAiService == null || _apiKey == PlaceholderApiKey || string.IsNullOrWhiteSpace(_apiKey))
             {
@@ -678,12 +685,12 @@ namespace TimeTask
             {
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
-                    Messages = new List<ChatMessage> 
+                    Messages = new List<ChatMessage>
                     {
-                        ChatMessage.FromUser(prompt) 
+                        ChatMessage.FromUser(prompt)
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 150 
+                    MaxTokens = maxTokens ?? 150 // Use provided maxTokens or default to 150
                 });
 
                 if (completionResult.Successful)
