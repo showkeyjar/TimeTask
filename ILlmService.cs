@@ -19,6 +19,6 @@ namespace TimeTask
 
         Task<List<ProposedDailyTask>> DecomposeGoalIntoDailyTasksAsync(string goal, string durationString);
 
-        Task<string> GetCompletionAsync(string prompt); // General purpose completion method
+        Task<string> GetCompletionAsync(string prompt, int? maxTokens = null); // General purpose completion method
     }
 }
