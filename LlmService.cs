@@ -171,22 +171,25 @@ namespace TimeTask
 
         public async Task<List<ProposedDailyTask>> DecomposeGoalIntoDailyTasksAsync(string goal, string durationString)
         {
+            Console.WriteLine($"[DEBUG] DecomposeGoalIntoDailyTasksAsync: Goal='{goal}', Duration='{durationString}'");
             if (string.IsNullOrWhiteSpace(goal) || string.IsNullOrWhiteSpace(durationString))
             {
-                Console.WriteLine("Goal or duration string is empty for DecomposeGoalIntoDailyTasksAsync.");
+                Console.WriteLine("[ERROR] DecomposeGoalIntoDailyTasksAsync: Goal or duration string is empty.");
                 return new List<ProposedDailyTask>();
             }
 
+            Console.WriteLine($"[DEBUG] DecomposeGoalIntoDailyTasksAsync: Constructing prompt with GoalDecompositionSystemPrompt for goal '{goal}'.");
             string fullPrompt = GoalDecompositionSystemPrompt
                 .Replace("{userGoal}", goal)
                 .Replace("{userDuration}", durationString);
 
             // Pass a higher maxTokens for goal decomposition as it's expected to be a longer response
             string llmResponse = await GetCompletionAsync(fullPrompt, 1500);
+            Console.WriteLine($"[DEBUG] DecomposeGoalIntoDailyTasksAsync: Raw LLM Response: {llmResponse}");
 
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
-                Console.WriteLine($"LLM did not provide a valid response for goal decomposition. Goal: '{goal}'. Response: {llmResponse}");
+                Console.WriteLine($"[ERROR] DecomposeGoalIntoDailyTasksAsync: LLM did not provide a valid response. Goal: '{goal}'. Response: {llmResponse}");
                 return new List<ProposedDailyTask>(); // Or throw an exception
             }
 
@@ -209,17 +212,18 @@ namespace TimeTask
                     PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
                 };
                 List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
+                Console.WriteLine($"[DEBUG] DecomposeGoalIntoDailyTasksAsync: Successfully deserialized {tasks?.Count ?? 0} tasks from LLM response.");
                 return tasks ?? new List<ProposedDailyTask>();
             }
             catch (JsonException jsonEx)
             {
-                Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
-                Console.WriteLine($"LLM response that failed JSON parsing: {llmResponse}"); // Added logging for the raw response
+                // The line below was already present from a previous modification, here it's just structured better.
+                Console.WriteLine($"[ERROR] DecomposeGoalIntoDailyTasksAsync: JSON Parsing Failed. Message: {jsonEx.Message}. Raw Response: {llmResponse}");
                 return new List<ProposedDailyTask>(); // Or throw
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An unexpected error occurred during goal decomposition: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"[ERROR] DecomposeGoalIntoDailyTasksAsync: An unexpected error occurred: {ex.ToString()}. Response was: {llmResponse}");
                 return new List<ProposedDailyTask>(); // Or throw
             }
         }

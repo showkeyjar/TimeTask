@@ -1347,6 +1347,7 @@ namespace TimeTask
             {
                 string userGoal = goalDialog.GoalDescription;
                 string userDuration = goalDialog.Duration;
+                Console.WriteLine($"[DEBUG] LongTermGoalButton_Click: User Goal='{userGoal}', Duration='{userDuration}'");
 
                 if (_llmService == null)
                 {
@@ -1361,8 +1362,10 @@ namespace TimeTask
                 List<ProposedDailyTask> proposedTasks = null;
                 try
                 {
+                    Console.WriteLine("[DEBUG] LongTermGoalButton_Click: Calling _llmService.DecomposeGoalIntoDailyTasksAsync...");
                     // This is an async call, so the method should be async void
                     proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoal, userDuration);
+                    Console.WriteLine($"[DEBUG] LongTermGoalButton_Click: Received {proposedTasks?.Count ?? 0} proposed tasks from LLM service.");
 
                     // The MessageBox calls for results or errors will serve as the end of the loading state.
                     // No specific "completion message" beyond those is needed for _loadingStatus here.
@@ -1373,6 +1376,7 @@ namespace TimeTask
                         return;
                     }
 
+                    Console.WriteLine("[DEBUG] LongTermGoalButton_Click: Showing ConfirmGoalTasksWindow.");
                     ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
                     {
                         Owner = this
@@ -1380,9 +1384,11 @@ namespace TimeTask
 
                     if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
                 {
+                    Console.WriteLine($"[DEBUG] LongTermGoalButton_Click: User selected {confirmDialog.SelectedTasks.Count} tasks from confirmation dialog.");
                     int tasksAddedCount = 0;
                     foreach (var taskToAdd in confirmDialog.SelectedTasks)
                     {
+                        Console.WriteLine($"[DEBUG] LongTermGoalButton_Click: Adding task '{taskToAdd.TaskDescription}' to quadrant '{taskToAdd.Quadrant ?? "default"}'.");
                         var newItem = new ItemGrid
                         {
                             Task = taskToAdd.TaskDescription + (!string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : ""),
@@ -1450,10 +1456,12 @@ namespace TimeTask
                     {
                          MessageBox.Show($"{tasksAddedCount} new daily task(s) have been added to your plan.", "Tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
+                    Console.WriteLine($"[DEBUG] LongTermGoalButton_Click: Finished adding {tasksAddedCount} tasks to the grids.");
                 }
                 // Catch block for _llmService.DecomposeGoalIntoDailyTasksAsync and subsequent processing
                 catch (Exception ex)
                 {
+                    Console.WriteLine($"[ERROR] LongTermGoalButton_Click: Exception occurred: {ex.ToString()}");
                     MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     // return; // Return is implicitly handled by finally and end of method
                 }
