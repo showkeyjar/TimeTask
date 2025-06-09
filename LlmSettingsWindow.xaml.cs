@@ -6,6 +6,7 @@ using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
 using System.Threading.Tasks; // For Task
 using System.Linq; // For FirstOrDefault
+using System.Text.Json; // Added for JsonException
 
 
 namespace TimeTask
@@ -415,19 +416,51 @@ namespace TimeTask
                 }
                 else
                 {
-                    if (completionResult.Error == null)
+                    try
                     {
-                        TestResultTextBlock.Text += "Test failed. Unknown error structure from LLM service.";
+                        if (completionResult.Error != null)
+                        {
+                            // Accessing these properties might trigger JsonException if the Error object itself is malformed
+                            string errorMessage = completionResult.Error.Message;
+                            string errorCode = completionResult.Error.Code;
+                            string errorType = completionResult.Error.Type;
+                            TestResultTextBlock.Text += $"Test failed. Error: {errorMessage} (Code: {errorCode}, Type: {errorType})";
+                        }
+                        else
+                        {
+                            TestResultTextBlock.Text += "Test failed. LLM indicated failure but returned no structured error details.";
+                            // Consider if there's any raw response part on completionResult to log.
+                        }
                     }
-                    else
+                    catch (System.Text.Json.JsonException jsonExInner)
                     {
-                        TestResultTextBlock.Text += $"Test failed. Error: {completionResult.Error.Message} (Code: {completionResult.Error.Code}, Type: {completionResult.Error.Type})";
+                        TestResultTextBlock.Text += $"Test failed. Could not parse the specific error details from LLM's error response. Path: {jsonExInner.Path}, Line: {jsonExInner.LineNumber}, Pos: {jsonExInner.BytePositionInLine}. Details: {jsonExInner.Message}";
                     }
+                }
+            }
+            catch (System.Text.Json.JsonException jsonExOuter)
+            {
+                string expectedErrorType = "Betalgo.Ranul.OpenAl.ObjectModels.ResponseModels.Error"; // The type mentioned in the exception
+                string fullParserMessage = jsonExOuter.Message; // This usually contains the nested exception message
+
+                if (jsonExOuter.Path == "$.error")
+                {
+                    TestResultTextBlock.Text += "Test failed. The LLM returned an error. " +
+                                                $"The client library attempted to interpret the error details (found at JSON path '{jsonExOuter.Path}') as a '{expectedErrorType}' object. " +
+                                                "However, the content at this path is not compatible. " +
+                                                $"(Parsing failed near Line {jsonExOuter.LineNumber}, Position {jsonExOuter.BytePositionInLine} within this specific error field. Full parser message: \"{fullParserMessage}\"). " +
+                                                "Consider checking your LLM's documentation for its specific error response format, especially if using a custom API Base URL.";
+                }
+                else // General parsing error not specific to '$.error'
+                {
+                    TestResultTextBlock.Text += $"Test failed. Could not parse the entire LLM response. " +
+                                                $"Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. " +
+                                                $"Details: {fullParserMessage}";
                 }
             }
             catch (Exception ex)
             {
-                TestResultTextBlock.Text += $"Test failed. Exception: {ex.Message}";
+                TestResultTextBlock.Text += $"Test failed. An unexpected exception occurred: {ex.ToString()}";
                 // Consider logging ex.ToString() for more details if a logging mechanism exists
             }
             finally
