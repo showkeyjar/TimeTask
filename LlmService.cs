@@ -690,7 +690,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects, star
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 8192
+                    MaxTokens = 6000
                 });
 
                 if (completionResult.Successful)
