@@ -141,12 +141,12 @@ namespace TimeTask
         }
       ]
 
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan for the entire `{userDuration}`.
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. For this request, please provide a detailed daily task plan for the **first 1 month** only, based on the user's goal of '{userGoal}' (total duration '{userDuration}'). This 1-month plan should be very detailed and serve as a template for the first phase of the user's goal.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
 
-IMPORTANT: Your entire response MUST be a valid JSON array of task objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 1 month, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
@@ -726,7 +726,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects, star
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 8192
+                    MaxTokens = 4096
                 });
 
                 if (completionResult.Successful)
