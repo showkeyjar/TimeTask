@@ -191,6 +191,11 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects, star
                 return new List<ProposedDailyTask>(); // Or throw an exception
             }
 
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
+            };
+
             try
             {
                 // Clean the response if it's wrapped in markdown ```json ... ```
@@ -205,10 +210,6 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects, star
                 }
                 llmResponse = llmResponse.Trim();
 
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
-                };
                 List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
                 return tasks ?? new List<ProposedDailyTask>();
             }
