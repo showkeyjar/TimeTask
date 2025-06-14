@@ -141,12 +141,12 @@ namespace TimeTask
         }
       ]
 
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. For this request, please provide a detailed daily task plan for the **first 1 week** only, based on the user's goal of '{userGoal}' (total duration '{userDuration}'). This 1-week plan should be very detailed and serve as a template.
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. Focus on creating a practical and actionable plan for the entire `{userDuration}`.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
 
-IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 1 week, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
@@ -215,7 +215,42 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
             catch (JsonException jsonEx)
             {
                 Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
-                return new List<ProposedDailyTask>(); // Or throw
+
+                // New Forgiving Logic
+                List<ProposedDailyTask> salvagedTasks = new List<ProposedDailyTask>();
+                if (string.IsNullOrWhiteSpace(llmResponse))
+                {
+                    return salvagedTasks;
+                }
+
+                string trimmedResponse = llmResponse.Trim();
+                if (!trimmedResponse.StartsWith("["))
+                {
+                    Console.WriteLine("LLM response for salvage does not start with '['.");
+                    return salvagedTasks;
+                }
+
+                int lastBrace = trimmedResponse.LastIndexOf('}');
+                if (lastBrace == -1)
+                {
+                    Console.WriteLine("LLM response for salvage does not contain '}'.");
+                    return salvagedTasks;
+                }
+
+                string partialJsonString = trimmedResponse.Substring(0, lastBrace + 1) + "]";
+                Console.WriteLine($"Attempting to parse potentially salvaged JSON: {partialJsonString}");
+
+                try
+                {
+                    salvagedTasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(partialJsonString, options);
+                    Console.WriteLine($"Successfully salvaged {salvagedTasks.Count} tasks from partial JSON.");
+                    return salvagedTasks ?? new List<ProposedDailyTask>();
+                }
+                catch (JsonException innerEx)
+                {
+                    Console.WriteLine($"Failed to parse salvaged JSON: {innerEx.Message}. Partial JSON was: {partialJsonString}");
+                    return new List<ProposedDailyTask>();
+                }
             }
             catch (Exception ex)
             {
@@ -690,7 +725,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 4096
+                    MaxTokens = 8192
                 });
 
                 if (completionResult.Successful)
@@ -764,3 +799,5 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
         }
     }
 }
+
+[end of LlmService.cs]
