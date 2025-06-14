@@ -104,7 +104,49 @@ namespace TimeTask
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
 
-        private const string GoalDecompositionSystemPrompt = @"Respond with ONLY the following JSON: {""status"": ""ok"", ""message"": ""test_successful""}";
+        private const string GoalDecompositionSystemPrompt = @"
+      You are an expert goal planning assistant. Your task is to take a user's long-term goal and a specified duration, and break it down into a series of smaller, actionable daily tasks. For each task, you must also categorize it into one of four quadrants based on its importance and urgency, and provide an estimated time for completion.
+
+      The four quadrants are:
+      1.  ""Important & Urgent""
+      2.  ""Important & Not Urgent""
+      3.  ""Not Important & Urgent""
+      4.  ""Not Important & Not Urgent""
+
+      The user will provide the goal and duration. You need to generate a plan of daily (or near-daily) tasks that will help the user achieve their goal within the given timeframe.
+
+      Respond with a JSON array of task objects. Each object should have the following fields:
+      -   ""task_description"": A string describing the task.
+      -   ""quadrant"": A string representing one of the four quadrant categories (e.g., ""Important & Urgent"").
+      -   ""estimated_time"": A string describing the estimated time to complete the task (e.g., ""1 hour"", ""30 minutes"").
+      -   ""day"": An integer representing the day number in the plan (e.g., 1, 2, 3...). This is relative to the start of the plan.
+
+      Example Input from User:
+      Goal: ""I want to learn Python programming for web development.""
+      Duration: ""3 months""
+
+      Example JSON Output:
+      [
+        {
+          ""day"": 1,
+          ""task_description"": ""Set up Python development environment (install Python, VS Code, Git)."",
+          ""quadrant"": ""Important & Urgent"",
+          ""estimated_time"": ""2 hours""
+        },
+        {
+          ""day"": 1,
+          ""task_description"": ""Complete Chapter 1 of Python basics tutorial (variables, data types)."",
+          ""quadrant"": ""Important & Not Urgent"",
+          ""estimated_time"": ""1.5 hours""
+        }
+      ]
+
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. For this request, please provide a detailed daily task plan for the **first 2 weeks** only, based on the user's goal of '{userGoal}' (total duration '{userDuration}'). This 2-week plan should be very detailed.
+      User Input:
+      Goal: ""{userGoal}""
+      Duration: ""{userDuration}""
+
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 2 weeks, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
@@ -684,7 +726,7 @@ namespace TimeTask
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 200
+                    MaxTokens = 4096
                 });
 
                 if (completionResult.Successful)
@@ -758,5 +800,7 @@ namespace TimeTask
         }
     }
 }
+
+[end of LlmService.cs]
 
 [end of LlmService.cs]
