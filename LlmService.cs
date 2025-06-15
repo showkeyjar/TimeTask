@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
@@ -140,11 +141,12 @@ namespace TimeTask
         }
       ]
 
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. If the goal is very long-term, you might group tasks by week, but individual tasks should still be daily or completable within a day. Focus on creating a practical and actionable plan.
+      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. For this request, please provide a detailed daily task plan for the **first 2 weeks** only, based on the user's goal of '{userGoal}' (total duration '{userDuration}'). This 2-week plan should be very detailed.
       User Input:
       Goal: ""{userGoal}""
       Duration: ""{userDuration}""
-      "; // Note the {userGoal} and {userDuration} placeholders.
+
+IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 2 weeks, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
         
         public LlmService()
         {
@@ -189,6 +191,11 @@ namespace TimeTask
                 return new List<ProposedDailyTask>(); // Or throw an exception
             }
 
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
+            };
+
             try
             {
                 // Clean the response if it's wrapped in markdown ```json ... ```
@@ -203,17 +210,48 @@ namespace TimeTask
                 }
                 llmResponse = llmResponse.Trim();
 
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true // Handles "task_description" vs "TaskDescription"
-                };
                 List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
                 return tasks ?? new List<ProposedDailyTask>();
             }
             catch (JsonException jsonEx)
             {
                 Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
-                return new List<ProposedDailyTask>(); // Or throw
+
+                // New Forgiving Logic
+                List<ProposedDailyTask> salvagedTasks = new List<ProposedDailyTask>();
+                if (string.IsNullOrWhiteSpace(llmResponse))
+                {
+                    return salvagedTasks;
+                }
+
+                string trimmedResponse = llmResponse.Trim();
+                if (!trimmedResponse.StartsWith("["))
+                {
+                    Console.WriteLine("LLM response for salvage does not start with '['.");
+                    return salvagedTasks;
+                }
+
+                int lastBrace = trimmedResponse.LastIndexOf('}');
+                if (lastBrace == -1)
+                {
+                    Console.WriteLine("LLM response for salvage does not contain '}'.");
+                    return salvagedTasks;
+                }
+
+                string partialJsonString = trimmedResponse.Substring(0, lastBrace + 1) + "]";
+                Console.WriteLine($"Attempting to parse potentially salvaged JSON: {partialJsonString}");
+
+                try
+                {
+                    salvagedTasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(partialJsonString, options);
+                    Console.WriteLine($"Successfully salvaged {salvagedTasks.Count} tasks from partial JSON.");
+                    return salvagedTasks ?? new List<ProposedDailyTask>();
+                }
+                catch (JsonException innerEx)
+                {
+                    Console.WriteLine($"Failed to parse salvaged JSON: {innerEx.Message}. Partial JSON was: {partialJsonString}");
+                    return new List<ProposedDailyTask>();
+                }
             }
             catch (Exception ex)
             {
@@ -649,8 +687,13 @@ namespace TimeTask
                 Console.WriteLine($"LlmService: Using custom API Base URL: {_apiBaseUrl}");
             }
 
-            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options);
-            Console.WriteLine($"LlmService: Initialized OpenAIService. Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
+            var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(120)
+            };
+
+            _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options, httpClient);
+            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient (120s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
 
         public async Task<string> GetCompletionAsync(string prompt)
@@ -683,12 +726,30 @@ namespace TimeTask
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 150 
+                    MaxTokens = 4096
                 });
 
                 if (completionResult.Successful)
                 {
-                    return completionResult.Choices.FirstOrDefault()?.Message.Content;
+                    var choice = completionResult.Choices.FirstOrDefault();
+                    var content = choice?.Message.Content;
+                    if (string.IsNullOrWhiteSpace(content))
+                    {
+                        Console.WriteLine("LLM API call was successful but returned empty or whitespace content.");
+                        Console.WriteLine($"Choice Finish Reason: {choice?.FinishReason}");
+                        try
+                        {
+                            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+                            Console.WriteLine($"Full completionResult details: {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to serialize completionResult: {ex.Message}");
+                        }
+                        // Return null or empty to maintain current behavior for downstream checks
+                        return content;
+                    }
+                    return content;
                 }
                 else // Not successful
                 {
@@ -739,3 +800,7 @@ namespace TimeTask
         }
     }
 }
+
+[end of LlmService.cs]
+
+[end of LlmService.cs]
