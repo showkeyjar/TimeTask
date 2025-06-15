@@ -1367,10 +1367,11 @@ namespace TimeTask
                 }
                 // Hide loading indicator here
 
+                // Check if proposedTasks is null or empty before proceeding
                 if (proposedTasks == null || !proposedTasks.Any())
                 {
-                    MessageBox.Show("The LLM could not break down this goal into daily tasks, or no tasks were returned. Please try a different goal or phrasing.", "No Tasks Generated", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
+                    MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing, or check LLM configuration if issues persist.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return; // Return from the method
                 }
 
                 ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
