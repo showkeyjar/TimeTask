@@ -4,6 +4,16 @@
 
 用于时刻提醒用户聚焦于重要且紧急的工作，减少工作中的干扰
 
+## 使用方法
+
+1.下载源码：git clone https://github.com/showkeyjar/TimeTask.git
+
+2.编译运行：使用 Visual Studio 打开项目，编译并运行
+
+3.双击 autorun.reg 文件，将程序添加到开机自启动列表
+
+4.双击 TimeTask.exe 运行程序
+
 ## 功能
 
 1. 任务分类

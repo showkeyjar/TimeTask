@@ -801,6 +801,3 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
     }
 }
 
-[end of LlmService.cs]
-
-[end of LlmService.cs]
