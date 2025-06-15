@@ -58,6 +58,18 @@ namespace TimeTask
                 ApiKeyTextBox.Text = ConfigurationManager.AppSettings["OpenAIApiKey"] ?? string.Empty;
                 ApiBaseUrlTextBox.Text = ConfigurationManager.AppSettings["LlmApiBaseUrl"] ?? string.Empty;
                 ModelNameTextBox.Text = ConfigurationManager.AppSettings["LlmModelName"] ?? "gpt-3.5-turbo";
+
+                // Load LlmRequestTimeoutSeconds
+                string timeoutSetting = ConfigurationManager.AppSettings["LlmRequestTimeoutSeconds"];
+                if (!string.IsNullOrWhiteSpace(timeoutSetting) && int.TryParse(timeoutSetting, out int timeoutSeconds) && timeoutSeconds > 0)
+                {
+                    TimeoutTextBox.Text = timeoutSeconds.ToString();
+                }
+                else
+                {
+                    TimeoutTextBox.Text = "120"; // Default value if not found or invalid
+                    Console.WriteLine("LLM Settings: LlmRequestTimeoutSeconds not found or invalid in App.config, defaulting TimeoutTextBox to 120.");
+                }
             }
             catch (ConfigurationErrorsException ex)
             {
@@ -256,6 +268,22 @@ namespace TimeTask
                     appSettings.Settings.Add("LlmProvider", providerValue);
                 else
                     appSettings.Settings["LlmProvider"].Value = providerValue;
+
+                // Validate and save LlmRequestTimeoutSeconds
+                if (int.TryParse(TimeoutTextBox.Text, out int timeoutToSave) && timeoutToSave > 0)
+                {
+                    if (appSettings.Settings["LlmRequestTimeoutSeconds"] == null)
+                        appSettings.Settings.Add("LlmRequestTimeoutSeconds", timeoutToSave.ToString());
+                    else
+                        appSettings.Settings["LlmRequestTimeoutSeconds"].Value = timeoutToSave.ToString();
+                }
+                else
+                {
+                    MessageBox.Show(this, "Invalid LLM Request Timeout. Please enter a positive integer. The timeout setting has not been saved.", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    // SettingsSaved = false; // To prevent DialogResult = true if this is critical
+                    // this.DialogResult = false;
+                    // return;
+                }
 
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");

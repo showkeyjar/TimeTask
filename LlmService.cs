@@ -43,6 +43,7 @@ namespace TimeTask
         private string _apiKey;
         private string _apiBaseUrl; // New field for API Base URL
         private string _modelName;  // New field for Model Name
+        private TimeSpan _httpClientTimeout = TimeSpan.FromSeconds(120); // Default value
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
         private const string DefaultModelName = "gpt-3.5-turbo"; // Default model
 
@@ -643,6 +644,17 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
                 _apiBaseUrl = ConfigurationManager.AppSettings["LlmApiBaseUrl"]; // Load new setting
                 _modelName = ConfigurationManager.AppSettings["LlmModelName"];   // Load new setting
+
+                string timeoutSetting = ConfigurationManager.AppSettings["LlmRequestTimeoutSeconds"];
+                if (!string.IsNullOrWhiteSpace(timeoutSetting) && int.TryParse(timeoutSetting, out int timeoutSeconds) && timeoutSeconds > 0)
+                {
+                    _httpClientTimeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    Console.WriteLine($"LLM Service: Using configured HTTP client timeout of {timeoutSeconds} seconds.");
+                }
+                else
+                {
+                    Console.WriteLine($"LLM Service: LlmRequestTimeoutSeconds setting is missing, invalid, or not positive. Using default timeout of {_httpClientTimeout.TotalSeconds} seconds.");
+                }
             }
             catch (ConfigurationErrorsException ex)
             {
@@ -689,11 +701,11 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
 
             var httpClient = new HttpClient
             {
-                Timeout = TimeSpan.FromSeconds(120)
+                Timeout = _httpClientTimeout // Use the configured value
             };
 
             _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options, httpClient);
-            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient (120s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
+            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient ({_httpClientTimeout.TotalSeconds}s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
 
         public async Task<string> GetCompletionAsync(string prompt)
@@ -779,10 +791,22 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 Console.WriteLine($"Error deserializing the entire LLM response. Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}");
                 return $"Error from LLM: Could not parse the entire response. Details: {jsonExOuter.Message}";
             }
-            catch (Exception ex) // General catch-all
+            catch (TaskCanceledException tex) // Catch TaskCanceledException specifically
             {
-                Console.WriteLine($"Exception during LLM call: {ex.ToString()}"); // Use ToString()
-                return await Task.FromResult($"LLM dummy response (due to exception: {ex.Message}) for: {prompt}"); // Keep original return style
+                // Check if the TaskCanceledException is due to HttpClient's timeout
+                // The CancellationToken for HttpClient.Timeout is internal, so direct check is hard.
+                // However, if tex.CancellationToken.IsCancellationRequested is true, it's a cancellation.
+                // If it's an OperationCanceledException (base for TaskCanceledException) and the HttpClient's timeout has passed, it's likely a timeout.
+                // For simplicity here, we'll assume TaskCanceledException in this context is often a timeout.
+                string errorMessage = $"LLM request timed out or was canceled. Timeout is set to {_httpClientTimeout.TotalSeconds} seconds. Exception: {tex.Message}";
+                Console.WriteLine($"Exception during LLM call: {tex.ToString()}");
+                // Return a dummy response that includes the timeout information
+                return $"LLM dummy response (request timed out or canceled after {_httpClientTimeout.TotalSeconds}s). Prompt: {prompt.Substring(0, Math.Min(prompt.Length, 100))}..."; // Log part of the prompt
+            }
+            catch (Exception ex) // General catch-all for other exceptions
+            {
+                Console.WriteLine($"Exception during LLM call: {ex.ToString()}");
+                return $"LLM dummy response (due to exception: {ex.Message}). Prompt: {prompt.Substring(0, Math.Min(prompt.Length, 100))}..."; // Log part of the prompt
             }
         }
 
