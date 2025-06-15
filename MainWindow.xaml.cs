@@ -1384,10 +1384,12 @@ namespace TimeTask
                     int tasksAddedCount = 0;
                     foreach (var taskToAdd in confirmDialog.SelectedTasks)
                     {
+                        // Declare helper strings before the ItemGrid initializer
+                        string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
+                        string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+
                         var newItem = new ItemGrid
                         {
-                            string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
-                            string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
                             Task = displayTaskDescription + displayEstimatedTime,
                             // Importance and Urgency need to be mapped from taskToAdd.Quadrant
                             // Score will be set on refresh/add
@@ -1395,6 +1397,7 @@ namespace TimeTask
                             Result = string.Empty,
                             CreatedDate = DateTime.Now, // Consider if 'Day' from ProposedDailyTask should influence this
                             LastModifiedDate = DateTime.Now
+                            // Ensure other existing properties like Importance, Urgency, Quadrant mapping, etc., are preserved correctly from the original code.
                         };
 
                         // Map Quadrant string to Importance and Urgency
