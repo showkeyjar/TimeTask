@@ -1386,7 +1386,9 @@ namespace TimeTask
                     {
                         var newItem = new ItemGrid
                         {
-                            Task = taskToAdd.TaskDescription + (!string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : ""),
+                            string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
+                            string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+                            Task = displayTaskDescription + displayEstimatedTime,
                             // Importance and Urgency need to be mapped from taskToAdd.Quadrant
                             // Score will be set on refresh/add
                             IsActive = true,
