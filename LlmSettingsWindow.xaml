@@ -66,13 +66,14 @@
                 <RowDefinition Height="Auto"/> <!-- Row 1 -->
             <RowDefinition Height="Auto"/> <!-- Row 2 -->
             <RowDefinition Height="Auto"/> <!-- Row 3 -->
-            <RowDefinition Height="Auto"/> <!-- Row 4: Test Button (New) -->
-            <RowDefinition Height="Auto"/> <!-- Row 5: Test Result TextBlock (New) -->
-            <RowDefinition Height="Auto"/> <!-- Row 6: Separator (was Row 4) -->
-            <RowDefinition Height="Auto"/> <!-- Row 7: Team Task Sync TextBlock (was Row 5) -->
-            <RowDefinition Height="Auto"/> <!-- Row 8: StackPanel for Team Sync Settings (was Row 6) -->
-            <RowDefinition Height="*"/>    <!-- Row 9: Spacer (was Row 7) -->
-            <RowDefinition Height="Auto"/> <!-- Row 10: Buttons (was Row 8) -->
+            <RowDefinition Height="Auto"/> <!-- Row 4: LLM Request Timeout (New) -->
+            <RowDefinition Height="Auto"/> <!-- Row 5: Test Button (New) -->
+            <RowDefinition Height="Auto"/> <!-- Row 6: Test Result TextBlock (New) -->
+            <RowDefinition Height="Auto"/> <!-- Row 7: Separator (was Row 4) -->
+            <RowDefinition Height="Auto"/> <!-- Row 8: Team Task Sync TextBlock (was Row 5) -->
+            <RowDefinition Height="Auto"/> <!-- Row 9: StackPanel for Team Sync Settings (was Row 6) -->
+            <RowDefinition Height="*"/>    <!-- Row 10: Spacer (was Row 7) -->
+            <RowDefinition Height="Auto"/> <!-- Row 11: Buttons (was Row 8) -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -90,22 +91,28 @@
         <Label Grid.Row="3" Grid.Column="0" Content="Model Name:" VerticalAlignment="Center" Margin="0,0,10,0"/>
         <TextBox Grid.Row="3" Grid.Column="1" x:Name="ModelNameTextBox" Margin="0,5" ToolTip="Default: gpt-3.5-turbo"/>
 
+        <!-- LLM Request Timeout Setting -->
+        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,5,0,5">
+            <Label Content="LLM Request Timeout (s):" Width="180" VerticalAlignment="Center"/>
+            <TextBox x:Name="TimeoutTextBox" Width="100" VerticalAlignment="Center"/>
+        </StackPanel>
+
         <!-- New Test Button -->
         <Button x:Name="TestLlmConnectionButton" Content="Test LLM Connection"
-                Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                 HorizontalAlignment="Left" Margin="0,10,0,5"
                 Click="TestLlmConnectionButton_Click" Style="{StaticResource DialogButtonStyle}" Width="180"/>
 
         <!-- New Test Result TextBlock -->
         <TextBlock x:Name="TestResultTextBlock" Text="Test results will appear here..."
-                   Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                   Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
                    Margin="0,5,0,10" TextWrapping="Wrap" MinHeight="40"
                    Background="WhiteSmoke" VerticalAlignment="Top" Padding="5" Foreground="#333333"/>
 
         <!-- Team Task Synchronization Settings -->
-        <Separator Grid.Row="6" Grid.ColumnSpan="2" Margin="0,10"/>
-        <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="Team Task Synchronization" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
-        <StackPanel Grid.Row="8" Grid.ColumnSpan="2" Margin="10,0,10,10"> <!-- Adjusted margin for bottom spacing -->
+        <Separator Grid.Row="7" Grid.ColumnSpan="2" Margin="0,10"/>
+        <TextBlock Grid.Row="8" Grid.ColumnSpan="2" Text="Team Task Synchronization" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+        <StackPanel Grid.Row="9" Grid.ColumnSpan="2" Margin="10,0,10,10"> <!-- Adjusted margin for bottom spacing -->
             <CheckBox Name="EnableTeamSyncCheckBox" Content="Enable Team Task Synchronization" Margin="0,5"/>
             <StackPanel Name="TeamSyncDetailsPanel" Margin="10,0,0,0">
                 <TextBlock Text="Team Role:" Margin="0,5,0,0"/>
@@ -127,7 +134,7 @@
             </StackPanel>
         </StackPanel>
 
-        <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"> <!-- Changed Grid.Row to 10 -->
+        <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"> <!-- Changed Grid.Row to 11 -->
             <Button x:Name="SaveButton" Content="Save" Margin="0,0,10,0" Click="SaveButton_Click" Style="{StaticResource DialogButtonStyle}"/>
             <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="CancelButton_Click" Style="{StaticResource DialogButtonStyle}"/>
         </StackPanel>
