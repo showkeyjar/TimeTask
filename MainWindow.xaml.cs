@@ -1623,6 +1623,25 @@ namespace TimeTask
     }
 }
 
+namespace TimeTask // Ensure it's within the same namespace or accessible
+{
+    public class LongTermGoal
+    {
+        public string Id { get; set; }
+        public string Description { get; set; }
+        public string TotalDuration { get; set; }
+        public DateTime CreationDate { get; set; }
+        public bool IsActive { get; set; }
+
+        public LongTermGoal()
+        {
+            Id = Guid.NewGuid().ToString();
+            CreationDate = DateTime.Now;
+            IsActive = false; // Default to not active, will be set explicitly
+        }
+    }
+}
+
 // Add this class within the TimeTask namespace, but outside the MainWindow class.
 // The namespace TimeTask is already declared above, so we are effectively adding to it.
 // No need to redeclare "namespace TimeTask" if the class is meant to be in the same one.
