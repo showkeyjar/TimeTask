@@ -9,6 +9,7 @@ using System.Net.Http;
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
 using System.Text.Json; // Added for System.Text.Json
+using System.Text.Json.Serialization; // Added for JsonPropertyName attributes
 using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
 using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo)
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
@@ -31,9 +32,16 @@ namespace TimeTask
 
     public class ProposedDailyTask
     {
+        [JsonPropertyName("day")]
         public int Day { get; set; }
+
+        [JsonPropertyName("task_description")]
         public string TaskDescription { get; set; }
+
+        [JsonPropertyName("quadrant")]
         public string Quadrant { get; set; }
+
+        [JsonPropertyName("estimated_time")]
         public string EstimatedTime { get; set; }
     }
 
