@@ -185,6 +185,8 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 .Replace("{userDuration}", durationString);
 
             string llmResponse = await GetCompletionAsync(fullPrompt);
+            Console.WriteLine("LlmService: Raw LLM Response for Goal Decomposition:");
+            Console.WriteLine(llmResponse);
 
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -212,6 +214,40 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 llmResponse = llmResponse.Trim();
 
                 List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
+
+                if (tasks != null && tasks.Any())
+                {
+                    Console.WriteLine($"LlmService: Successfully parsed {tasks.Count} tasks. Reviewing for missing details...");
+                    bool foundMissingDetails = false;
+                    for (int i = 0; i < tasks.Count; i++)
+                    {
+                        var taskDetail = tasks[i];
+                        bool hasMissingDescription = string.IsNullOrWhiteSpace(taskDetail.TaskDescription);
+                        bool hasMissingTime = string.IsNullOrWhiteSpace(taskDetail.EstimatedTime);
+
+                        if (hasMissingDescription || hasMissingTime)
+                        {
+                            foundMissingDetails = true;
+                            Console.WriteLine($"LlmService: Parsed Task #{i + 1} (Day={taskDetail.Day}) has missing details: Description='{taskDetail.TaskDescription}', Quadrant='{taskDetail.Quadrant}', EstimatedTime='{taskDetail.EstimatedTime}'");
+                        }
+                    }
+                    if (!foundMissingDetails)
+                    {
+                        Console.WriteLine("LlmService: All parsed tasks appear to have descriptions and estimated times.");
+                        // Optional: Log first few tasks for confirmation if desired, e.g.:
+                        // Console.WriteLine("LlmService: Logging first few tasks for confirmation (up to 3):");
+                        // foreach (var taskDetail in tasks.Take(3))
+                        // {
+                        //     Console.WriteLine($"LlmService: Parsed Task: Day={taskDetail.Day}, Description='{taskDetail.TaskDescription}', Quadrant='{taskDetail.Quadrant}', EstimatedTime='{taskDetail.EstimatedTime}'");
+                        // }
+                    }
+                }
+                else if (tasks != null) // tasks is not null but empty, i.e., tasks.Count == 0
+                {
+                    Console.WriteLine("LlmService: LLM response parsed into an empty list of tasks.");
+                }
+                // If tasks is null, it implies a deserialization failure, which should be caught by JsonException handler.
+
                 return tasks ?? new List<ProposedDailyTask>();
             }
             catch (JsonException jsonEx)
