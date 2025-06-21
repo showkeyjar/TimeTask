@@ -9,6 +9,7 @@ using System.Net.Http;
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
 using System.Text.Json; // Added for System.Text.Json
+using System.Text.Json.Serialization; // Added for JsonPropertyName attributes
 using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
 using Betalgo.Ranul.OpenAI.ObjectModels; // For Models (e.g., Models.Gpt_3_5_Turbo)
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest, ChatMessage
@@ -31,9 +32,16 @@ namespace TimeTask
 
     public class ProposedDailyTask
     {
+        [JsonPropertyName("day")]
         public int Day { get; set; }
+
+        [JsonPropertyName("task_description")]
         public string TaskDescription { get; set; }
+
+        [JsonPropertyName("quadrant")]
         public string Quadrant { get; set; }
+
+        [JsonPropertyName("estimated_time")]
         public string EstimatedTime { get; set; }
     }
 
@@ -43,6 +51,7 @@ namespace TimeTask
         private string _apiKey;
         private string _apiBaseUrl; // New field for API Base URL
         private string _modelName;  // New field for Model Name
+        private TimeSpan _httpClientTimeout = TimeSpan.FromSeconds(120); // Default value
         private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
         private const string DefaultModelName = "gpt-3.5-turbo"; // Default model
 
@@ -184,6 +193,8 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 .Replace("{userDuration}", durationString);
 
             string llmResponse = await GetCompletionAsync(fullPrompt);
+            Console.WriteLine("LlmService: Raw LLM Response for Goal Decomposition:");
+            Console.WriteLine(llmResponse);
 
             if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
             {
@@ -211,47 +222,46 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 llmResponse = llmResponse.Trim();
 
                 List<ProposedDailyTask> tasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(llmResponse, options);
+
+                if (tasks != null && tasks.Any())
+                {
+                    Console.WriteLine($"LlmService: Successfully parsed {tasks.Count} tasks. Reviewing for missing details...");
+                    bool foundMissingDetails = false;
+                    for (int i = 0; i < tasks.Count; i++)
+                    {
+                        var taskDetail = tasks[i];
+                        bool hasMissingDescription = string.IsNullOrWhiteSpace(taskDetail.TaskDescription);
+                        bool hasMissingTime = string.IsNullOrWhiteSpace(taskDetail.EstimatedTime);
+
+                        if (hasMissingDescription || hasMissingTime)
+                        {
+                            foundMissingDetails = true;
+                            Console.WriteLine($"LlmService: Parsed Task #{i + 1} (Day={taskDetail.Day}) has missing details: Description='{taskDetail.TaskDescription}', Quadrant='{taskDetail.Quadrant}', EstimatedTime='{taskDetail.EstimatedTime}'");
+                        }
+                    }
+                    if (!foundMissingDetails)
+                    {
+                        Console.WriteLine("LlmService: All parsed tasks appear to have descriptions and estimated times.");
+                        // Optional: Log first few tasks for confirmation if desired, e.g.:
+                        // Console.WriteLine("LlmService: Logging first few tasks for confirmation (up to 3):");
+                        // foreach (var taskDetail in tasks.Take(3))
+                        // {
+                        //     Console.WriteLine($"LlmService: Parsed Task: Day={taskDetail.Day}, Description='{taskDetail.TaskDescription}', Quadrant='{taskDetail.Quadrant}', EstimatedTime='{taskDetail.EstimatedTime}'");
+                        // }
+                    }
+                }
+                else if (tasks != null) // tasks is not null but empty, i.e., tasks.Count == 0
+                {
+                    Console.WriteLine("LlmService: LLM response parsed into an empty list of tasks.");
+                }
+                // If tasks is null, it implies a deserialization failure, which should be caught by JsonException handler.
+
                 return tasks ?? new List<ProposedDailyTask>();
             }
             catch (JsonException jsonEx)
             {
                 Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
-
-                // New Forgiving Logic
-                List<ProposedDailyTask> salvagedTasks = new List<ProposedDailyTask>();
-                if (string.IsNullOrWhiteSpace(llmResponse))
-                {
-                    return salvagedTasks;
-                }
-
-                string trimmedResponse = llmResponse.Trim();
-                if (!trimmedResponse.StartsWith("["))
-                {
-                    Console.WriteLine("LLM response for salvage does not start with '['.");
-                    return salvagedTasks;
-                }
-
-                int lastBrace = trimmedResponse.LastIndexOf('}');
-                if (lastBrace == -1)
-                {
-                    Console.WriteLine("LLM response for salvage does not contain '}'.");
-                    return salvagedTasks;
-                }
-
-                string partialJsonString = trimmedResponse.Substring(0, lastBrace + 1) + "]";
-                Console.WriteLine($"Attempting to parse potentially salvaged JSON: {partialJsonString}");
-
-                try
-                {
-                    salvagedTasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(partialJsonString, options);
-                    Console.WriteLine($"Successfully salvaged {salvagedTasks.Count} tasks from partial JSON.");
-                    return salvagedTasks ?? new List<ProposedDailyTask>();
-                }
-                catch (JsonException innerEx)
-                {
-                    Console.WriteLine($"Failed to parse salvaged JSON: {innerEx.Message}. Partial JSON was: {partialJsonString}");
-                    return new List<ProposedDailyTask>();
-                }
+                return new List<ProposedDailyTask>(); // Directly return an empty list
             }
             catch (Exception ex)
             {
@@ -643,6 +653,17 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
                 _apiBaseUrl = ConfigurationManager.AppSettings["LlmApiBaseUrl"]; // Load new setting
                 _modelName = ConfigurationManager.AppSettings["LlmModelName"];   // Load new setting
+
+                string timeoutSetting = ConfigurationManager.AppSettings["LlmRequestTimeoutSeconds"];
+                if (!string.IsNullOrWhiteSpace(timeoutSetting) && int.TryParse(timeoutSetting, out int timeoutSeconds) && timeoutSeconds > 0)
+                {
+                    _httpClientTimeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    Console.WriteLine($"LLM Service: Using configured HTTP client timeout of {timeoutSeconds} seconds.");
+                }
+                else
+                {
+                    Console.WriteLine($"LLM Service: LlmRequestTimeoutSeconds setting is missing, invalid, or not positive. Using default timeout of {_httpClientTimeout.TotalSeconds} seconds.");
+                }
             }
             catch (ConfigurationErrorsException ex)
             {
@@ -689,11 +710,11 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
 
             var httpClient = new HttpClient
             {
-                Timeout = TimeSpan.FromSeconds(120)
+                Timeout = _httpClientTimeout // Use the configured value
             };
 
             _openAiService = new Betalgo.Ranul.OpenAI.Managers.OpenAIService(options, httpClient);
-            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient (120s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
+            Console.WriteLine($"LlmService: Initialized OpenAIService with custom HttpClient ({_httpClientTimeout.TotalSeconds}s timeout). Provider: OpenAI (Betalgo.Ranul.OpenAI). Model: {_modelName}.");
         }
 
         public async Task<string> GetCompletionAsync(string prompt)
@@ -719,6 +740,8 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
 
             try
             {
+                int currentMaxTokens = 8192; // Define MaxTokens
+                Console.WriteLine($"LLM Request: Using MaxTokens = {currentMaxTokens}"); // Log MaxTokens
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
@@ -726,7 +749,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 4096
+                    MaxTokens = currentMaxTokens
                 });
 
                 if (completionResult.Successful)
@@ -779,10 +802,22 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                 Console.WriteLine($"Error deserializing the entire LLM response. Path: {jsonExOuter.Path}, Line: {jsonExOuter.LineNumber}, Pos: {jsonExOuter.BytePositionInLine}. Details: {jsonExOuter.Message}");
                 return $"Error from LLM: Could not parse the entire response. Details: {jsonExOuter.Message}";
             }
-            catch (Exception ex) // General catch-all
+            catch (TaskCanceledException tex) // Catch TaskCanceledException specifically
             {
-                Console.WriteLine($"Exception during LLM call: {ex.ToString()}"); // Use ToString()
-                return await Task.FromResult($"LLM dummy response (due to exception: {ex.Message}) for: {prompt}"); // Keep original return style
+                // Check if the TaskCanceledException is due to HttpClient's timeout
+                // The CancellationToken for HttpClient.Timeout is internal, so direct check is hard.
+                // However, if tex.CancellationToken.IsCancellationRequested is true, it's a cancellation.
+                // If it's an OperationCanceledException (base for TaskCanceledException) and the HttpClient's timeout has passed, it's likely a timeout.
+                // For simplicity here, we'll assume TaskCanceledException in this context is often a timeout.
+                string errorMessage = $"LLM request timed out or was canceled. Timeout is set to {_httpClientTimeout.TotalSeconds} seconds. Exception: {tex.Message}";
+                Console.WriteLine($"Exception during LLM call: {tex.ToString()}");
+                // Return a dummy response that includes the timeout information
+                return $"LLM dummy response (request timed out or canceled after {_httpClientTimeout.TotalSeconds}s). Prompt: {prompt.Substring(0, Math.Min(prompt.Length, 100))}..."; // Log part of the prompt
+            }
+            catch (Exception ex) // General catch-all for other exceptions
+            {
+                Console.WriteLine($"Exception during LLM call: {ex.ToString()}");
+                return $"LLM dummy response (due to exception: {ex.Message}). Prompt: {prompt.Substring(0, Math.Min(prompt.Length, 100))}..."; // Log part of the prompt
             }
         }
 

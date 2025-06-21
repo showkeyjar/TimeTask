@@ -1367,10 +1367,11 @@ namespace TimeTask
                 }
                 // Hide loading indicator here
 
+                // Check if proposedTasks is null or empty before proceeding
                 if (proposedTasks == null || !proposedTasks.Any())
                 {
-                    MessageBox.Show("The LLM could not break down this goal into daily tasks, or no tasks were returned. Please try a different goal or phrasing.", "No Tasks Generated", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
+                    MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing, or check LLM configuration if issues persist.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return; // Return from the method
                 }
 
                 ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
@@ -1383,15 +1384,20 @@ namespace TimeTask
                     int tasksAddedCount = 0;
                     foreach (var taskToAdd in confirmDialog.SelectedTasks)
                     {
+                        // Declare helper strings before the ItemGrid initializer
+                        string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
+                        string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+
                         var newItem = new ItemGrid
                         {
-                            Task = taskToAdd.TaskDescription + (!string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : ""),
+                            Task = displayTaskDescription + displayEstimatedTime,
                             // Importance and Urgency need to be mapped from taskToAdd.Quadrant
                             // Score will be set on refresh/add
                             IsActive = true,
                             Result = string.Empty,
                             CreatedDate = DateTime.Now, // Consider if 'Day' from ProposedDailyTask should influence this
                             LastModifiedDate = DateTime.Now
+                            // Ensure other existing properties like Importance, Urgency, Quadrant mapping, etc., are preserved correctly from the original code.
                         };
 
                         // Map Quadrant string to Importance and Urgency

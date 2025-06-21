@@ -22,7 +22,7 @@ namespace TimeTask
             AllProposedTasks = proposedTasks.Select(task => new SelectableProposedTask
             {
                 Day = task.Day,
-                TaskDescription = task.TaskDescription,
+                TaskDescription = string.IsNullOrWhiteSpace(task.TaskDescription) ? "(Missing Description)" : task.TaskDescription,
                 Quadrant = task.Quadrant,
                 EstimatedTime = task.EstimatedTime,
                 IsSelected = true // Default to selected
