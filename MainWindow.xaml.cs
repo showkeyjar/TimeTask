@@ -41,12 +41,15 @@ namespace TimeTask
                     Task = temparry[0],
                     Score = parseScore,
                     Result = temparry[2],
-                    IsActive = !isCompleted,
+                    IsActive = !isCompleted, // IsActive is the opposite of is_completed
                     Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
                     Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
                     CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
                     LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now,
-                    ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null
+                    ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null,
+                    LongTermGoalId = temparry.Length > 9 && !string.IsNullOrWhiteSpace(temparry[9]) ? temparry[9] : null,
+                    OriginalScheduledDay = temparry.Length > 10 && int.TryParse(temparry[10], out int osd) ? osd : 0,
+                    IsActiveInQuadrant = temparry.Length > 11 && bool.TryParse(temparry[11], out bool iaiq) ? iaiq : true // Default to true for backward compatibility
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -56,7 +59,7 @@ namespace TimeTask
             catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
                 Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
                 // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now });
+                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now, IsActiveInQuadrant = true });
             }
             return result_list;
         }
@@ -64,12 +67,74 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""}"
+                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant}"
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime";
+            // Updated header
+            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant";
             File.WriteAllLines(filepath, contents);
+        }
+
+        public static List<LongTermGoal> ReadLongTermGoalsCsv(string filepath)
+        {
+            if (!File.Exists(filepath))
+            {
+                return new List<LongTermGoal>(); // Return empty list if file doesn't exist
+            }
+
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
+            if (allLines.Count <= 1) // Only header or empty
+            {
+                return new List<LongTermGoal>();
+            }
+
+            var goals = new List<LongTermGoal>();
+            // Assuming header: Id,Description,TotalDuration,CreationDate,IsActive
+            foreach (var line in allLines.Skip(1))
+            {
+                var fields = line.Split(',');
+                if (fields.Length >= 5)
+                {
+                    try
+                    {
+                        var goal = new LongTermGoal
+                        {
+                            Id = fields[0],
+                            Description = fields[1].Replace(";;;", ","), // Handle escaped commas in description
+                            TotalDuration = fields[2],
+                            CreationDate = DateTime.TryParse(fields[3], out DateTime cd) ? cd : DateTime.MinValue,
+                            IsActive = bool.TryParse(fields[4], out bool ia) && ia
+                        };
+                        goals.Add(goal);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error parsing LongTermGoal line: {line}. Error: {ex.Message}");
+                        // Optionally, add a default/error goal or skip
+                    }
+                }
+            }
+            return goals;
+        }
+
+        public static void WriteLongTermGoalsCsv(List<LongTermGoal> goals, string filepath)
+        {
+            // Ensure directory exists
+            var directory = Path.GetDirectoryName(filepath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var lines = new List<string> { "Id,Description,TotalDuration,CreationDate,IsActive" }; // Header
+            foreach (var goal in goals)
+            {
+                // Escape commas in description field as it's user input
+                string safeDescription = goal.Description?.Replace(",", ";;;") ?? "";
+                lines.Add($"{goal.Id},{safeDescription},{goal.TotalDuration},{goal.CreationDate:o},{goal.IsActive}");
+            }
+            File.WriteAllLines(filepath, lines);
         }
     }
 
@@ -93,6 +158,11 @@ namespace TimeTask
         public string CompletionStatus { get; set; }
         public string AssignedRole { get; set; }
         public string SourceTaskID { get; set; } // To map to SourceTaskID from the database
+
+        // New properties for Long-Term Goal association
+        public string LongTermGoalId { get; set; } = null; // ID of the parent LongTermGoal
+        public int OriginalScheduledDay { get; set; } = 0; // Day index for tasks from a long-term plan
+        public bool IsActiveInQuadrant { get; set; } = true; // True if the task should be displayed in the main quadrants
 
     }
 
@@ -135,10 +205,64 @@ namespace TimeTask
         int task3_selected_indexs = -1;
         int task4_selected_indexs = -1;
 
+        private LongTermGoal _activeLongTermGoal;
+
+        private void LoadActiveLongTermGoalAndRefreshDisplay()
+        {
+            string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            if (File.Exists(longTermGoalsCsvPath))
+            {
+                List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
+                _activeLongTermGoal = allLongTermGoals.FirstOrDefault(g => g.IsActive);
+            }
+            else
+            {
+                _activeLongTermGoal = null;
+            }
+            UpdateLongTermGoalBadge();
+        }
+
+        public void UpdateLongTermGoalBadge()
+        {
+            if (_activeLongTermGoal != null)
+            {
+                ActiveLongTermGoalDisplay.Visibility = Visibility.Visible;
+                ActiveLongTermGoalName.Text = TruncateText(_activeLongTermGoal.Description, 20); // Display a truncated name
+
+                int pendingSubTasks = 0;
+                string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
+                for (int i = 0; i < csvFiles.Length; i++)
+                {
+                    string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
+                    if (File.Exists(filePath))
+                    {
+                        List<ItemGrid> items = HelperClass.ReadCsv(filePath);
+                        if (items != null)
+                        {
+                            pendingSubTasks += items.Count(item => item.LongTermGoalId == _activeLongTermGoal.Id && item.IsActive);
+                        }
+                    }
+                }
+                LongTermGoalBadge.Text = pendingSubTasks.ToString();
+            }
+            else
+            {
+                ActiveLongTermGoalDisplay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private string TruncateText(string text, int maxLength)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            return text.Length <= maxLength ? text : text.Substring(0, maxLength) + "...";
+        }
+
         public async void loadDataGridView()
         {
+            LoadActiveLongTermGoalAndRefreshDisplay(); // Load active goal and update its display
+
             string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
-            _llmConfigErrorDetectedInLoad = false; // Initialize/reset for current load operation
+            _llmConfigErrorDetectedInLoad = false;
 
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
@@ -146,16 +270,17 @@ namespace TimeTask
             for (int i = 0; i < csvFiles.Length; i++)
             {
                 string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
-                List<ItemGrid> items = HelperClass.ReadCsv(filePath);
+                List<ItemGrid> allItemsInCsv = HelperClass.ReadCsv(filePath);
+                List<ItemGrid> itemsToDisplayInQuadrant;
 
-                if (items == null)
+                if (allItemsInCsv == null)
                 {
                     Console.WriteLine($"Error reading CSV file: {filePath}. Or file is empty/new.");
-                    items = new List<ItemGrid>();
+                    allItemsInCsv = new List<ItemGrid>();
                 }
                 else
                 {
-                    foreach (var item in items)
+                    foreach (var item in allItemsInCsv)
                     {
                         if (!string.IsNullOrWhiteSpace(item.SourceTaskID) && !_syncedTaskSourceIDs.Contains(item.SourceTaskID))
                         {
@@ -164,42 +289,22 @@ namespace TimeTask
                     }
                 }
                 
-                bool updated = false; // This variable is now effectively unused in this part of the loop
-                                     // as the block that set it to true is removed.
-                // The following block for on-load LLM prioritization has been removed.
-                // foreach (var item in items)
-                // {
-                //     if (string.IsNullOrWhiteSpace(item.Importance) || item.Importance == "Unknown" ||
-                //         string.IsNullOrWhiteSpace(item.Urgency) || item.Urgency == "Unknown")
-                //     {
-                //         // ... LLM call and update logic was here ...
-                //         // updated = true;
-                //     }
-                // }
+                // Filter tasks for display: only those marked IsActiveInQuadrant
+                itemsToDisplayInQuadrant = allItemsInCsv.Where(item => item.IsActiveInQuadrant).ToList();
 
-                // The following if(updated) block, which was for saving after on-load prioritization,
-                // has also been removed as 'updated' would always be false here.
-                // if (updated)
-                // {
-                //     try
-                //     {
-                //         HelperClass.WriteCsv(items, filePath);
-                //         Console.WriteLine($"Saved updated tasks to {filePath}");
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                //     }
-                // }
-                
                 dataGrids[i].ItemsSource = null;
-                dataGrids[i].ItemsSource = items;
+                dataGrids[i].ItemsSource = itemsToDisplayInQuadrant;
                 if (!dataGrids[i].Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
                 {
                     dataGrids[i].Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
                 }
 
-                foreach (var item in items)
+                // Stale task processing should consider only displayed tasks or all tasks?
+                // For now, let's assume it processes based on items in the CSV (allItemsInCsv)
+                // as a task could be stale even if not currently in an active quadrant view.
+                // However, interaction (like decomposition) should probably happen for visible tasks.
+                // This needs careful consideration. Let's iterate over displayed tasks for now for reminders.
+                foreach (var item in itemsToDisplayInQuadrant)
                 {
                     if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
                     {
@@ -497,6 +602,30 @@ namespace TimeTask
             _reminderTimer.Start();
 
             InitializeSyncService();
+        }
+
+        private void ActiveLongTermGoalDisplay_Click(object sender, RoutedEventArgs e)
+        {
+            // Placeholder for opening the LongTermGoalManagerWindow
+            // This will be implemented in a later step.
+            if (_activeLongTermGoal != null)
+            {
+                string dataFolderPath = Path.Combine(currentPath, "data");
+                LongTermGoalManagerWindow managerWindow = new LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath);
+                managerWindow.Owner = this;
+                bool? result = managerWindow.ShowDialog();
+
+                // If the manager window indicated data changed, refresh the main window's display
+                if (result == true)
+                {
+                    LoadActiveLongTermGoalAndRefreshDisplay(); // Reloads active goal and updates badge
+                    loadDataGridView(); // Reloads quadrant data (filters for IsActiveInQuadrant)
+                }
+            }
+            else
+            {
+                MessageBox.Show("No active long-term goal to manage.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private void InitializeSyncService()
@@ -885,6 +1014,10 @@ namespace TimeTask
             {
                 RefreshDataGrid(sourceGrid); // Refresh the specific grid
                 update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
+                if (taskToDelete.LongTermGoalId == _activeLongTermGoal?.Id) // Check if deleted task was part of the active goal
+                {
+                    UpdateLongTermGoalBadge();
+                }
             }
         }
 
@@ -1344,7 +1477,7 @@ namespace TimeTask
 
             if (goalDialog.ShowDialog() == true)
             {
-                string userGoal = goalDialog.GoalDescription;
+                string userGoalDescription = goalDialog.GoalDescription;
                 string userDuration = goalDialog.Duration;
 
                 if (_llmService == null)
@@ -1353,25 +1486,21 @@ namespace TimeTask
                     return;
                 }
 
-                // Show some kind of loading indicator here if possible (optional for now)
                 List<ProposedDailyTask> proposedTasks = null;
                 try
                 {
-                    // This is an async call, so the method should be async void
-                    proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoal, userDuration);
+                    proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoalDescription, userDuration);
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return; // Stop further processing
+                    return;
                 }
-                // Hide loading indicator here
 
-                // Check if proposedTasks is null or empty before proceeding
                 if (proposedTasks == null || !proposedTasks.Any())
                 {
-                    MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing, or check LLM configuration if issues persist.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return; // Return from the method
+                    MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
                 }
 
                 ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
@@ -1381,80 +1510,112 @@ namespace TimeTask
 
                 if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
                 {
-                    int tasksAddedCount = 0;
-                    foreach (var taskToAdd in confirmDialog.SelectedTasks)
+                    // Create and save the LongTermGoal object
+                    var newLongTermGoal = new LongTermGoal
                     {
-                        // Declare helper strings before the ItemGrid initializer
-                        string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
-                        string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+                        Description = userGoalDescription,
+                        TotalDuration = userDuration,
+                        IsActive = true // This new goal will be the active one
+                    };
 
-                        var newItem = new ItemGrid
-                        {
-                            Task = displayTaskDescription + displayEstimatedTime,
-                            // Importance and Urgency need to be mapped from taskToAdd.Quadrant
-                            // Score will be set on refresh/add
-                            IsActive = true,
-                            Result = string.Empty,
-                            CreatedDate = DateTime.Now, // Consider if 'Day' from ProposedDailyTask should influence this
-                            LastModifiedDate = DateTime.Now
-                            // Ensure other existing properties like Importance, Urgency, Quadrant mapping, etc., are preserved correctly from the original code.
-                        };
+                    string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+                    List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
 
-                        // Map Quadrant string to Importance and Urgency
-                        // And determine target DataGrid
-                        DataGrid targetGrid = null;
-                        string targetCsvNumber = null;
-
-                        switch (taskToAdd.Quadrant?.ToLowerInvariant())
-                        {
-                            case "important & urgent":
-                                newItem.Importance = "High"; newItem.Urgency = "High";
-                                targetGrid = task1; targetCsvNumber = "1";
-                                break;
-                            case "important & not urgent":
-                                newItem.Importance = "High"; newItem.Urgency = "Low";
-                                targetGrid = task2; targetCsvNumber = "2";
-                                break;
-                            case "not important & urgent":
-                                newItem.Importance = "Low"; newItem.Urgency = "High";
-                                targetGrid = task3; targetCsvNumber = "3";
-                                break;
-                            case "not important & not urgent":
-                                newItem.Importance = "Low"; newItem.Urgency = "Low";
-                                targetGrid = task4; targetCsvNumber = "4";
-                                break;
-                            default:
-                                Console.WriteLine($"Unknown quadrant: {taskToAdd.Quadrant}. Defaulting to Important & Urgent.");
-                                newItem.Importance = "High"; newItem.Urgency = "High"; // Default
-                                targetGrid = task1; targetCsvNumber = "1";
-                                break;
-                        }
-
-                        if (targetGrid != null)
-                        {
-                            var items = targetGrid.ItemsSource as List<ItemGrid>;
-                            if (items == null)
-                            {
-                                items = new List<ItemGrid>();
-                                targetGrid.ItemsSource = items;
-                            }
-                            items.Add(newItem);
-                            // Re-score items in this grid
-                            for (int i = 0; i < items.Count; i++)
-                            {
-                                items[i].Score = items.Count - i;
-                            }
-                            RefreshDataGrid(targetGrid); // Refresh the specific grid
-                            if (targetCsvNumber != null)
-                            {
-                                update_csv(targetGrid, targetCsvNumber);
-                            }
-                            tasksAddedCount++;
-                        }
+                    // Deactivate any existing active goals
+                    foreach (var goal in allLongTermGoals)
+                    {
+                        goal.IsActive = false;
                     }
-                    if (tasksAddedCount > 0)
+                    // Add or update the new goal
+                    var existingGoal = allLongTermGoals.FirstOrDefault(g => g.Id == newLongTermGoal.Id);
+                    if (existingGoal != null) // Should not happen if ID is always new, but good for robustness
                     {
-                         MessageBox.Show($"{tasksAddedCount} new daily task(s) have been added to your plan.", "Tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
+                       allLongTermGoals.Remove(existingGoal);
+                    }
+                    allLongTermGoals.Add(newLongTermGoal);
+                    HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
+
+                    // Process selected tasks
+                    int tasksProcessedCount = 0;
+                    // Group tasks by their target CSV/quadrant to minimize read/writes
+                    var tasksByQuadrant = confirmDialog.SelectedTasks.GroupBy(taskToAdd =>
+                    {
+                        // Determine target quadrant and CSV number
+                        string quadrant = taskToAdd.Quadrant?.ToLowerInvariant();
+                        if (quadrant == "important & urgent") return "1";
+                        if (quadrant == "important & not urgent") return "2";
+                        if (quadrant == "not important & urgent") return "3";
+                        if (quadrant == "not important & not urgent") return "4";
+                        return "1"; // Default
+                    });
+
+                    foreach (var group in tasksByQuadrant)
+                    {
+                        string targetCsvNumber = group.Key;
+                        string quadrantCsvPath = Path.Combine(currentPath, "data", $"{targetCsvNumber}.csv");
+                        List<ItemGrid> quadrantTasks = HelperClass.ReadCsv(quadrantCsvPath);
+                        if (quadrantTasks == null) quadrantTasks = new List<ItemGrid>();
+
+                        foreach (var taskToAdd in group)
+                        {
+                            string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
+                            string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+
+                            int dayNumber = 0; // Default
+                            if (!string.IsNullOrWhiteSpace(taskToAdd.Day))
+                            {
+                                // Assuming Day is like "Day 1", "Day 2", etc. or just a number
+                                var dayMatch = System.Text.RegularExpressions.Regex.Match(taskToAdd.Day, @"\d+");
+                                if (dayMatch.Success)
+                                {
+                                    int.TryParse(dayMatch.Value, out dayNumber);
+                                }
+                            }
+
+                            var newItem = new ItemGrid
+                            {
+                                Task = displayTaskDescription + displayEstimatedTime,
+                                IsActive = true, // Task is active by default, but not necessarily in quadrant
+                                Result = string.Empty,
+                                CreatedDate = DateTime.Now,
+                                LastModifiedDate = DateTime.Now,
+                                LongTermGoalId = newLongTermGoal.Id,
+                                OriginalScheduledDay = dayNumber,
+                                IsActiveInQuadrant = false // IMPORTANT: Initially false for long-term sub-tasks
+                            };
+
+                            switch (taskToAdd.Quadrant?.ToLowerInvariant())
+                            {
+                                case "important & urgent":
+                                    newItem.Importance = "High"; newItem.Urgency = "High";
+                                    break;
+                                case "important & not urgent":
+                                    newItem.Importance = "High"; newItem.Urgency = "Low";
+                                    break;
+                                case "not important & urgent":
+                                    newItem.Importance = "Low"; newItem.Urgency = "High";
+                                    break;
+                                case "not important & not urgent":
+                                    newItem.Importance = "Low"; newItem.Urgency = "Low";
+                                    break;
+                                default:
+                                    newItem.Importance = "High"; newItem.Urgency = "High"; // Default
+                                    break;
+                            }
+                            quadrantTasks.Add(newItem);
+                            tasksProcessedCount++;
+                        }
+                        HelperClass.WriteCsv(quadrantTasks, quadrantCsvPath);
+                    }
+
+                    if (tasksProcessedCount > 0)
+                    {
+                        MessageBox.Show($"{tasksProcessedCount} sub-task(s) for your long-term goal '{newLongTermGoal.Description}' have been planned. You can manage and activate them from the main screen.", "Long-Term Goal Set", MessageBoxButton.OK, MessageBoxImage.Information);
+                        // TODO: Refresh MainWindow's long-term goal display (next step)
+                        // For now, just reload all data grids to reflect potential changes indirectly,
+                        // though these tasks are IsActiveInQuadrant=false so they won't show yet.
+                        // This call might be deferred to a specific refresh method for the LTG display.
+                        loadDataGridView();
                     }
                 }
             }
