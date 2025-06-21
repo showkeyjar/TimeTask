@@ -253,42 +253,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
             catch (JsonException jsonEx)
             {
                 Console.WriteLine($"Error parsing JSON response for goal decomposition: {jsonEx.Message}. Response was: {llmResponse}");
-
-                // New Forgiving Logic
-                List<ProposedDailyTask> salvagedTasks = new List<ProposedDailyTask>();
-                if (string.IsNullOrWhiteSpace(llmResponse))
-                {
-                    return salvagedTasks;
-                }
-
-                string trimmedResponse = llmResponse.Trim();
-                if (!trimmedResponse.StartsWith("["))
-                {
-                    Console.WriteLine("LLM response for salvage does not start with '['.");
-                    return salvagedTasks;
-                }
-
-                int lastBrace = trimmedResponse.LastIndexOf('}');
-                if (lastBrace == -1)
-                {
-                    Console.WriteLine("LLM response for salvage does not contain '}'.");
-                    return salvagedTasks;
-                }
-
-                string partialJsonString = trimmedResponse.Substring(0, lastBrace + 1) + "]";
-                Console.WriteLine($"Attempting to parse potentially salvaged JSON: {partialJsonString}");
-
-                try
-                {
-                    salvagedTasks = JsonSerializer.Deserialize<List<ProposedDailyTask>>(partialJsonString, options);
-                    Console.WriteLine($"Successfully salvaged {salvagedTasks.Count} tasks from partial JSON.");
-                    return salvagedTasks ?? new List<ProposedDailyTask>();
-                }
-                catch (JsonException innerEx)
-                {
-                    Console.WriteLine($"Failed to parse salvaged JSON: {innerEx.Message}. Partial JSON was: {partialJsonString}");
-                    return new List<ProposedDailyTask>();
-                }
+                return new List<ProposedDailyTask>(); // Directly return an empty list
             }
             catch (Exception ex)
             {
@@ -767,6 +732,8 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
 
             try
             {
+                int currentMaxTokens = 8192; // Define MaxTokens
+                Console.WriteLine($"LLM Request: Using MaxTokens = {currentMaxTokens}"); // Log MaxTokens
                 var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
                     Messages = new List<ChatMessage> 
@@ -774,7 +741,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
                         ChatMessage.FromUser(prompt) 
                     },
                     Model = _modelName, // Use configured model name
-                    MaxTokens = 4096
+                    MaxTokens = currentMaxTokens
                 });
 
                 if (completionResult.Successful)
