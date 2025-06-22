@@ -754,25 +754,41 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
 
                 if (completionResult.Successful)
                 {
-                    var choice = completionResult.Choices.FirstOrDefault();
-                    var content = choice?.Message.Content;
-                    if (string.IsNullOrWhiteSpace(content))
+                    if (completionResult.Choices != null) // Defensive null check for Choices
                     {
-                        Console.WriteLine("LLM API call was successful but returned empty or whitespace content.");
-                        Console.WriteLine($"Choice Finish Reason: {choice?.FinishReason}");
+                        var choice = completionResult.Choices.FirstOrDefault();
+                        var content = choice?.Message.Content;
+                        if (string.IsNullOrWhiteSpace(content))
+                        {
+                            Console.WriteLine("LLM API call was successful but returned empty or whitespace content from choice.");
+                            Console.WriteLine($"Choice Finish Reason: {choice?.FinishReason}");
+                            try
+                            {
+                                var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+                                Console.WriteLine($"Full completionResult details: {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Failed to serialize completionResult: {ex.Message}");
+                            }
+                            return content; // content will be null or whitespace
+                        }
+                        return content;
+                    }
+                    else // Choices is null despite Successful == true
+                    {
+                        Console.WriteLine("LLM API call was successful but Choices collection is null. This is unexpected.");
                         try
                         {
                             var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-                            Console.WriteLine($"Full completionResult details: {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
+                            Console.WriteLine($"Full completionResult details (Choices was null): {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Failed to serialize completionResult: {ex.Message}");
+                            Console.WriteLine($"Failed to serialize completionResult (Choices was null): {ex.Message}");
                         }
-                        // Return null or empty to maintain current behavior for downstream checks
-                        return content;
+                        return null; // Or handle as an error specific to this unusual case
                     }
-                    return content;
                 }
                 else // Not successful
                 {

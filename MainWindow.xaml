@@ -59,6 +59,41 @@
 
         <!-- Settings Button -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="100" Margin="0,10,10,0">
+            <!-- Active Long-Term Goal Display -->
+            <Button x:Name="ActiveLongTermGoalDisplay"
+                    Visibility="Collapsed"
+                    Width="Auto"
+                    Height="30"
+                    Margin="0,0,10,0"
+                    Padding="10,0"
+                    FontSize="14"
+                    ToolTip="View and manage your active long-term goal"
+                    Click="ActiveLongTermGoalDisplay_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#333333"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="ActiveLongTermGoalName" Text="My Long Goal" VerticalAlignment="Center"/>
+                    <Border Background="Red" CornerRadius="8" Margin="5,0,0,0" Padding="5,2" VerticalAlignment="Center">
+                        <TextBlock x:Name="LongTermGoalBadge" Text="0" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                    </Border>
+                </StackPanel>
+            </Button>
+
             <Button x:Name="LongTermGoalButton"
                     Content="Set Long-Term Goal"
                     Width="Auto"
