@@ -17,6 +17,7 @@ using System.Globalization; // Required for CultureInfo
 using System.Windows.Data; // Required for IMultiValueConverter
 using System.Threading; // For Timer (though DispatcherTimer is in System.Windows.Threading)
 using System.Configuration; // Required for SettingsPropertyNotFoundException
+using System.Collections.ObjectModel; // Required for ObservableCollection
 
 namespace TimeTask
 {
