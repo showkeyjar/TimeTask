@@ -465,19 +465,7 @@ namespace TimeTask
                 // The first WriteCsv inside the priority update loop saves changes.
                 // This second 'updated' check might refer to a different set of updates or be redundant.
                 // For this subtask, I am focusing only on adding the LLM config error checks.
-                // The existing logic for when and how CSV is written is preserved.
-                if (updated) 
-                {
-                    try
-                    {
-                        HelperClass.WriteCsv(items, filePath);
-                        Console.WriteLine($"Saved updated tasks to {filePath} (after priority update, before reminder display).");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error writing updated CSV {filePath}: {ex.Message}");
-                    }
-                }
+                // The problematic 'if (updated)' block was here and is now removed.
             }
 
             // After all files are processed, show a single notification if LLM config error was detected
@@ -611,7 +599,7 @@ namespace TimeTask
             if (_activeLongTermGoal != null)
             {
                 string dataFolderPath = Path.Combine(currentPath, "data");
-                LongTermGoalManagerWindow managerWindow = new LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath);
+                TimeTask.LongTermGoalManagerWindow managerWindow = new TimeTask.LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath);
                 managerWindow.Owner = this;
                 bool? result = managerWindow.ShowDialog();
 
