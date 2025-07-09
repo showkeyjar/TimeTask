@@ -473,5 +473,204 @@ namespace TimeTask.Tests
             Assert.AreEqual(1, targetList[1].Score, "Score of moved item not updated in target list."); // itemS2 score
         }
 
+        // --- Tests for Inactive Task Logic ---
+
+        [TestMethod]
+        public void ItemGrid_InactiveWarningCount_DefaultsToZero()
+        {
+            // Arrange & Act
+            var item = new ItemGrid();
+
+            // Assert
+            Assert.AreEqual(0, item.InactiveWarningCount, "New ItemGrid should have InactiveWarningCount of 0.");
+        }
+
+        [TestMethod]
+        public void HelperClass_ReadCsv_HandlesMissingInactiveWarningCountColumn()
+        {
+            // Arrange: Create a CSV content string without the 'inactiveWarningCount' column
+            string csvContent = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant\n" +
+                                "TestTask,10,Pending,False,High,High,2023-01-01T00:00:00.0000000Z,2023-01-01T00:00:00.0000000Z,,,,,\n";
+            string testFilePath = Path.Combine(_testDataPath, "old_format.csv");
+            File.WriteAllText(testFilePath, csvContent);
+
+            // Act
+            List<ItemGrid> items = HelperClass.ReadCsv(testFilePath);
+
+            // Assert
+            Assert.IsNotNull(items, "ReadCsv should return a list.");
+            Assert.AreEqual(1, items.Count, "Should read one item.");
+            Assert.AreEqual(0, items[0].InactiveWarningCount, "InactiveWarningCount should default to 0 for old CSV format.");
+        }
+
+        [TestMethod]
+        public void HelperClass_ReadWriteCsv_PreservesInactiveWarningCount()
+        {
+            // Arrange
+            var itemWithWarning = new ItemGrid
+            {
+                Task = "Warning Task",
+                Score = 5,
+                IsActive = true,
+                InactiveWarningCount = 2,
+                CreatedDate = DateTime.UtcNow.AddDays(-10),
+                LastModifiedDate = DateTime.UtcNow.AddDays(-5),
+                Importance = "High",
+                Urgency = "Low"
+            };
+            var itemsToWrite = new List<ItemGrid> { itemWithWarning };
+            string testFilePath = Path.Combine(_testDataPath, "warning_test.csv");
+
+            // Act
+            HelperClass.WriteCsv(itemsToWrite, testFilePath);
+            List<ItemGrid> itemsRead = HelperClass.ReadCsv(testFilePath);
+
+            // Assert
+            Assert.IsNotNull(itemsRead);
+            Assert.AreEqual(1, itemsRead.Count);
+            Assert.AreEqual("Warning Task", itemsRead[0].Task);
+            Assert.AreEqual(2, itemsRead[0].InactiveWarningCount, "InactiveWarningCount was not preserved during CSV read/write.");
+        }
+
+        // More complex tests for loadDataGridView logic will require careful mocking or refactoring of MainWindow.
+        // For now, these tests cover the data handling part of InactiveWarningCount.
+
+        // Helper method to simulate parts of MainWindow's stale processing for testing purposes.
+        // This avoids needing a full UI instance for these specific logic tests.
+        // NOTE: This is a simplified simulation. The actual loadDataGridView involves more.
+        private void SimulateStaleTaskProcessing(ItemGrid item, List<ItemGrid> currentQuadrantItems,
+                                                 List<ItemGrid> notImportantNotUrgentItems, string currentQuadrantCsvNameForMock)
+        {
+            // These would be instance fields or constants in MainWindow
+            TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14);
+            const int MaxInactiveWarnings = 3;
+
+            if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
+            {
+                item.InactiveWarningCount++;
+                item.LastModifiedDate = DateTime.Now; // Reset clock
+
+                bool moved = false;
+                if (item.InactiveWarningCount >= MaxInactiveWarnings)
+                {
+                    // Check if it's not already in "Not Important & Not Urgent" simulated list
+                    if (currentQuadrantItems != notImportantNotUrgentItems)
+                    {
+                        Console.WriteLine($"Simulating move for task '{item.Task}' from {currentQuadrantCsvNameForMock}");
+                        if (currentQuadrantItems.Remove(item))
+                        {
+                            item.Importance = "Low";
+                            item.Urgency = "Low";
+                            item.InactiveWarningCount = 0; // Reset
+                            notImportantNotUrgentItems.Add(item);
+                            moved = true;
+                        }
+                    }
+                    else
+                    {
+                         item.InactiveWarningCount = 0; // Already in target, reset
+                    }
+                }
+
+                // Simulate CSV update for the item's original quadrant (if not moved) or for its current state
+                // For simplicity, assume the list containing the item is what's written back.
+                if (moved)
+                {
+                    // Item was in currentQuadrantItems, now in notImportantNotUrgentItems
+                    // Write currentQuadrantItems to its CSV (item removed)
+                    // Write notImportantNotUrgentItems to its CSV (item added)
+                    // This is simplified; actual update_csv takes DataGrid.
+                }
+                else
+                {
+                    // Item stayed in currentQuadrantItems, its properties (warning count, last modified) updated
+                    // Write currentQuadrantItems to its CSV
+                }
+                // In a real scenario, update_csv would be called with the appropriate DataGrid.
+                // For this test, we'll assert the state of the lists and the item.
+            }
+        }
+
+
+        [TestMethod]
+        public void StaleTask_WarningCountIncrements_And_LastModifiedDateUpdates()
+        {
+            // Arrange
+            var staleTask = new ItemGrid
+            {
+                Task = "Stale Task 1",
+                IsActive = true,
+                LastModifiedDate = DateTime.Now.AddDays(-20), // Clearly stale
+                InactiveWarningCount = 0
+            };
+            var originalLastModified = staleTask.LastModifiedDate;
+            var currentQuadrantList = new List<ItemGrid> { staleTask };
+            var notImportantList = new List<ItemGrid>(); // Target for moves
+
+            // Act
+            SimulateStaleTaskProcessing(staleTask, currentQuadrantList, notImportantList, "1");
+
+            // Assert
+            Assert.AreEqual(1, staleTask.InactiveWarningCount, "InactiveWarningCount should be incremented.");
+            Assert.IsTrue(staleTask.LastModifiedDate > originalLastModified && staleTask.LastModifiedDate.Date == DateTime.Now.Date, "LastModifiedDate should be updated to today.");
+            Assert.IsTrue(currentQuadrantList.Contains(staleTask), "Task should still be in its original list after one warning.");
+        }
+
+        [TestMethod]
+        public void StaleTask_ReachesMaxWarnings_MovesToNotImportantNotUrgent_AndPropertiesUpdate()
+        {
+            // Arrange
+            var taskToMove = new ItemGrid
+            {
+                Task = "Task to be Moved",
+                IsActive = true,
+                LastModifiedDate = DateTime.Now.AddDays(-20), // Stale
+                InactiveWarningCount = 2 // One warning away from MaxInactiveWarnings (3)
+            };
+            var sourceQuadrantList = new List<ItemGrid> { taskToMove, new ItemGrid { Task = "Other Task" } };
+            var notImportantList = new List<ItemGrid>(); // Target list
+
+            // Act
+            SimulateStaleTaskProcessing(taskToMove, sourceQuadrantList, notImportantList, "1");
+
+            // Assert
+            Assert.AreEqual(0, taskToMove.InactiveWarningCount, "InactiveWarningCount should be reset to 0 after move.");
+            Assert.AreEqual("Low", taskToMove.Importance, "Importance should be 'Low'.");
+            Assert.AreEqual("Low", taskToMove.Urgency, "Urgency should be 'Low'.");
+            Assert.IsTrue(taskToMove.LastModifiedDate.Date == DateTime.Now.Date, "LastModifiedDate should be updated.");
+
+            Assert.IsFalse(sourceQuadrantList.Contains(taskToMove), "Task should be removed from source list.");
+            Assert.AreEqual(1, sourceQuadrantList.Count, "Source list count is incorrect.");
+            Assert.IsTrue(notImportantList.Contains(taskToMove), "Task should be added to not-important-not-urgent list.");
+            Assert.AreEqual(1, notImportantList.Count, "Target list count is incorrect.");
+        }
+
+        [TestMethod]
+        public void StaleTask_AlreadyInNotImportantNotUrgent_AtMaxWarnings_ResetsWarningCount()
+        {
+            // Arrange
+            var taskInLastQuadrant = new ItemGrid
+            {
+                Task = "Already NI/NU Task",
+                IsActive = true,
+                LastModifiedDate = DateTime.Now.AddDays(-20), // Stale
+                InactiveWarningCount = 2, // One away from Max (3)
+                Importance = "Low",
+                Urgency = "Low"
+            };
+            var notImportantList = new List<ItemGrid> { taskInLastQuadrant };
+            // In this scenario, currentQuadrantList and notImportantList are the same.
+
+            // Act
+            SimulateStaleTaskProcessing(taskInLastQuadrant, notImportantList, notImportantList, "4");
+
+            // Assert
+            Assert.AreEqual(0, taskInLastQuadrant.InactiveWarningCount, "InactiveWarningCount should be reset to 0.");
+            Assert.IsTrue(taskInLastQuadrant.LastModifiedDate.Date == DateTime.Now.Date, "LastModifiedDate should be updated.");
+            Assert.IsTrue(notImportantList.Contains(taskInLastQuadrant), "Task should remain in the not-important-not-urgent list.");
+            Assert.AreEqual("Low", taskInLastQuadrant.Importance, "Importance should remain 'Low'.");
+            Assert.AreEqual("Low", taskInLastQuadrant.Urgency, "Urgency should remain 'Low'.");
+        }
+
     }
 }

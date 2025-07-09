@@ -21,6 +21,22 @@
                             <Border.Effect>
                                 <DropShadowEffect ShadowDepth="1" Color="Gray" Opacity="0.5" BlurRadius="3"/>
                             </Border.Effect>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="MouseOver"/>
+                                    <VisualState x:Name="Selected">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="DGR_Border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFFBFFAA" Duration="0"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="SelectedUnfocused">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="DGR_Border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFFDFFAA" Duration="0"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -42,10 +58,31 @@
                                 <Button x:Name="PART_DeleteButton" Grid.Column="1" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray"/>
                             </Grid>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="0">
+                                <!-- Default background is #FFFFE0 set on DGR_Border -->
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="1">
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFFCC" /> <!-- Slightly more yellow/orange for 1 warning -->
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="2">
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFFB3" /> <!-- More orange for 2 warnings -->
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding InactiveWarningCount, Converter={StaticResource IsGreaterThanConverter}, ConverterParameter=2}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFAA0A0" /> <!-- LightCoral/Reddish for 3+ warnings -->
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Converter to check if a value is greater than a parameter -->
+        <local:IsGreaterThanConverter x:Key="IsGreaterThanConverter" />
+
     </Window.Resources>
     <Grid x:Name="TaskGrid" Width="780" Height="630">
         <Grid.ColumnDefinitions>
