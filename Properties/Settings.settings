@@ -35,5 +35,20 @@
     <Setting Name="TeamTasksDbConnectionString" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
+    <Setting Name="StaleTaskThresholdDays" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">14</Value>
+    </Setting>
+    <Setting Name="MaxInactiveWarnings" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value>
+    </Setting>
+    <Setting Name="ReminderCheckIntervalSeconds" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">300</Value> <!-- Check every 5 minutes -->
+    </Setting>
+    <Setting Name="FirstWarningAfterDays" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value> <!-- First warning after 1 day -->
+    </Setting>
+    <Setting Name="SecondWarningAfterDays" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value> <!-- Second warning after 3 days -->
+    </Setting>
   </Settings>
 </SettingsFile>

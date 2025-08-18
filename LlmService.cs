@@ -545,6 +545,19 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
             }
         }
 
+        public async Task<(string importance, string urgency)> AnalyzeTaskPriorityAsync(string taskDescription)
+        {
+            if (string.IsNullOrWhiteSpace(taskDescription)) return ("Medium", "Medium");
+            string fullPrompt = PrioritizationSystemPrompt + taskDescription;
+            string llmResponse = await GetCompletionAsync(fullPrompt);
+            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            {
+                Console.WriteLine($"LLM did not provide a valid priority analysis for '{taskDescription}'. Response: {llmResponse}");
+                return ("Medium", "Medium");
+            }
+            return ParsePriorityResponse(llmResponse);
+        }
+
         public async Task<(ClarityStatus status, string question)> AnalyzeTaskClarityAsync(string taskDescription)
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (ClarityStatus.Unknown, "Task description cannot be empty.");

@@ -1,4 +1,4 @@
-﻿<Window x:Name="MainWindow1" x:Class="TimeTask.MainWindow"
+<Window x:Name="MainWindow1" x:Class="TimeTask.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,6 +10,8 @@
         Background="Transparent" ShowInTaskbar="False">
     <Window.Resources>
         <local:TaskWithReminderIndicatorConverter x:Key="TaskReminderConverter"/>
+        <!-- Converter to check if a value is greater than a parameter -->
+        <local:IsGreaterThanConverter x:Key="IsGreaterThanConverter" />
         <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown"/>
             <EventSetter Event="PreviewMouseMove" Handler="DataGridRow_PreviewMouseMove"/>
@@ -79,9 +81,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <!-- Converter to check if a value is greater than a parameter -->
-        <local:IsGreaterThanConverter x:Key="IsGreaterThanConverter" />
 
     </Window.Resources>
     <Grid x:Name="TaskGrid" Width="780" Height="630">
