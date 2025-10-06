@@ -11,6 +11,8 @@ namespace TimeTask
     {
         Task<(string Importance, string Urgency)> GetTaskPriorityAsync(string taskDescription);
 
+        Task<(string importance, string urgency)> AnalyzeTaskPriorityAsync(string taskDescription);
+
         Task<(ClarityStatus status, string question)> AnalyzeTaskClarityAsync(string taskDescription);
 
         Task<(DecompositionStatus status, List<string> subtasks)> DecomposeTaskAsync(string taskDescription);

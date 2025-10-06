@@ -1,4 +1,4 @@
-﻿<Window x:Name="MainWindow1" x:Class="TimeTask.MainWindow"
+<Window x:Name="MainWindow1" x:Class="TimeTask.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,6 +10,8 @@
         Background="Transparent" ShowInTaskbar="False">
     <Window.Resources>
         <local:TaskWithReminderIndicatorConverter x:Key="TaskReminderConverter"/>
+        <!-- Converter to check if a value is greater than a parameter -->
+        <local:IsGreaterThanConverter x:Key="IsGreaterThanConverter" />
         <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown"/>
             <EventSetter Event="PreviewMouseMove" Handler="DataGridRow_PreviewMouseMove"/>
@@ -21,6 +23,22 @@
                             <Border.Effect>
                                 <DropShadowEffect ShadowDepth="1" Color="Gray" Opacity="0.5" BlurRadius="3"/>
                             </Border.Effect>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="MouseOver"/>
+                                    <VisualState x:Name="Selected">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="DGR_Border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFFBFFAA" Duration="0"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="SelectedUnfocused">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="DGR_Border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFFDFFAA" Duration="0"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -42,10 +60,28 @@
                                 <Button x:Name="PART_DeleteButton" Grid.Column="1" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray"/>
                             </Grid>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="0">
+                                <!-- Default background is #FFFFE0 set on DGR_Border -->
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="1">
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFFCC" /> <!-- Slightly more yellow/orange for 1 warning -->
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InactiveWarningCount}" Value="2">
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFFB3" /> <!-- More orange for 2 warnings -->
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding InactiveWarningCount, Converter={StaticResource IsGreaterThanConverter}, ConverterParameter=2}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="DGR_Border" Property="Background" Value="#FFFAA0A0" /> <!-- LightCoral/Reddish for 3+ warnings -->
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
     </Window.Resources>
     <Grid x:Name="TaskGrid" Width="780" Height="630">
         <Grid.ColumnDefinitions>
@@ -121,6 +157,34 @@
                     </Style>
                 </Button.Style>
             </Button>
+            <Button x:Name="StatisticsButton"
+                    Content="📊"
+                    Width="30"
+                    Height="30"
+                    FontSize="16"
+                    FontWeight="Bold"
+                    ToolTip="查看任务统计"
+                    Margin="0,0,5,0"
+                    Click="StatisticsButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#333333"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            
             <Button x:Name="SettingsButton"
                     Content="⚙"
                     Width="30"
