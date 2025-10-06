@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -13,6 +13,7 @@ namespace TimeTask
     /// </summary>
     public partial class App : Application
     {
+        private AudioCaptureService _audioService;
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e); // Call base implementation
@@ -32,6 +33,29 @@ namespace TimeTask
                     System.Windows.MessageBoxImage.Warning
                 );
             }
+
+            // 启动后台智能人声录音服务
+            try
+            {
+                _audioService = new AudioCaptureService();
+                _audioService.Start();
+            }
+            catch (Exception ex)
+            {
+                // 发生异常不阻断应用启动，仅提示
+                System.Diagnostics.Debug.WriteLine($"AudioCaptureService start failed: {ex}");
+            }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                _audioService?.Dispose();
+                _audioService = null;
+            }
+            catch { }
+            base.OnExit(e);
         }
     }
 }
