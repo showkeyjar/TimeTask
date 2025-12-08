@@ -1156,13 +1156,26 @@ namespace TimeTask
             }
         }
 
+        // 定义常量用于SetWindowLong
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOPMOST = 0x00000008;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
+
+        [DllImport("user32.dll")]
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            IntPtr pWnd = FindWindow("Progman", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SHELLDLL_DefVIew", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SysListView32", null);
             IntPtr tWnd = new WindowInteropHelper(this).Handle;
-            SetParent(tWnd, pWnd);
+            
+            // 设置窗口为最底层（桌面之上，其他窗口之下）
+            // 不再将窗口设置为桌面子窗口，避免桌面刷新时消失
+            SetWindowPos(tWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         }
 
         private void location_Save(object sender, EventArgs e)
