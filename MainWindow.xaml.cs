@@ -81,17 +81,16 @@ namespace TimeTask
         {
             if (!File.Exists(filepath))
             {
-                return new List<LongTermGoal>(); // Return empty list if file doesn't exist
+                return new List<LongTermGoal>();
             }
 
             var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
-            if (allLines.Count <= 1) // Only header or empty
+            if (allLines.Count <= 1)
             {
                 return new List<LongTermGoal>();
             }
 
             var goals = new List<LongTermGoal>();
-            // Assuming header: Id,Description,TotalDuration,CreationDate,IsActive
             foreach (var line in allLines.Skip(1))
             {
                 var fields = line.Split(',');
@@ -102,17 +101,21 @@ namespace TimeTask
                         var goal = new LongTermGoal
                         {
                             Id = fields[0],
-                            Description = fields[1].Replace(";;;", ","), // Handle escaped commas in description
+                            Description = fields[1].Replace(";;;", ","),
                             TotalDuration = fields[2],
                             CreationDate = DateTime.TryParse(fields[3], out DateTime cd) ? cd : DateTime.MinValue,
-                            IsActive = bool.TryParse(fields[4], out bool ia) && ia
+                            IsActive = bool.TryParse(fields[4], out bool ia) && ia,
+                            IsLearningPlan = fields.Length > 5 && bool.TryParse(fields[5], out bool ilp) && ilp,
+                            Subject = fields.Length > 6 ? fields[6].Replace(";;;", ",") : null,
+                            StartDate = fields.Length > 7 && DateTime.TryParse(fields[7], out DateTime sd) ? sd : (DateTime?)null,
+                            TotalStages = fields.Length > 8 && int.TryParse(fields[8], out int ts) ? ts : 0,
+                            CompletedStages = fields.Length > 9 && int.TryParse(fields[9], out int cs) ? cs : 0
                         };
                         goals.Add(goal);
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Error parsing LongTermGoal line: {line}. Error: {ex.Message}");
-                        // Optionally, add a default/error goal or skip
                     }
                 }
             }
@@ -121,19 +124,143 @@ namespace TimeTask
 
         public static void WriteLongTermGoalsCsv(List<LongTermGoal> goals, string filepath)
         {
-            // Ensure directory exists
             var directory = Path.GetDirectoryName(filepath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            var lines = new List<string> { "Id,Description,TotalDuration,CreationDate,IsActive" }; // Header
+            var lines = new List<string> { "Id,Description,TotalDuration,CreationDate,IsActive,IsLearningPlan,Subject,StartDate,TotalStages,CompletedStages" };
             foreach (var goal in goals)
             {
-                // Escape commas in description field as it's user input
                 string safeDescription = goal.Description?.Replace(",", ";;;") ?? "";
-                lines.Add($"{goal.Id},{safeDescription},{goal.TotalDuration},{goal.CreationDate:o},{goal.IsActive}");
+                string safeSubject = goal.Subject?.Replace(",", ";;;") ?? "";
+                lines.Add($"{goal.Id},{safeDescription},{goal.TotalDuration},{goal.CreationDate:o},{goal.IsActive},{goal.IsLearningPlan},{safeSubject},{goal.StartDate?.ToString("o") ?? ""},{goal.TotalStages},{goal.CompletedStages}");
+            }
+            File.WriteAllLines(filepath, lines);
+        }
+
+        public static List<LearningPlan> ReadLearningPlansCsv(string filepath)
+        {
+            if (!File.Exists(filepath))
+            {
+                return new List<LearningPlan>();
+            }
+
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
+            if (allLines.Count <= 1)
+            {
+                return new List<LearningPlan>();
+            }
+
+            var plans = new List<LearningPlan>();
+            foreach (var line in allLines.Skip(1))
+            {
+                var fields = line.Split(',');
+                if (fields.Length >= 10)
+                {
+                    try
+                    {
+                        var plan = new LearningPlan
+                        {
+                            Id = fields[0],
+                            Subject = fields[1].Replace(";;;", ","),
+                            Goal = fields[2].Replace(";;;", ","),
+                            Duration = fields[3],
+                            CreationDate = DateTime.TryParse(fields[4], out DateTime cd) ? cd : DateTime.MinValue,
+                            StartDate = DateTime.TryParse(fields[5], out DateTime sd) ? sd : (DateTime?)null,
+                            EndDate = DateTime.TryParse(fields[6], out DateTime ed) ? ed : (DateTime?)null,
+                            IsActive = bool.TryParse(fields[7], out bool ia) && ia,
+                            TotalStages = int.TryParse(fields[8], out int ts) ? ts : 0,
+                            CompletedStages = int.TryParse(fields[9], out int cs) ? cs : 0
+                        };
+                        plans.Add(plan);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error parsing LearningPlan line: {line}. Error: {ex.Message}");
+                    }
+                }
+            }
+            return plans;
+        }
+
+        public static void WriteLearningPlansCsv(List<LearningPlan> plans, string filepath)
+        {
+            var directory = Path.GetDirectoryName(filepath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var lines = new List<string> { "Id,Subject,Goal,Duration,CreationDate,StartDate,EndDate,IsActive,TotalStages,CompletedStages" };
+            foreach (var plan in plans)
+            {
+                string safeSubject = plan.Subject?.Replace(",", ";;;") ?? "";
+                string safeGoal = plan.Goal?.Replace(",", ";;;") ?? "";
+                lines.Add($"{plan.Id},{safeSubject},{safeGoal},{plan.Duration},{plan.CreationDate:o},{plan.StartDate?.ToString("o") ?? ""},{plan.EndDate?.ToString("o") ?? ""},{plan.IsActive},{plan.TotalStages},{plan.CompletedStages}");
+            }
+            File.WriteAllLines(filepath, lines);
+        }
+
+        public static List<LearningMilestone> ReadLearningMilestonesCsv(string filepath)
+        {
+            if (!File.Exists(filepath))
+            {
+                return new List<LearningMilestone>();
+            }
+
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
+            if (allLines.Count <= 1)
+            {
+                return new List<LearningMilestone>();
+            }
+
+            var milestones = new List<LearningMilestone>();
+            foreach (var line in allLines.Skip(1))
+            {
+                var fields = line.Split(',');
+                if (fields.Length >= 9)
+                {
+                    try
+                    {
+                        var milestone = new LearningMilestone
+                        {
+                            Id = fields[0],
+                            LearningPlanId = fields[1],
+                            StageName = fields[2].Replace(";;;", ","),
+                            Description = fields[3].Replace(";;;", ","),
+                            StageNumber = int.TryParse(fields[4], out int sn) ? sn : 0,
+                            TargetDate = DateTime.TryParse(fields[5], out DateTime td) ? td : (DateTime?)null,
+                            IsCompleted = bool.TryParse(fields[6], out bool ic) && ic,
+                            CompletedDate = DateTime.TryParse(fields[7], out DateTime ccd) ? ccd : (DateTime?)null,
+                            AssociatedTaskId = fields.Length > 8 ? fields[8] : null
+                        };
+                        milestones.Add(milestone);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error parsing LearningMilestone line: {line}. Error: {ex.Message}");
+                    }
+                }
+            }
+            return milestones;
+        }
+
+        public static void WriteLearningMilestonesCsv(List<LearningMilestone> milestones, string filepath)
+        {
+            var directory = Path.GetDirectoryName(filepath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var lines = new List<string> { "Id,LearningPlanId,StageName,Description,StageNumber,TargetDate,IsCompleted,CompletedDate,AssociatedTaskId" };
+            foreach (var milestone in milestones)
+            {
+                string safeStageName = milestone.StageName?.Replace(",", ";;;") ?? "";
+                string safeDescription = milestone.Description?.Replace(",", ";;;") ?? "";
+                lines.Add($"{milestone.Id},{milestone.LearningPlanId},{safeStageName},{safeDescription},{milestone.StageNumber},{milestone.TargetDate?.ToString("o") ?? ""},{milestone.IsCompleted},{milestone.CompletedDate?.ToString("o") ?? ""},{milestone.AssociatedTaskId ?? ""}");
             }
             File.WriteAllLines(filepath, lines);
         }
@@ -228,23 +355,33 @@ namespace TimeTask
             if (_activeLongTermGoal != null)
             {
                 ActiveLongTermGoalDisplay.Visibility = Visibility.Visible;
-                ActiveLongTermGoalName.Text = TruncateText(_activeLongTermGoal.Description, 20); // Display a truncated name
-
-                int pendingSubTasks = 0;
-                string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
-                for (int i = 0; i < csvFiles.Length; i++)
+                
+                if (_activeLongTermGoal.IsLearningPlan)
                 {
-                    string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
-                    if (File.Exists(filePath))
+                    ActiveLongTermGoalName.Text = $"{TruncateText(_activeLongTermGoal.Subject, 15)}计划";
+                    double progress = _activeLongTermGoal.ProgressPercentage;
+                    LongTermGoalBadge.Text = $"{progress:F0}%";
+                }
+                else
+                {
+                    ActiveLongTermGoalName.Text = TruncateText(_activeLongTermGoal.Description, 20);
+
+                    int pendingSubTasks = 0;
+                    string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
+                    for (int i = 0; i < csvFiles.Length; i++)
                     {
-                        List<ItemGrid> items = HelperClass.ReadCsv(filePath);
-                        if (items != null)
+                        string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
+                        if (File.Exists(filePath))
                         {
-                            pendingSubTasks += items.Count(item => item.LongTermGoalId == _activeLongTermGoal.Id && item.IsActive);
+                            List<ItemGrid> items = HelperClass.ReadCsv(filePath);
+                            if (items != null)
+                            {
+                                pendingSubTasks += items.Count(item => item.LongTermGoalId == _activeLongTermGoal.Id && item.IsActive);
+                            }
                         }
                     }
+                    LongTermGoalBadge.Text = pendingSubTasks.ToString();
                 }
-                LongTermGoalBadge.Text = pendingSubTasks.ToString();
             }
             else
             {
@@ -595,20 +732,32 @@ namespace TimeTask
 
         private void ActiveLongTermGoalDisplay_Click(object sender, RoutedEventArgs e)
         {
-            // Placeholder for opening the LongTermGoalManagerWindow
-            // This will be implemented in a later step.
             if (_activeLongTermGoal != null)
             {
-                string dataFolderPath = Path.Combine(currentPath, "data");
-                TimeTask.LongTermGoalManagerWindow managerWindow = new TimeTask.LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath);
-                managerWindow.Owner = this;
-                bool? result = managerWindow.ShowDialog();
-
-                // If the manager window indicated data changed, refresh the main window's display
-                if (result == true)
+                if (_activeLongTermGoal.IsLearningPlan)
                 {
-                    LoadActiveLongTermGoalAndRefreshDisplay(); // Reloads active goal and updates badge
-                    loadDataGridView(); // Reloads quadrant data (filters for IsActiveInQuadrant)
+                    string dataFolderPath = Path.Combine(currentPath, "data");
+                    LearningPlanManagerWindow managerWindow = new LearningPlanManagerWindow(_activeLongTermGoal, dataFolderPath)
+                    {
+                        Owner = this
+                    };
+                    managerWindow.ShowDialog();
+                    LoadActiveLongTermGoalAndRefreshDisplay();
+                }
+                else
+                {
+                    string dataFolderPath = Path.Combine(currentPath, "data");
+                    TimeTask.LongTermGoalManagerWindow managerWindow = new TimeTask.LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath)
+                    {
+                        Owner = this
+                    };
+                    bool? result = managerWindow.ShowDialog();
+
+                    if (result == true)
+                    {
+                        LoadActiveLongTermGoalAndRefreshDisplay();
+                        loadDataGridView();
+                    }
                 }
             }
             else
@@ -1466,148 +1615,262 @@ namespace TimeTask
 
             if (goalDialog.ShowDialog() == true)
             {
-                string userGoalDescription = goalDialog.GoalDescription;
-                string userDuration = goalDialog.Duration;
+                bool isLearningPlan = goalDialog.IsLearningPlan;
 
-                if (_llmService == null)
+                if (isLearningPlan)
                 {
-                    MessageBox.Show("LLM Service is not available. Cannot decompose goal.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    await HandleLearningPlanCreation(goalDialog);
                 }
-
-                List<ProposedDailyTask> proposedTasks = null;
-                try
+                else
                 {
-                    proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoalDescription, userDuration);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                if (proposedTasks == null || !proposedTasks.Any())
-                {
-                    MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
-                {
-                    Owner = this
-                };
-
-                if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
-                {
-                    // Create and save the LongTermGoal object
-                    var newLongTermGoal = new LongTermGoal
-                    {
-                        Description = userGoalDescription,
-                        TotalDuration = userDuration,
-                        IsActive = true // This new goal will be the active one
-                    };
-
-                    string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
-                    List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
-
-                    // Deactivate any existing active goals
-                    foreach (var goal in allLongTermGoals)
-                    {
-                        goal.IsActive = false;
-                    }
-                    // Add or update the new goal
-                    var existingGoal = allLongTermGoals.FirstOrDefault(g => g.Id == newLongTermGoal.Id);
-                    if (existingGoal != null) // Should not happen if ID is always new, but good for robustness
-                    {
-                       allLongTermGoals.Remove(existingGoal);
-                    }
-                    allLongTermGoals.Add(newLongTermGoal);
-                    HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
-
-                    // Process selected tasks
-                    int tasksProcessedCount = 0;
-                    // Group tasks by their target CSV/quadrant to minimize read/writes
-                    var tasksByQuadrant = confirmDialog.SelectedTasks.GroupBy(taskToAdd =>
-                    {
-                        // Determine target quadrant and CSV number
-                        string quadrant = taskToAdd.Quadrant?.ToLowerInvariant();
-                        if (quadrant == "important & urgent") return "1";
-                        if (quadrant == "important & not urgent") return "2";
-                        if (quadrant == "not important & urgent") return "3";
-                        if (quadrant == "not important & not urgent") return "4";
-                        return "1"; // Default
-                    });
-
-                    foreach (var group in tasksByQuadrant)
-                    {
-                        string targetCsvNumber = group.Key;
-                        string quadrantCsvPath = Path.Combine(currentPath, "data", $"{targetCsvNumber}.csv");
-                        List<ItemGrid> quadrantTasks = HelperClass.ReadCsv(quadrantCsvPath);
-                        if (quadrantTasks == null) quadrantTasks = new List<ItemGrid>();
-
-                        foreach (var taskToAdd in group)
-                        {
-                            string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
-                            string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
-
-                            int dayNumber = 0; // Default
-                            if (!string.IsNullOrWhiteSpace(taskToAdd.Day))
-                            {
-                                // Assuming Day is like "Day 1", "Day 2", etc. or just a number
-                                var dayMatch = System.Text.RegularExpressions.Regex.Match(taskToAdd.Day, @"\d+");
-                                if (dayMatch.Success)
-                                {
-                                    int.TryParse(dayMatch.Value, out dayNumber);
-                                }
-                            }
-
-                            var newItem = new ItemGrid
-                            {
-                                Task = displayTaskDescription + displayEstimatedTime,
-                                IsActive = true, // Task is active by default, but not necessarily in quadrant
-                                Result = string.Empty,
-                                CreatedDate = DateTime.Now,
-                                LastModifiedDate = DateTime.Now,
-                                LongTermGoalId = newLongTermGoal.Id,
-                                OriginalScheduledDay = dayNumber,
-                                IsActiveInQuadrant = false // IMPORTANT: Initially false for long-term sub-tasks
-                            };
-
-                            switch (taskToAdd.Quadrant?.ToLowerInvariant())
-                            {
-                                case "important & urgent":
-                                    newItem.Importance = "High"; newItem.Urgency = "High";
-                                    break;
-                                case "important & not urgent":
-                                    newItem.Importance = "High"; newItem.Urgency = "Low";
-                                    break;
-                                case "not important & urgent":
-                                    newItem.Importance = "Low"; newItem.Urgency = "High";
-                                    break;
-                                case "not important & not urgent":
-                                    newItem.Importance = "Low"; newItem.Urgency = "Low";
-                                    break;
-                                default:
-                                    newItem.Importance = "High"; newItem.Urgency = "High"; // Default
-                                    break;
-                            }
-                            quadrantTasks.Add(newItem);
-                            tasksProcessedCount++;
-                        }
-                        HelperClass.WriteCsv(quadrantTasks, quadrantCsvPath);
-                    }
-
-                    if (tasksProcessedCount > 0)
-                    {
-                        MessageBox.Show($"{tasksProcessedCount} sub-task(s) for your long-term goal '{newLongTermGoal.Description}' have been planned. You can manage and activate them from the main screen.", "Long-Term Goal Set", MessageBoxButton.OK, MessageBoxImage.Information);
-                        // TODO: Refresh MainWindow's long-term goal display (next step)
-                        // For now, just reload all data grids to reflect potential changes indirectly,
-                        // though these tasks are IsActiveInQuadrant=false so they won't show yet.
-                        // This call might be deferred to a specific refresh method for the LTG display.
-                        loadDataGridView();
-                    }
+                    await HandleNormalGoalCreation(goalDialog);
                 }
             }
+        }
+
+        private async Task HandleNormalGoalCreation(SetLongTermGoalWindow goalDialog)
+        {
+            string userGoalDescription = goalDialog.GoalDescription;
+            string userDuration = goalDialog.Duration;
+
+            if (_llmService == null)
+            {
+                MessageBox.Show("LLM Service is not available. Cannot decompose goal.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            List<ProposedDailyTask> proposedTasks = null;
+            try
+            {
+                proposedTasks = await _llmService.DecomposeGoalIntoDailyTasksAsync(userGoalDescription, userDuration);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (proposedTasks == null || !proposedTasks.Any())
+            {
+                MessageBox.Show(this, "The LLM could not break down this goal into daily tasks. Please try a different goal or phrasing.", "Goal Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
+            {
+                Owner = this
+            };
+
+            if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
+            {
+                var newLongTermGoal = new LongTermGoal
+                {
+                    Description = userGoalDescription,
+                    TotalDuration = userDuration,
+                    IsActive = true,
+                    IsLearningPlan = false
+                };
+
+                string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+                List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
+
+                foreach (var goal in allLongTermGoals)
+                {
+                    goal.IsActive = false;
+                }
+
+                var existingGoal = allLongTermGoals.FirstOrDefault(g => g.Id == newLongTermGoal.Id);
+                if (existingGoal != null)
+                {
+                    allLongTermGoals.Remove(existingGoal);
+                }
+                allLongTermGoals.Add(newLongTermGoal);
+                HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
+
+                int tasksProcessedCount = 0;
+                var tasksByQuadrant = confirmDialog.SelectedTasks.GroupBy(taskToAdd =>
+                {
+                    string quadrant = taskToAdd.Quadrant?.ToLowerInvariant();
+                    if (quadrant == "important & urgent") return "1";
+                    if (quadrant == "important & not urgent") return "2";
+                    if (quadrant == "not important & urgent") return "3";
+                    if (quadrant == "not important & not urgent") return "4";
+                    return "1";
+                });
+
+                foreach (var group in tasksByQuadrant)
+                {
+                    string targetCsvNumber = group.Key;
+                    string quadrantCsvPath = Path.Combine(currentPath, "data", $"{targetCsvNumber}.csv");
+                    List<ItemGrid> quadrantTasks = HelperClass.ReadCsv(quadrantCsvPath);
+                    if (quadrantTasks == null) quadrantTasks = new List<ItemGrid>();
+
+                    foreach (var taskToAdd in group)
+                    {
+                        string displayTaskDescription = string.IsNullOrWhiteSpace(taskToAdd.TaskDescription) ? "(Task description not provided)" : taskToAdd.TaskDescription;
+                        string displayEstimatedTime = !string.IsNullOrWhiteSpace(taskToAdd.EstimatedTime) ? $" ({taskToAdd.EstimatedTime})" : "";
+
+                        int dayNumber = taskToAdd.Day > 0 ? taskToAdd.Day : 0;
+
+                        var newItem = new ItemGrid
+                        {
+                            Task = displayTaskDescription + displayEstimatedTime,
+                            IsActive = true,
+                            Result = string.Empty,
+                            CreatedDate = DateTime.Now,
+                            LastModifiedDate = DateTime.Now,
+                            LongTermGoalId = newLongTermGoal.Id,
+                            OriginalScheduledDay = dayNumber,
+                            IsActiveInQuadrant = false
+                        };
+
+                        switch (taskToAdd.Quadrant?.ToLowerInvariant())
+                        {
+                            case "important & urgent":
+                                newItem.Importance = "High"; newItem.Urgency = "High";
+                                break;
+                            case "important & not urgent":
+                                newItem.Importance = "High"; newItem.Urgency = "Low";
+                                break;
+                            case "not important & urgent":
+                                newItem.Importance = "Low"; newItem.Urgency = "High";
+                                break;
+                            case "not important & not urgent":
+                                newItem.Importance = "Low"; newItem.Urgency = "Low";
+                                break;
+                            default:
+                                newItem.Importance = "High"; newItem.Urgency = "High";
+                                break;
+                        }
+                        quadrantTasks.Add(newItem);
+                        tasksProcessedCount++;
+                    }
+                    HelperClass.WriteCsv(quadrantTasks, quadrantCsvPath);
+                }
+
+                if (tasksProcessedCount > 0)
+                {
+                    MessageBox.Show($"{tasksProcessedCount} sub-task(s) for your long-term goal '{newLongTermGoal.Description}' have been planned. You can manage and activate them from the main screen.", "Long-Term Goal Set", MessageBoxButton.OK, MessageBoxImage.Information);
+                    loadDataGridView();
+                }
+            }
+        }
+
+        private async Task HandleLearningPlanCreation(SetLongTermGoalWindow goalDialog)
+        {
+            string goal = goalDialog.GoalDescription;
+            string duration = goalDialog.Duration;
+            string subject = goal.Split(new[] { '、', '，', ',', ' ', '的' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? goal;
+            DateTime? startDate = DateTime.Now;
+
+            if (_llmService == null)
+            {
+                MessageBox.Show("LLM Service is not available. Cannot decompose learning plan.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var loadingWindow = new Window
+            {
+                Title = "正在生成学习计划",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.SingleBorderWindow,
+                Content = new StackPanel
+                {
+                    Margin = new System.Windows.Thickness(20),
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "📚 正在为您生成学习计划...",
+                            FontSize = 16,
+                            FontWeight = FontWeights.Bold,
+                            Margin = new System.Windows.Thickness(0, 0, 0, 10)
+                        },
+                        new TextBlock
+                        {
+                            Text = $"目标：{goal}\n时长：{duration}",
+                            FontSize = 12,
+                            Foreground = System.Windows.Media.Brushes.Gray
+                        }
+                    }
+                }
+            };
+
+            loadingWindow.Show();
+
+            List<LlmLearningMilestone> proposedMilestones = null;
+            try
+            {
+                proposedMilestones = await _llmService.DecomposeLearningPlanIntoMilestonesAsync(subject, goal, duration);
+            }
+            catch (Exception ex)
+            {
+                loadingWindow.Close();
+                MessageBox.Show($"An error occurred while trying to decompose the learning plan: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            loadingWindow.Close();
+
+            if (proposedMilestones == null || !proposedMilestones.Any())
+            {
+                MessageBox.Show(this, "The LLM could not break down this learning plan into milestones. Please try a different plan or phrasing.", "Learning Plan Decomposition Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var newLearningPlan = new LongTermGoal
+            {
+                Id = Guid.NewGuid().ToString(),
+                Description = goal,
+                TotalDuration = duration,
+                CreationDate = DateTime.Now,
+                IsActive = true,
+                IsLearningPlan = true,
+                Subject = subject,
+                StartDate = startDate,
+                TotalStages = proposedMilestones.Count,
+                CompletedStages = 0
+            };
+
+            string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
+
+            foreach (var plan in allLongTermGoals)
+            {
+                plan.IsActive = false;
+            }
+            allLongTermGoals.Add(newLearningPlan);
+            HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
+
+            var convertedMilestones = new List<LearningMilestone>();
+            foreach (var llmMilestone in proposedMilestones)
+            {
+                convertedMilestones.Add(new LearningMilestone
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    LearningPlanId = newLearningPlan.Id,
+                    StageName = llmMilestone.Title,
+                    Description = llmMilestone.Description,
+                    StageNumber = llmMilestone.Stage,
+                    TargetDate = null,
+                    IsCompleted = false,
+                    CompletedDate = null,
+                    AssociatedTaskId = null
+                });
+            }
+
+            string milestonesCsvPath = Path.Combine(currentPath, "data", $"learning_milestones_{newLearningPlan.Id}.csv");
+            HelperClass.WriteLearningMilestonesCsv(convertedMilestones, milestonesCsvPath);
+
+            LoadActiveLongTermGoalAndRefreshDisplay();
+
+            var learningPlanManager = new LearningPlanManagerWindow(newLearningPlan, Path.Combine(currentPath, "data"));
+            learningPlanManager.Owner = this;
+            learningPlanManager.ShowDialog();
         }
     }
 }
@@ -1644,12 +1907,80 @@ namespace TimeTask // Ensure it's within the same namespace or accessible
         public string TotalDuration { get; set; }
         public DateTime CreationDate { get; set; }
         public bool IsActive { get; set; }
+        public bool IsLearningPlan { get; set; }
+        public string Subject { get; set; }
+        public DateTime? StartDate { get; set; }
+        public int TotalStages { get; set; }
+        public int CompletedStages { get; set; }
 
         public LongTermGoal()
         {
             Id = Guid.NewGuid().ToString();
             CreationDate = DateTime.Now;
-            IsActive = false; // Default to not active, will be set explicitly
+            IsActive = false;
+            IsLearningPlan = false;
+            TotalStages = 0;
+            CompletedStages = 0;
+        }
+
+        public double ProgressPercentage
+        {
+            get
+            {
+                if (!IsLearningPlan || TotalStages == 0) return 0;
+                return (double)CompletedStages / TotalStages * 100;
+            }
+        }
+    }
+
+    public class LearningPlan
+    {
+        public string Id { get; set; }
+        public string Subject { get; set; }
+        public string Goal { get; set; }
+        public string Duration { get; set; }
+        public DateTime CreationDate { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public bool IsActive { get; set; }
+        public int TotalStages { get; set; }
+        public int CompletedStages { get; set; }
+
+        public LearningPlan()
+        {
+            Id = Guid.NewGuid().ToString();
+            CreationDate = DateTime.Now;
+            IsActive = false;
+            TotalStages = 0;
+            CompletedStages = 0;
+        }
+
+        public double ProgressPercentage
+        {
+            get
+            {
+                if (TotalStages == 0) return 0;
+                return (double)CompletedStages / TotalStages * 100;
+            }
+        }
+    }
+
+    public class LearningMilestone
+    {
+        public string Id { get; set; }
+        public string LearningPlanId { get; set; }
+        public string StageName { get; set; }
+        public string Description { get; set; }
+        public int StageNumber { get; set; }
+        public DateTime? TargetDate { get; set; }
+        public bool IsCompleted { get; set; }
+        public DateTime? CompletedDate { get; set; }
+        public string AssociatedTaskId { get; set; }
+
+        public LearningMilestone()
+        {
+            Id = Guid.NewGuid().ToString();
+            IsCompleted = false;
         }
     }
 }

@@ -45,6 +45,24 @@ namespace TimeTask
         public string EstimatedTime { get; set; }
     }
 
+    public class LlmLearningMilestone
+    {
+        [JsonPropertyName("stage")]
+        public int Stage { get; set; }
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("estimated_time")]
+        public string EstimatedTime { get; set; }
+
+        [JsonPropertyName("is_completed")]
+        public bool IsCompleted { get; set; }
+    }
+
     public class LlmService : ILlmService
     {
         private IOpenAIService _openAiService;
@@ -156,6 +174,50 @@ namespace TimeTask
       Duration: ""{userDuration}""
 
 IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 2 weeks, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
+
+        private const string LearningPlanDecompositionSystemPrompt = @"
+      You are an expert learning plan assistant. Your task is to take a user's learning subject and goal, along with a specified duration, and break it down into a series of progressive learning milestones. For each milestone, you must provide a title, description, and estimated time for completion.
+
+      The user will provide the subject, goal, and duration. You need to generate a structured learning plan with milestones that will help the user achieve their learning goal within the given timeframe.
+
+      Respond with a JSON array of milestone objects. Each object should have the following fields:
+      -   ""stage"": An integer representing the stage number in the learning plan (e.g., 1, 2, 3...).
+      -   ""title"": A string title for the milestone.
+      -   ""description"": A string describing what will be learned in this milestone.
+      -   ""estimated_time"": A string describing the estimated time to complete this milestone (e.g., ""2 weeks"", ""1 month"").
+      -   ""is_completed"": A boolean indicating completion status (always false for new plans).
+
+      Example Input from User:
+      Subject: ""Python Programming""
+      Goal: ""Learn Python for web development""
+      Duration: ""3 months""
+
+      Example JSON Output:
+      [
+        {
+          ""stage"": 1,
+          ""title"": ""Python Fundamentals"",
+          ""description"": ""Master Python basics including variables, data types, control flow, functions, and object-oriented programming concepts."",
+          ""estimated_time"": ""3 weeks"",
+          ""is_completed"": false
+        },
+        {
+          ""stage"": 2,
+          ""title"": ""Web Development with Flask"",
+          ""description"": ""Learn Flask framework, routing, templates, and building RESTful APIs."",
+          ""estimated_time"": ""4 weeks"",
+          ""is_completed"": false
+        }
+      ]
+
+      Ensure the milestones are logically sequenced and progressively build upon each other. Distribute milestones reasonably across the duration. For this request, please provide a comprehensive learning plan for the subject '{subject}' with the goal '{goal}' (total duration '{duration}').
+
+      User Input:
+      Subject: ""{subject}""
+      Goal: ""{goal}""
+      Duration: ""{duration}""
+
+IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {subject}, {goal}, and {duration} placeholders.
         
         public LlmService()
         {
@@ -267,6 +329,76 @@ IMPORTANT: Your entire response MUST be a valid JSON array of task objects for t
             {
                 Console.WriteLine($"An unexpected error occurred during goal decomposition: {ex.Message}. Response was: {llmResponse}");
                 return new List<ProposedDailyTask>(); // Or throw
+            }
+        }
+
+        public async Task<List<LlmLearningMilestone>> DecomposeLearningPlanIntoMilestonesAsync(string subject, string goal, string durationString)
+        {
+            if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(goal) || string.IsNullOrWhiteSpace(durationString))
+            {
+                Console.WriteLine("Subject, goal, or duration string is empty for DecomposeLearningPlanIntoMilestonesAsync.");
+                return new List<LlmLearningMilestone>();
+            }
+
+            string fullPrompt = LearningPlanDecompositionSystemPrompt
+                .Replace("{subject}", subject)
+                .Replace("{goal}", goal)
+                .Replace("{duration}", durationString);
+
+            string llmResponse = await GetCompletionAsync(fullPrompt);
+            Console.WriteLine("LlmService: Raw LLM Response for Learning Plan Decomposition:");
+            Console.WriteLine(llmResponse);
+
+            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            {
+                Console.WriteLine($"LLM did not provide a valid response for learning plan decomposition. Subject: '{subject}', Goal: '{goal}'. Response: {llmResponse}");
+                return new List<LlmLearningMilestone>();
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                llmResponse = llmResponse.Trim();
+                if (llmResponse.StartsWith("```json"))
+                {
+                    llmResponse = llmResponse.Substring(7);
+                }
+                if (llmResponse.EndsWith("```"))
+                {
+                    llmResponse = llmResponse.Substring(0, llmResponse.Length - 3);
+                }
+                llmResponse = llmResponse.Trim();
+
+                List<LlmLearningMilestone> milestones = JsonSerializer.Deserialize<List<LlmLearningMilestone>>(llmResponse, options);
+
+                if (milestones != null && milestones.Any())
+                {
+                    Console.WriteLine($"LlmService: Successfully parsed {milestones.Count} milestones.");
+                    foreach (var milestone in milestones)
+                    {
+                        milestone.IsCompleted = false;
+                    }
+                }
+                else if (milestones != null)
+                {
+                    Console.WriteLine("LlmService: LLM response parsed into an empty list of milestones.");
+                }
+
+                return milestones ?? new List<LlmLearningMilestone>();
+            }
+            catch (JsonException jsonEx)
+            {
+                Console.WriteLine($"Error parsing JSON response for learning plan decomposition: {jsonEx.Message}. Response was: {llmResponse}");
+                return new List<LlmLearningMilestone>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An unexpected error occurred during learning plan decomposition: {ex.Message}. Response was: {llmResponse}");
+                return new List<LlmLearningMilestone>();
             }
         }
 
