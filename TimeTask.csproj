@@ -60,6 +60,7 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Npgsql" Version="6.0.11" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
     <PackageReference Include="System.Text.Json" Version="9.0.0" />
@@ -69,6 +70,15 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ReminderSettingsWindow.xaml.cs">
+      <DependentUpon>ReminderSettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SmartQuadrantSelectorWindow.xaml.cs">
+      <DependentUpon>SmartQuadrantSelectorWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TaskReminderWindow.xaml.cs">
+      <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TestReminderSystem.cs" />
     <Compile Include="UXImprovements.cs" />
     <Page Include="AddTaskWindow.xaml">
@@ -88,6 +98,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="LongTermGoalManagerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ReminderSettingsWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -159,6 +173,14 @@
     <Compile Include="ILlmService.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
+    <Page Include="SmartQuadrantSelectorWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TaskReminderWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

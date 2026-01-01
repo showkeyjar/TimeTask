@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 
 // Using statements for Betalgo.Ranul.OpenAI
 using Betalgo.Ranul.OpenAI; // For OpenAIService, OpenAIOptions
@@ -258,10 +259,10 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             Console.WriteLine("LlmService: Raw LLM Response for Goal Decomposition:");
             Console.WriteLine(llmResponse);
 
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid response for goal decomposition. Goal: '{goal}'. Response: {llmResponse}");
-                return new List<ProposedDailyTask>(); // Or throw an exception
+                throw new InvalidOperationException($"LLM API调用失败: {llmResponse}");
             }
 
             var options = new JsonSerializerOptions
@@ -349,10 +350,10 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             Console.WriteLine("LlmService: Raw LLM Response for Learning Plan Decomposition:");
             Console.WriteLine(llmResponse);
 
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid response for learning plan decomposition. Subject: '{subject}', Goal: '{goal}'. Response: {llmResponse}");
-                return new List<LlmLearningMilestone>();
+                throw new InvalidOperationException($"LLM API调用失败: {llmResponse}");
             }
 
             var options = new JsonSerializerOptions
@@ -392,12 +393,16 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             }
             catch (JsonException jsonEx)
             {
-                Console.WriteLine($"Error parsing JSON response for learning plan decomposition: {jsonEx.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"Error parsing JSON response for learning plan decomposition: {jsonEx.Message}");
+                Console.WriteLine($"JSON Path: {jsonEx.Path}, Line: {jsonEx.LineNumber}, Position: {jsonEx.BytePositionInLine}");
+                Console.WriteLine($"Raw response that failed to parse: {llmResponse}");
                 return new List<LlmLearningMilestone>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An unexpected error occurred during learning plan decomposition: {ex.Message}. Response was: {llmResponse}");
+                Console.WriteLine($"An unexpected error occurred during learning plan decomposition: {ex.Message}");
+                Console.WriteLine($"Exception type: {ex.GetType().Name}");
+                Console.WriteLine($"Raw response: {llmResponse}");
                 return new List<LlmLearningMilestone>();
             }
         }
@@ -501,10 +506,10 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             string formattedAge = FormatTimeSpan(timeSinceLastModified);
             string fullPrompt = TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid reminder for '{taskDescription}'. Response: {llmResponse}");
-                return (string.Empty, new List<string>());
+                throw new InvalidOperationException($"LLM API调用失败: {llmResponse}");
             }
             return ParseReminderResponse(llmResponse);
         }
@@ -592,7 +597,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             if (string.IsNullOrWhiteSpace(taskDescription)) return (DecompositionStatus.Unknown, new List<string>());
             string fullPrompt = TaskDecompositionSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid decomposition for '{taskDescription}'. Response: {llmResponse}");
                 return (DecompositionStatus.Unknown, new List<string>());
@@ -682,7 +687,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             if (string.IsNullOrWhiteSpace(taskDescription)) return ("Medium", "Medium");
             string fullPrompt = PrioritizationSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid priority analysis for '{taskDescription}'. Response: {llmResponse}");
                 return ("Medium", "Medium");
@@ -695,7 +700,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             if (string.IsNullOrWhiteSpace(taskDescription)) return (ClarityStatus.Unknown, "Task description cannot be empty.");
             string fullPrompt = ClarityAnalysisSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid clarity analysis for '{taskDescription}'. Response: {llmResponse}");
                 return (ClarityStatus.Unknown, "Failed to analyze task clarity (LLM error or dummy response).");
@@ -783,7 +788,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             if (string.IsNullOrWhiteSpace(taskDescription)) return ("Unknown", "Unknown");
             string fullPrompt = PrioritizationSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
-            if (string.IsNullOrWhiteSpace(llmResponse) || llmResponse.StartsWith("LLM dummy response") || llmResponse.StartsWith("Error from LLM"))
+            if (IsErrorResponse(llmResponse))
             {
                 Console.WriteLine($"LLM did not provide a valid priority response for '{taskDescription}'. Response: {llmResponse}");
                 return ("Unknown", "Unknown");
@@ -840,6 +845,75 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             }
         }
 
+        private bool IsErrorResponse(string llmResponse)
+        {
+            return string.IsNullOrWhiteSpace(llmResponse) || 
+                   llmResponse.StartsWith("LLM dummy response") || 
+                   llmResponse.StartsWith("Error from LLM") || 
+                   llmResponse.StartsWith("Error from Zhipu AI");
+        }
+
+        private async Task<string> CallZhipuAiApiAsync(string prompt)
+        {
+            try
+            {
+                string apiUrl = $"{_apiBaseUrl.TrimEnd('/')}/chat/completions";
+
+                var requestBody = new
+                {
+                    model = _modelName,
+                    messages = new[]
+                    {
+                        new
+                        {
+                            role = "user",
+                            content = prompt
+                        }
+                    },
+                    max_tokens = 8192
+                };
+
+                var jsonBody = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+                using (var httpClient = new HttpClient { Timeout = _httpClientTimeout })
+                {
+                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+
+                    Console.WriteLine($"Calling Zhipu AI API: {apiUrl}");
+                    Console.WriteLine($"Request body: {jsonBody}");
+
+                    var response = await httpClient.PostAsync(apiUrl, content);
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    Console.WriteLine($"Zhipu AI API Response Status: {response.StatusCode}");
+                    Console.WriteLine($"Zhipu AI API Response Content: {responseContent}");
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return $"Error from Zhipu AI: HTTP {response.StatusCode} - {responseContent}";
+                    }
+
+                    var jsonResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    if (jsonResponse.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        var firstChoice = choices[0];
+                        if (firstChoice.TryGetProperty("message", out var message) && message.TryGetProperty("content", out var contentElement))
+                        {
+                            return contentElement.GetString();
+                        }
+                    }
+
+                    return "Error from Zhipu AI: Invalid response format";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception calling Zhipu AI API: {ex.Message}");
+                return $"Error from Zhipu AI: {ex.Message}";
+            }
+        }
+
         private void InitializeOpenAiService()
         {
             var options = new Betalgo.Ranul.OpenAI.OpenAIOptions()
@@ -864,6 +938,16 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
 
         public async Task<string> GetCompletionAsync(string prompt)
         {
+            // Check if using Zhipu AI
+            bool isZhipuAi = !string.IsNullOrWhiteSpace(_apiBaseUrl) && _apiBaseUrl.Contains("bigmodel.cn");
+            
+            if (isZhipuAi)
+            {
+                Console.WriteLine("Detected Zhipu AI provider, using custom API client");
+                return await CallZhipuAiApiAsync(prompt);
+            }
+
+            // Original OpenAI-compatible API path
             if (_openAiService == null || _apiKey == PlaceholderApiKey || string.IsNullOrWhiteSpace(_apiKey))
             {
                 Console.WriteLine("LLM Service not properly initialized. Returning dummy response.");
@@ -875,7 +959,17 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             }
 
             // Added logging for diagnostics
-            string endpointPath = "v1/chat/completions"; // Common path for chat completions
+            // Determine the correct endpoint path based on the API provider
+            string endpointPath;
+            if (!string.IsNullOrWhiteSpace(_apiBaseUrl) && _apiBaseUrl.Contains("bigmodel.cn"))
+            {
+                endpointPath = "chat/completions"; // Zhipu AI (GLM) uses this path
+            }
+            else
+            {
+                endpointPath = "v1/chat/completions"; // OpenAI and compatible APIs use this path
+            }
+            
             string targetUrl = (_apiBaseUrl != null ? _apiBaseUrl.TrimEnd('/') : "https://api.openai.com") + "/" + endpointPath.TrimStart('/');
             Console.WriteLine($"LLM Request: Target URL: {targetUrl}");
             Console.WriteLine($"LLM Request: Model Name: {_modelName}");
@@ -944,6 +1038,18 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                             Console.WriteLine("LLM API Error: Call was not successful but Error object is null.");
                             return "Error from LLM: Unknown error (null error object).";
                         }
+                        
+                        // Log the raw error response for debugging
+                        try
+                        {
+                            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+                            Console.WriteLine($"LLM API Raw Error Response: {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to serialize completionResult for error logging: {ex.Message}");
+                        }
+                        
                         // Accessing these properties might trigger JsonException if the Error object itself is malformed
                         string errorMessage = completionResult.Error.Message;
                         string errorCode = completionResult.Error.Code;
@@ -954,6 +1060,18 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                     catch (System.Text.Json.JsonException jsonExInner)
                     {
                         Console.WriteLine($"Error deserializing the LLM error object. Path: {jsonExInner.Path}, Line: {jsonExInner.LineNumber}, Pos: {jsonExInner.BytePositionInLine}. Details: {jsonExInner.Message}");
+                        
+                        // Try to get more information about the raw response
+                        try
+                        {
+                            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+                            Console.WriteLine($"LLM API Raw Response (error parsing failed): {System.Text.Json.JsonSerializer.Serialize(completionResult, options)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to serialize completionResult: {ex.Message}");
+                        }
+                        
                         return $"Error from LLM: Could not parse the error details from response. Details: {jsonExInner.Message}";
                     }
                 }

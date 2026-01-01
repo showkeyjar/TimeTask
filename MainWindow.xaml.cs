@@ -585,9 +585,6 @@ namespace TimeTask
 
             // 应用快速改进功能
             ApplyQuickImprovements();
-            
-            // 启动自动备份
-            StartAutoBackup();
         }
 
         private void ApplyQuickImprovements()
@@ -701,6 +698,8 @@ namespace TimeTask
             catch (Exception ex)
             {
                 Console.WriteLine($"Error showing friendly reminder: {ex.Message}");
+                string friendlyError = GetFriendlyErrorMessage(ex.Message);
+                MessageBox.Show(this, friendlyError, "提醒生成失败", MessageBoxButton.OK, MessageBoxImage.Warning);
                 // Fallback to simple notification
                 ShowSimpleNotification(task, message);
             }
@@ -796,7 +795,8 @@ namespace TimeTask
             catch (Exception ex)
             {
                 Console.WriteLine($"Error handling task decomposition: {ex.Message}");
-                MessageBox.Show(this, "任务分解过程中发生错误，请稍后重试。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                string friendlyError = GetFriendlyErrorMessage(ex.Message);
+                MessageBox.Show(this, friendlyError, "任务分解错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
@@ -1842,7 +1842,7 @@ namespace TimeTask
                 Header = "📤 导出数据",
                 ToolTip = "导出任务数据为JSON格式"
             };
-            exportItem.Click += async (s, e) => await ExportAllData();
+            exportItem.Click += (s, e) => ExportAllData();
             contextMenu.Items.Add(exportItem);
             
             contextMenu.Items.Add(new Separator());
@@ -1874,7 +1874,7 @@ namespace TimeTask
             }
         }
 
-        private async Task ExportAllData()
+        private void ExportAllData()
         {
             try
             {
@@ -1971,7 +1971,8 @@ namespace TimeTask
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred while trying to decompose the goal: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                string friendlyError = GetFriendlyErrorMessage(ex.Message);
+                MessageBox.Show(friendlyError, "目标分解失败", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -2135,7 +2136,8 @@ namespace TimeTask
             catch (Exception ex)
             {
                 loadingWindow.Close();
-                MessageBox.Show($"An error occurred while trying to decompose the learning plan: {ex.Message}", "LLM Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                string friendlyError = GetFriendlyErrorMessage(ex.Message);
+                MessageBox.Show(friendlyError, "学习计划生成失败", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -2196,6 +2198,51 @@ namespace TimeTask
             var learningPlanManager = new LearningPlanManagerWindow(newLearningPlan, Path.Combine(currentPath, "data"));
             learningPlanManager.Owner = this;
             learningPlanManager.ShowDialog();
+        }
+
+        private string GetFriendlyErrorMessage(string errorMessage)
+        {
+            if (string.IsNullOrWhiteSpace(errorMessage))
+                return "未知错误";
+
+            if (errorMessage.Contains("余额不足或无可用资源包"))
+                return "API余额不足或无可用资源包，请充值后再试。";
+
+            if (errorMessage.Contains("认证失败") || errorMessage.Contains("401") || errorMessage.Contains("403"))
+                return "API认证失败，请检查您的API密钥设置。";
+
+            if (errorMessage.Contains("请求过于频繁") || errorMessage.Contains("429"))
+                return "请求过于频繁，请稍后再试。";
+
+            if (errorMessage.Contains("Error from Zhipu AI"))
+                return $"智谱AI API错误: {errorMessage}";
+
+            if (errorMessage.Contains("Error from LLM"))
+                return $"LLM API错误: {errorMessage}";
+
+            return errorMessage;
+        }
+
+        private void OpenReminderSettings()
+        {
+            ReminderSettingsWindow settingsWindow = new ReminderSettingsWindow();
+            settingsWindow.Owner = this;
+            settingsWindow.ShowDialog();
+        }
+
+        private void ShowAbout()
+        {
+            string aboutText = "TimeTask - 智能任务管理系统\n\n" +
+                             "版本: 1.0\n" +
+                             "功能:\n" +
+                             "- 任务四象限管理\n" +
+                             "- 长期目标设定\n" +
+                             "- 学习计划制定\n" +
+                             "- AI智能分解\n" +
+                             "- 数据备份与恢复\n\n" +
+                             "© 2024 TimeTask Team";
+            
+            MessageBox.Show(aboutText, "关于 TimeTask", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }
