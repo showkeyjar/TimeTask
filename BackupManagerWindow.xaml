@@ -1,0 +1,69 @@
+<Window x:Class="TimeTask.BackupManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="备份管理" Height="500" Width="700"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 标题和操作按钮 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="数据备份管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button x:Name="CreateBackupButton" Content="创建备份" Margin="20,0,10,0" 
+                    Click="CreateBackupButton_Click" MinWidth="80"/>
+            <Button x:Name="RefreshButton" Content="刷新" Margin="0,0,10,0" 
+                    Click="RefreshButton_Click" MinWidth="60"/>
+        </StackPanel>
+        
+        <!-- 备份列表 -->
+        <GroupBox Grid.Row="1" Header="可用备份" Margin="0,0,0,10">
+            <DataGrid x:Name="BackupsDataGrid" AutoGenerateColumns="False" 
+                      IsReadOnly="True" GridLinesVisibility="Horizontal"
+                      AlternatingRowBackground="LightGray" SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="文件名" Binding="{Binding FileName}" Width="*"/>
+                    <DataGridTextColumn Header="类型" Binding="{Binding TypeDescription}" Width="80"/>
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedTime, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="130"/>
+                    <DataGridTextColumn Header="大小" Binding="{Binding SizeFormatted}" Width="80"/>
+                    <DataGridTextColumn Header="文件数" Binding="{Binding FileCount}" Width="60"/>
+                    <DataGridTemplateColumn Header="操作" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="恢复" Margin="0,0,5,0" Click="RestoreButton_Click" 
+                                            CommandParameter="{Binding}" Width="40" Height="25"/>
+                                    <Button Content="删除" Click="DeleteButton_Click" 
+                                            CommandParameter="{Binding}" Width="40" Height="25"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+        
+        <!-- 状态和操作 -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <StackPanel Grid.Column="0" Orientation="Vertical">
+                <TextBlock x:Name="StatusTextBlock" Text="就绪" Margin="0,0,0,5"/>
+                <ProgressBar x:Name="ProgressBar" Height="20" Minimum="0" Maximum="100" 
+                             Visibility="Collapsed"/>
+            </StackPanel>
+            
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <CheckBox x:Name="AutoBackupCheckBox" Content="启用自动备份" 
+                          VerticalAlignment="Center" Margin="0,0,20,0" IsChecked="True"/>
+                <Button Content="关闭" IsCancel="True" Click="CloseButton_Click" MinWidth="80"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

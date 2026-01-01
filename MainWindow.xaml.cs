@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -18,6 +18,8 @@ using System.Windows.Data; // Required for IMultiValueConverter
 using System.Threading; // For Timer (though DispatcherTimer is in System.Windows.Threading)
 using System.Configuration; // Required for SettingsPropertyNotFoundException
 using System.Collections.ObjectModel; // Required for ObservableCollection
+using System.Text.Json; // For JSON serialization
+using System.Text; // For StringBuilder and encoding
 
 namespace TimeTask
 {
@@ -50,7 +52,8 @@ namespace TimeTask
                     ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null,
                     LongTermGoalId = temparry.Length > 9 && !string.IsNullOrWhiteSpace(temparry[9]) ? temparry[9] : null,
                     OriginalScheduledDay = temparry.Length > 10 && int.TryParse(temparry[10], out int osd) ? osd : 0,
-                    IsActiveInQuadrant = temparry.Length > 11 && bool.TryParse(temparry[11], out bool iaiq) ? iaiq : true // Default to true for backward compatibility
+                    IsActiveInQuadrant = temparry.Length > 11 && bool.TryParse(temparry[11], out bool iaiq) ? iaiq : true, // Default to true for backward compatibility
+                    InactiveWarningCount = temparry.Length > 12 && int.TryParse(temparry[12], out int iwc) ? iwc : 0 // New field
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -60,7 +63,7 @@ namespace TimeTask
             catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
                 Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
                 // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now, IsActiveInQuadrant = true });
+                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now, IsActiveInQuadrant = true, InactiveWarningCount = 0 });
             }
             return result_list;
         }
@@ -68,12 +71,12 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant}"
+                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount}" // Added InactiveWarningCount
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
             // Updated header
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant";
+            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount"; // Added inactiveWarningCount header
             File.WriteAllLines(filepath, contents);
         }
 
@@ -292,6 +295,9 @@ namespace TimeTask
         public int OriginalScheduledDay { get; set; } = 0; // Day index for tasks from a long-term plan
         public bool IsActiveInQuadrant { get; set; } = true; // True if the task should be displayed in the main quadrants
 
+        // New property for inactivity warning
+        public int InactiveWarningCount { get; set; } = 0;
+
     }
 
     /// <summary>
@@ -304,7 +310,11 @@ namespace TimeTask
     {
         private LlmService _llmService;
         private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
-        private static readonly TimeSpan StaleTaskThreshold = TimeSpan.FromDays(14); // 2 weeks
+        // Configurable timeout settings with defaults
+        private static TimeSpan StaleTaskThreshold => TimeSpan.FromDays(Properties.Settings.Default.StaleTaskThresholdDays);
+        private static int MaxInactiveWarnings => Properties.Settings.Default.MaxInactiveWarnings;
+        private static TimeSpan FirstWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.FirstWarningAfterDays);
+        private static TimeSpan SecondWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.SecondWarningAfterDays);
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
 
         private DatabaseService _databaseService;
@@ -395,11 +405,9 @@ namespace TimeTask
             return text.Length <= maxLength ? text : text.Substring(0, maxLength) + "...";
         }
 
-        public async void loadDataGridView()
+        public void loadDataGridView()
         {
             LoadActiveLongTermGoalAndRefreshDisplay(); // Load active goal and update its display
-
-            string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
             _llmConfigErrorDetectedInLoad = false;
 
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
@@ -426,7 +434,7 @@ namespace TimeTask
                         }
                     }
                 }
-                
+
                 // Filter tasks for display: only those marked IsActiveInQuadrant
                 itemsToDisplayInQuadrant = allItemsInCsv.Where(item => item.IsActiveInQuadrant).ToList();
 
@@ -437,181 +445,13 @@ namespace TimeTask
                     dataGrids[i].Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
                 }
 
-                // Stale task processing should consider only displayed tasks or all tasks?
-                // For now, let's assume it processes based on items in the CSV (allItemsInCsv)
-                // as a task could be stale even if not currently in an active quadrant view.
-                // However, interaction (like decomposition) should probably happen for visible tasks.
-                // This needs careful consideration. Let's iterate over displayed tasks for now for reminders.
-                foreach (var item in itemsToDisplayInQuadrant)
+                // After all files are processed, show a single notification if LLM config error was detected
+                if (_llmConfigErrorDetectedInLoad)
                 {
-                    if (item.IsActive && (DateTime.Now - item.LastModifiedDate) > StaleTaskThreshold)
-                    {
-                        try
-                        {
-                            TimeSpan taskAge = DateTime.Now - item.LastModifiedDate;
-                            Console.WriteLine($"Task '{item.Task}' is stale (age: {taskAge.Days} days). Generating reminder...");
-                            var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(item.Task, taskAge);
-
-                            if (!_llmConfigErrorDetectedInLoad && reminder != null && reminder.Contains(configErrorSubstring))
-                            {
-                                _llmConfigErrorDetectedInLoad = true;
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(reminder) || (suggestions != null && suggestions.Any()))
-                            {
-                                // We check the reminder string itself for the config error.
-                                // If the reminder is the config error string, it's unlikely to trigger useful suggestions
-                                // or decomposition prompts, but the check is placed before its content is evaluated.
-
-                                string[] decompositionKeywords = { "break it down", "decompose", "smaller pieces", "sub-tasks", "subtasks" };
-                                string decompositionSuggestion = null;
-                                List<string> otherSuggestions = new List<string>();
-
-                                if (suggestions != null)
-                                {
-                                    foreach (var s in suggestions)
-                                    {
-                                        if (decompositionKeywords.Any(keyword => s.ToLowerInvariant().Contains(keyword)))
-                                        {
-                                            decompositionSuggestion = s; // Store the first one found
-                                        }
-                                        else
-                                        {
-                                            otherSuggestions.Add(s);
-                                        }
-                                    }
-                                }
-
-                                if (decompositionSuggestion != null)
-                                {
-                                    var questionMessageBuilder = new System.Text.StringBuilder();
-                                    if (!string.IsNullOrWhiteSpace(reminder))
-                                    {
-                                        questionMessageBuilder.AppendLine($"Reminder: {reminder}");
-                                        questionMessageBuilder.AppendLine();
-                                    }
-                                    if (otherSuggestions.Any())
-                                    {
-                                        questionMessageBuilder.AppendLine("Other Suggestions:");
-                                        foreach (var s in otherSuggestions)
-                                        {
-                                            questionMessageBuilder.AppendLine($"- {s}");
-                                        }
-                                        questionMessageBuilder.AppendLine();
-                                    }
-                                    questionMessageBuilder.AppendLine($"LLM also suggests: \"{decompositionSuggestion}\"");
-                                    questionMessageBuilder.AppendLine("Would you like to attempt to break this task into smaller pieces now?");
-
-                                    var dialogResult = MessageBox.Show(this, questionMessageBuilder.ToString(), $"Action for Task: {item.Task}", MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-                                    if (dialogResult == MessageBoxResult.Yes)
-                                    {
-                                        var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(item.Task);
-                                        // Note: Checking subTaskStrings for the specific configErrorSubstring is not straightforward here,
-                                        // as DecomposeTaskAsync returns a status and a list, not the raw LLM string.
-                                        // The LlmService's GetCompletionAsync would return the raw error, but ParseDecompositionResponse
-                                        // would likely turn that into DecompositionStatus.Unknown.
-                                        // The user would see a "Could not automatically decompose task" message in that case.
-                                        // The generic _llmConfigErrorDetectedInLoad flag (if set by priority/reminder calls)
-                                        // will cover notifying the user about potential underlying config issues.
-
-                                        if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
-                                        {
-                                            // Current loop index 'i' corresponds to the parent task's quadrant (0-3)
-                                            // Or, we can use item.Importance and item.Urgency directly
-                                            DecompositionResultWindow decompositionWindow = new DecompositionResultWindow(subTaskStrings, item.Importance, item.Urgency)
-                                            {
-                                                Owner = this // Ensure the new window is owned by MainWindow
-                                            };
-
-                                            bool? addSubTasksDialogResult = decompositionWindow.ShowDialog();
-
-                                            if (addSubTasksDialogResult == true && decompositionWindow.SelectedSubTasks.Any())
-                                            {
-                                                string parentImportance = decompositionWindow.ParentImportance;
-                                                string parentUrgency = decompositionWindow.ParentUrgency;
-                                                int targetQuadrantIndex = decompositionWindow.ParentQuadrantIndex; // Resolved in Decomp window
-
-                                                DataGrid targetGrid = dataGrids[targetQuadrantIndex]; // Get the target DataGrid
-                                                string targetCsvNumber = (targetQuadrantIndex + 1).ToString();
-
-                                                var currentGridItems = targetGrid.ItemsSource as List<ItemGrid>;
-                                                if (currentGridItems == null) currentGridItems = new List<ItemGrid>();
-
-                                                int newTasksAddedCount = 0;
-                                                foreach (var subTaskString in decompositionWindow.SelectedSubTasks)
-                                                {
-                                                    var newSubTask = new ItemGrid
-                                                    {
-                                                        Task = subTaskString,
-                                                        Importance = parentImportance,
-                                                        Urgency = parentUrgency,
-                                                        Score = 0, // Default score
-                                                        IsActive = true,
-                                                        Result = string.Empty,
-                                                        CreatedDate = DateTime.Now,
-                                                        LastModifiedDate = DateTime.Now
-                                                    };
-                                                    currentGridItems.Add(newSubTask);
-                                                    newTasksAddedCount++;
-                                                }
-
-                                                if (newTasksAddedCount > 0)
-                                                {
-                                                    RefreshDataGrid(targetGrid);
-                                                    update_csv(targetGrid, targetCsvNumber);
-                                                    MessageBox.Show(this, $"{newTasksAddedCount} new sub-task(s) added to the '{GetQuadrantName(targetQuadrantIndex)}' list.", "Sub-tasks Added", MessageBoxButton.OK, MessageBoxImage.Information);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            MessageBox.Show(this, $"Could not automatically decompose task '{item.Task}'. Status: {decompositionStatus}.", "Decomposition Result", MessageBoxButton.OK, MessageBoxImage.Warning);
-                                        }
-                                    }
-                                    // If No to decomposition prompt, do nothing further for this interaction.
-                                }
-                                else
-                                {
-                                    // Original logic: No decomposition suggestion found, show reminder and all suggestions.
-                                    var messageBuilder = new System.Text.StringBuilder();
-                                    if (!string.IsNullOrWhiteSpace(reminder))
-                                    {
-                                        messageBuilder.AppendLine($"Reminder: {reminder}");
-                                        messageBuilder.AppendLine();
-                                    }
-                                    if (suggestions != null && suggestions.Any()) // suggestions here means otherSuggestions is empty or all suggestions
-                                    {
-                                        messageBuilder.AppendLine("Suggestions:");
-                                        foreach (var s in suggestions) // Show all original suggestions
-                                        {
-                                            messageBuilder.AppendLine($"- {s}");
-                                        }
-                                    }
-                                    MessageBox.Show(this, messageBuilder.ToString(), $"Reminder for Task: {item.Task}", MessageBoxButton.OK, MessageBoxImage.Information);
-                                }
-                            }
-                            await Task.Delay(500); // Keep the delay whether decomposition happened or not
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error generating reminder for task '{item.Task}': {ex.Message}");
-                        }
-                    }
+                    MessageBox.Show(this, "During task loading, some AI assistant features may have been limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
+                                    "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    // As per requirement, not resetting _llmConfigErrorDetectedInLoad here.
                 }
-                // Note: The 'updated' flag and subsequent WriteCsv call seem to be potentially duplicated.
-                // The first WriteCsv inside the priority update loop saves changes.
-                // This second 'updated' check might refer to a different set of updates or be redundant.
-                // For this subtask, I am focusing only on adding the LLM config error checks.
-                // The problematic 'if (updated)' block was here and is now removed.
-            }
-
-            // After all files are processed, show a single notification if LLM config error was detected
-            if (_llmConfigErrorDetectedInLoad)
-            {
-                MessageBox.Show(this, "During task loading, some AI assistant features may have been limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
-                                "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
-                // As per requirement, not resetting _llmConfigErrorDetectedInLoad here.
             }
         }
 
@@ -707,12 +547,23 @@ namespace TimeTask
             }
         }
 
+
+
         public MainWindow()
         {
             InitializeComponent();
+            
+            // 初始化用户体验改进功能
+            UXImprovements.Initialize(this);
+            
+            // 配置验证已移除
+            
             _llmService = LlmService.Create();
+
+            
             this.Top = (double)Properties.Settings.Default.Top;
             this.Left = (double)Properties.Settings.Default.Left;
+            
             loadDataGridView();
 
             // Attach CellEditEnding event handler to all DataGrids
@@ -721,13 +572,74 @@ namespace TimeTask
             task3.CellEditEnding += DataGrid_CellEditEnding;
             task4.CellEditEnding += DataGrid_CellEditEnding;
 
-            // Initialize and start the reminder timer
+            // Initialize and start the reminder timer with configurable interval
             _reminderTimer = new System.Windows.Threading.DispatcherTimer();
-            _reminderTimer.Interval = TimeSpan.FromSeconds(30); // Check every 30 seconds
+            _reminderTimer.Interval = TimeSpan.FromSeconds(Properties.Settings.Default.ReminderCheckIntervalSeconds);
             _reminderTimer.Tick += ReminderTimer_Tick;
             _reminderTimer.Start();
+            
+            // Start periodic task reminder checks
+            StartPeriodicTaskReminderChecks();
 
             InitializeSyncService();
+
+            // 应用快速改进功能
+            ApplyQuickImprovements();
+            
+            // 启动自动备份
+            StartAutoBackup();
+        }
+
+        private void ApplyQuickImprovements()
+        {
+            try
+            {
+                // UX改进功能已集成到UXImprovements类中
+                
+                // 设置窗口为可聚焦，以便接收键盘事件
+                this.Focusable = true;
+                this.KeyDown += MainWindow_KeyDown;
+                
+                Console.WriteLine("快速改进功能已启用");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"启用快速改进功能时出错: {ex.Message}");
+            }
+        }
+
+        private void MainWindow_KeyDown(object sender, KeyEventArgs e)
+        {
+            // 处理全局快捷键
+            if (e.Key == Key.F1)
+            {
+                ShowHelpDialog();
+                e.Handled = true;
+            }
+        }
+
+        private void ShowHelpDialog()
+        {
+            var helpMessage = @"TimeTask 快捷键帮助
+
+常用快捷键:
+• Ctrl+N: 快速添加新任务
+• Ctrl+F: 搜索任务
+• Ctrl+S: 保存所有任务
+• Del: 删除选中任务
+• F2: 编辑选中任务
+• Tab/Shift+Tab: 在象限间切换
+• Escape: 清除选择
+• F1: 显示此帮助
+
+鼠标操作:
+• 双击空白区域: 添加新任务
+• 右键菜单: 批量操作
+• 拖拽: 移动任务到其他象限
+
+提示: 可以使用Ctrl+多选进行批量操作";
+
+            MessageBox.Show(helpMessage, "快捷键帮助", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void ActiveLongTermGoalDisplay_Click(object sender, RoutedEventArgs e)
@@ -764,6 +676,282 @@ namespace TimeTask
             {
                 MessageBox.Show("No active long-term goal to manage.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
+
+        private async void ShowFriendlyReminder(ItemGrid task, string message)
+        {
+            try
+            {
+                // Generate AI-powered reminder and suggestions
+                TimeSpan taskAge = DateTime.Now - task.CreatedDate;
+                var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(task.Task, taskAge);
+                
+                // Show modern reminder window
+                var reminderWindow = new TaskReminderWindow(task, reminder ?? message, suggestions)
+                {
+                    Owner = this
+                };
+                
+                var result = reminderWindow.ShowDialog();
+                if (result == true)
+                {
+                    await HandleTaskReminderResult(task, reminderWindow.Result);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error showing friendly reminder: {ex.Message}");
+                // Fallback to simple notification
+                ShowSimpleNotification(task, message);
+            }
+        }
+        
+        private void ShowSimpleNotification(ItemGrid task, string message)
+        {
+            var notification = new System.Windows.Forms.NotifyIcon
+            {
+                Visible = true,
+                Icon = System.Drawing.SystemIcons.Information,
+                BalloonTipTitle = "Task Reminder",
+                BalloonTipText = $"{task.Task}\n{message}",
+                BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info
+            };
+            
+            notification.ShowBalloonTip(5000);
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+                System.Threading.Thread.Sleep(5000);
+                notification.Dispose();
+            });
+        }
+        
+        private async Task HandleTaskReminderResult(ItemGrid task, TaskReminderResult result)
+        {
+            switch (result)
+            {
+                case TaskReminderResult.Completed:
+                    task.IsActive = false;
+                    task.CompletionTime = DateTime.Now;
+                    task.CompletionStatus = "Completed";
+                    task.LastModifiedDate = DateTime.Now;
+                    break;
+                    
+                case TaskReminderResult.Updated:
+                    task.LastModifiedDate = DateTime.Now;
+                    task.InactiveWarningCount = 0; // Reset warning count
+                    break;
+                    
+                case TaskReminderResult.Decompose:
+                    await HandleTaskDecomposition(task);
+                    break;
+                    
+                case TaskReminderResult.Snoozed:
+                    // Snooze for 1 day
+                    task.LastModifiedDate = DateTime.Now.AddDays(-Properties.Settings.Default.FirstWarningAfterDays + 1);
+                    break;
+                    
+                case TaskReminderResult.Dismissed:
+                default:
+                    // Do nothing, just update last interaction time
+                    task.LastModifiedDate = DateTime.Now;
+                    break;
+            }
+            
+            // Save changes to CSV
+            UpdateTaskInAllGrids(task);
+        }
+        
+        private async Task HandleTaskDecomposition(ItemGrid task)
+        {
+            try
+            {
+                var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(task.Task);
+                
+                if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
+                {
+                    // Use smart quadrant selector
+                    var quadrantSelector = new SmartQuadrantSelectorWindow(subTaskStrings, _llmService)
+                    {
+                        Owner = this
+                    };
+                    
+                    if (quadrantSelector.ShowDialog() == true)
+                    {
+                        await AddSubTasksToQuadrants(quadrantSelector.TaskQuadrantAssignments, task);
+                        
+                        // Mark original task as decomposed
+                        task.IsActive = false;
+                        task.CompletionStatus = "Decomposed";
+                        task.LastModifiedDate = DateTime.Now;
+                        
+                        MessageBox.Show(this, $"任务已成功分解为 {subTaskStrings.Count} 个子任务并分配到相应象限。", 
+                                      "任务分解完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show(this, $"无法自动分解任务 '{task.Task}'。状态: {decompositionStatus}。", 
+                                  "分解结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling task decomposition: {ex.Message}");
+                MessageBox.Show(this, "任务分解过程中发生错误，请稍后重试。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private Task AddSubTasksToQuadrants(Dictionary<string, int> taskQuadrantAssignments, ItemGrid originalTask)
+        {
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            string[] csvNumbers = { "1", "2", "3", "4" };
+            
+            foreach (var assignment in taskQuadrantAssignments)
+            {
+                string taskDescription = assignment.Key;
+                int quadrantIndex = assignment.Value;
+                
+                if (quadrantIndex >= 0 && quadrantIndex < dataGrids.Length)
+                {
+                    var targetGrid = dataGrids[quadrantIndex];
+                    var currentGridItems = targetGrid.ItemsSource as List<ItemGrid> ?? new List<ItemGrid>();
+                    
+                    var newTask = new ItemGrid
+                    {
+                        Task = taskDescription,
+                        Importance = GetImportanceFromQuadrant(quadrantIndex),
+                        Urgency = GetUrgencyFromQuadrant(quadrantIndex),
+                        IsActive = true,
+                        CreatedDate = DateTime.Now,
+                        LastModifiedDate = DateTime.Now,
+                        LongTermGoalId = originalTask.LongTermGoalId, // Inherit from parent
+                        IsActiveInQuadrant = true,
+                        InactiveWarningCount = 0
+                    };
+                    
+                    currentGridItems.Add(newTask);
+                    targetGrid.ItemsSource = null;
+                    targetGrid.ItemsSource = currentGridItems;
+                    RefreshDataGrid(targetGrid);
+                    update_csv(targetGrid, csvNumbers[quadrantIndex]);
+                }
+            }
+            return Task.CompletedTask;
+        }
+        
+        private string GetImportanceFromQuadrant(int quadrantIndex)
+        {
+            return quadrantIndex switch
+            {
+                0 => "High", // 重要且紧急
+                1 => "High", // 重要不紧急
+                2 => "Low",  // 不重要但紧急
+                3 => "Low",  // 不重要不紧急
+                _ => "Medium"
+            };
+        }
+        
+        private string GetUrgencyFromQuadrant(int quadrantIndex)
+        {
+            return quadrantIndex switch
+            {
+                0 => "High", // 重要且紧急
+                1 => "Low",  // 重要不紧急
+                2 => "High", // 不重要但紧急
+                3 => "Low",  // 不重要不紧急
+                _ => "Medium"
+            };
+        }
+        
+        private void UpdateTaskInAllGrids(ItemGrid task)
+        {
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            string[] csvNumbers = { "1", "2", "3", "4" };
+            
+            for (int i = 0; i < dataGrids.Length; i++)
+            {
+                if (dataGrids[i].ItemsSource is List<ItemGrid> items && items.Contains(task))
+                {
+                    RefreshDataGrid(dataGrids[i]);
+                    update_csv(dataGrids[i], csvNumbers[i]);
+                    break;
+                }
+            }
+        }
+        
+        private System.Windows.Threading.DispatcherTimer _taskReminderTimer;
+        
+        private void StartPeriodicTaskReminderChecks()
+        {
+            _taskReminderTimer = new System.Windows.Threading.DispatcherTimer();
+            _taskReminderTimer.Interval = TimeSpan.FromMinutes(5); // Check every 5 minutes
+            _taskReminderTimer.Tick += TaskReminderTimer_Tick;
+            _taskReminderTimer.Start();
+        }
+        
+        private async void TaskReminderTimer_Tick(object sender, EventArgs e)
+        {
+            await CheckForStaleTasksAndRemind();
+        }
+        
+        private Task CheckForStaleTasksAndRemind()
+        {
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            
+            foreach (var dataGrid in dataGrids)
+            {
+                if (dataGrid.ItemsSource is List<ItemGrid> tasks)
+                {
+                    foreach (var task in tasks.Where(t => t.IsActive && t.IsActiveInQuadrant))
+                    {
+                        TimeSpan inactiveDuration = DateTime.Now - task.LastModifiedDate;
+                        
+                        // Check if task needs reminder
+                        if (ShouldShowReminder(task, inactiveDuration))
+                        {
+                            ShowFriendlyReminder(task, GetReminderMessage(task, inactiveDuration));
+                            
+                            // Update warning count and last modified date
+                            task.InactiveWarningCount++;
+                            task.LastModifiedDate = DateTime.Now;
+                            
+                            // Only show one reminder per check cycle
+                            break;
+                        }
+                    }
+                }
+            }
+            return Task.CompletedTask;
+        }
+        
+        private bool ShouldShowReminder(ItemGrid task, TimeSpan inactiveDuration)
+        {
+            // First warning after configured days
+            if (inactiveDuration > FirstWarningAfter && task.InactiveWarningCount == 0)
+                return true;
+                
+            // Second warning after configured days
+            if (inactiveDuration > SecondWarningAfter && task.InactiveWarningCount == 1)
+                return true;
+                
+            // Subsequent warnings for very stale tasks
+            if (inactiveDuration > StaleTaskThreshold && task.InactiveWarningCount >= 2)
+            {
+                // Show reminder every few days for very stale tasks
+                var daysSinceLastWarning = (DateTime.Now - task.LastModifiedDate).TotalDays;
+                return daysSinceLastWarning >= 3; // Remind every 3 days for very stale tasks
+            }
+            
+            return false;
+        }
+        
+        private string GetReminderMessage(ItemGrid task, TimeSpan inactiveDuration)
+        {
+            if (inactiveDuration <= FirstWarningAfter)
+                return "这个任务有一段时间没有更新了，需要关注一下吗？";
+            else if (inactiveDuration <= SecondWarningAfter)
+                return "这个任务变得有些陈旧了，请考虑尽快更新或完成它。";
+            else
+                return "这个任务已经很久没有进展了，建议重新评估其优先级或进行分解。";
         }
 
         private void InitializeSyncService()
@@ -1117,13 +1305,26 @@ namespace TimeTask
             }
         }
 
+        // 定义常量用于SetWindowLong
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOPMOST = 0x00000008;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
+
+        [DllImport("user32.dll")]
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            IntPtr pWnd = FindWindow("Progman", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SHELLDLL_DefVIew", null);
-            pWnd = FindWindowEx(pWnd, IntPtr.Zero, "SysListView32", null);
             IntPtr tWnd = new WindowInteropHelper(this).Handle;
-            SetParent(tWnd, pWnd);
+            
+            // 设置窗口为最底层（桌面之上，其他窗口之下）
+            // 不再将窗口设置为桌面子窗口，避免桌面刷新时消失
+            SetWindowPos(tWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         }
 
         private void location_Save(object sender, EventArgs e)
@@ -1198,12 +1399,38 @@ namespace TimeTask
         private void RefreshDataGrid(DataGrid dataGrid)
         {
             if (dataGrid == null) return;
-            var itemsSource = dataGrid.ItemsSource as List<ItemGrid>;
-            dataGrid.ItemsSource = null;
-            dataGrid.ItemsSource = itemsSource;
-            if (itemsSource != null && !dataGrid.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+            
+            try
             {
-                dataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                // 取消任何正在进行的编辑操作
+                dataGrid.CancelEdit();
+                dataGrid.CommitEdit();
+                
+                var itemsSource = dataGrid.ItemsSource as List<ItemGrid>;
+                if (itemsSource == null) return;
+                
+                // 安全地刷新数据源
+                dataGrid.ItemsSource = null;
+                dataGrid.ItemsSource = itemsSource;
+                
+                // 重新应用排序
+                if (!dataGrid.Items.SortDescriptions.Contains(new SortDescription("Score", ListSortDirection.Descending)))
+                {
+                    dataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
+                }
+            }
+            catch (Exception ex)
+            {
+                // 如果刷新失败，尝试简单的Items.Refresh()
+                try
+                {
+                    dataGrid.Items.Refresh();
+                }
+                catch
+                {
+                    // 记录错误但不中断程序
+                    System.Diagnostics.Debug.WriteLine($"RefreshDataGrid failed: {ex.Message}");
+                }
             }
         }
 
@@ -1572,6 +1799,104 @@ namespace TimeTask
         }
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowSettingsMenu();
+        }
+        
+        private void ShowSettingsMenu()
+        {
+            var contextMenu = new ContextMenu();
+            
+            // LLM设置
+            var llmSettingsItem = new MenuItem
+            {
+                Header = "🤖 AI助手设置",
+                ToolTip = "配置大语言模型API设置"
+            };
+            llmSettingsItem.Click += (s, e) => OpenLlmSettings();
+            contextMenu.Items.Add(llmSettingsItem);
+            
+            // 提醒设置
+            var reminderSettingsItem = new MenuItem
+            {
+                Header = "⏰ 任务提醒设置",
+                ToolTip = "配置任务提醒频率和行为"
+            };
+            reminderSettingsItem.Click += (s, e) => OpenReminderSettings();
+            contextMenu.Items.Add(reminderSettingsItem);
+            
+            contextMenu.Items.Add(new Separator());
+            
+            // 备份管理
+            var backupItem = new MenuItem
+            {
+                Header = "💾 备份管理",
+                ToolTip = "管理数据备份和恢复"
+            };
+            backupItem.Click += (s, e) => ShowBackupManager();
+            contextMenu.Items.Add(backupItem);
+            
+            // 数据导出
+            var exportItem = new MenuItem
+            {
+                Header = "📤 导出数据",
+                ToolTip = "导出任务数据为JSON格式"
+            };
+            exportItem.Click += async (s, e) => await ExportAllData();
+            contextMenu.Items.Add(exportItem);
+            
+            contextMenu.Items.Add(new Separator());
+            
+            // 关于
+            var aboutItem = new MenuItem
+            {
+                Header = "ℹ️ 关于",
+                ToolTip = "查看应用程序信息"
+            };
+            aboutItem.Click += (s, e) => ShowAbout();
+            contextMenu.Items.Add(aboutItem);
+            
+            // 显示菜单
+            contextMenu.PlacementTarget = SettingsButton;
+            contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            contextMenu.IsOpen = true;
+        }
+
+        private void ShowBackupManager()
+        {
+            try
+            {
+                MessageBox.Show("备份管理功能暂时不可用", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"操作失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task ExportAllData()
+        {
+            try
+            {
+                var saveDialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    DefaultExt = "json",
+                    FileName = $"TimeTask_Export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+                };
+
+                if (saveDialog.ShowDialog() == true)
+                {
+                    MessageBox.Show("导出功能暂时不可用", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void OpenLlmSettings()
         {
             LlmSettingsWindow settingsWindow = new LlmSettingsWindow();
             settingsWindow.Owner = this; // Set the owner for proper modal behavior and centering
@@ -2014,6 +2339,23 @@ namespace TimeTask
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class IsGreaterThanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int intValue && parameter is string paramString && int.TryParse(paramString, out int compareToValue))
+            {
+                return intValue > compareToValue;
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
