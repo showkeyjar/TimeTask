@@ -69,6 +69,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="TaskStatisticsWindow.xaml.cs">
+      <DependentUpon>TaskStatisticsWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TestReminderSystem.cs" />
     <Compile Include="UXImprovements.cs" />
     <Page Include="AddTaskWindow.xaml">
@@ -159,6 +162,10 @@
     <Compile Include="ILlmService.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
+    <Page Include="TaskStatisticsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

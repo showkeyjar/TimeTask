@@ -33,51 +33,153 @@ namespace TimeTask
             {
                 return null;
             }
-            int parseScore = 0;
-            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg));
-            var result =
-                from line in allLines.Skip(1).Take(allLines.Count() - 1)
-                let temparry = line.Split(',')
-                let parse = int.TryParse(temparry[1], out parseScore)
-                let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True"
-                select new ItemGrid {
-                    Task = temparry[0],
-                    Score = parseScore,
-                    Result = temparry[2],
-                    IsActive = !isCompleted, // IsActive is the opposite of is_completed
-                    Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
-                    Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
-                    CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
-                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now,
-                    ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null,
-                    LongTermGoalId = temparry.Length > 9 && !string.IsNullOrWhiteSpace(temparry[9]) ? temparry[9] : null,
-                    OriginalScheduledDay = temparry.Length > 10 && int.TryParse(temparry[10], out int osd) ? osd : 0,
-                    IsActiveInQuadrant = temparry.Length > 11 && bool.TryParse(temparry[11], out bool iaiq) ? iaiq : true, // Default to true for backward compatibility
-                    InactiveWarningCount = temparry.Length > 12 && int.TryParse(temparry[12], out int iwc) ? iwc : 0 // New field
-                };
+            
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
+            
+            // Skip header row
+            if (allLines.Count <= 1)
+            {
+                return new List<ItemGrid>();
+            }
+            
             var result_list = new List<ItemGrid>();
+            
             try
             {
-                result_list = result.ToList();
+                // Parse from second line onwards
+                for (int i = 1; i < allLines.Count; i++)
+                {
+                    var line = allLines[i];
+                    var fields = ParseCsvLine(line);
+                    
+                    if (fields.Length >= 4) // Minimum required fields
+                    {
+                        int parseScore = 0;
+                        int.TryParse(fields[1], out parseScore);
+                        
+                        bool isCompleted = fields.Length > 3 && fields[3] != null && fields[3] == "True";
+                        
+                        var item = new ItemGrid
+                        {
+                            Task = fields[0],
+                            Score = parseScore,
+                            Result = fields[2],
+                            IsActive = !isCompleted, // IsActive is the opposite of is_completed
+                            Importance = fields.Length > 4 && !string.IsNullOrWhiteSpace(fields[4]) ? fields[4] : "Unknown",
+                            Urgency = fields.Length > 5 && !string.IsNullOrWhiteSpace(fields[5]) ? fields[5] : "Unknown",
+                            CreatedDate = fields.Length > 6 && DateTime.TryParse(fields[6], out DateTime cd) ? cd : DateTime.Now,
+                            LastModifiedDate = fields.Length > 7 && DateTime.TryParse(fields[7], out DateTime lmd) ? lmd : DateTime.Now,
+                            ReminderTime = fields.Length > 8 && DateTime.TryParse(fields[8], out DateTime rt) ? rt : (DateTime?)null,
+                            LongTermGoalId = fields.Length > 9 && !string.IsNullOrWhiteSpace(fields[9]) ? fields[9] : null,
+                            OriginalScheduledDay = fields.Length > 10 && int.TryParse(fields[10], out int osd) ? osd : 0,
+                            IsActiveInQuadrant = fields.Length > 11 && bool.TryParse(fields[11], out bool iaiq) ? iaiq : true, // Default to true for backward compatibility
+                            InactiveWarningCount = fields.Length > 12 && int.TryParse(fields[12], out int iwc) ? iwc : 0 // New field
+                        };
+                        
+                        result_list.Add(item);
+                    }
+                }
             }
-            catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
+            catch (Exception ex)
+            {
                 Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
-                // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now, IsActiveInQuadrant = true, InactiveWarningCount = 0 });
+                return new List<ItemGrid>();
             }
+            
             return result_list;
+        }
+        
+        // Method to safely parse CSV lines that may contain commas within quoted fields
+        private static string[] ParseCsvLine(string line)
+        {
+            var fields = new List<string>();
+            var currentField = new System.Text.StringBuilder();
+            bool inQuotes = false;
+            
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+                
+                if (c == '"')
+                {
+                    // Check if this is an escaped quote (two consecutive quotes)
+                    if (i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        currentField.Append('"');
+                        i++; // Skip the next quote
+                    }
+                    else
+                    {
+                        // Toggle quote state
+                        inQuotes = !inQuotes;
+                    }
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    // End of field
+                    fields.Add(currentField.ToString());
+                    currentField.Clear();
+                }
+                else
+                {
+                    currentField.Append(c);
+                }
+            }
+            
+            // Add the last field
+            fields.Add(currentField.ToString());
+            
+            return fields.ToArray();
         }
 
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
-            var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount}" // Added InactiveWarningCount
-            ).ToArray();
-            var contents = new string[temparray.Length + 2];
-            Array.Copy(temparray, 0, contents, 1, temparray.Length);
-            // Updated header
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount"; // Added inactiveWarningCount header
+            var contents = new List<string>();
+            // Add header
+            contents.Add("task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount"); // Added inactiveWarningCount header
+            
+            // Add data rows
+            foreach (var item in items)
+            {
+                var row = new List<string>
+                {
+                    EscapeCsvField(item.Task),
+                    item.Score.ToString(),
+                    EscapeCsvField(item.Result),
+                    (item.IsActive ? "False" : "True"),
+                    EscapeCsvField(item.Importance ?? "Unknown"),
+                    EscapeCsvField(item.Urgency ?? "Unknown"),
+                    item.CreatedDate.ToString("o"),
+                    item.LastModifiedDate.ToString("o"),
+                    item.ReminderTime?.ToString("o") ?? "",
+                    EscapeCsvField(item.LongTermGoalId ?? ""),
+                    item.OriginalScheduledDay.ToString(),
+                    item.IsActiveInQuadrant.ToString(),
+                    item.InactiveWarningCount.ToString()
+                };
+                
+                contents.Add(string.Join(",", row));
+            }
+            
             File.WriteAllLines(filepath, contents);
+        }
+        
+        // Method to escape CSV fields that contain special characters
+        private static string EscapeCsvField(string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return "";
+            }
+            
+            // If field contains comma, newline, or quote, wrap in quotes and escape inner quotes
+            if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+            {
+                // Escape double quotes by replacing them with two double quotes
+                return '"' + field.Replace("\"", "\"\"") + '"';
+            }
+            
+            return field;
         }
 
         public static List<LongTermGoal> ReadLongTermGoalsCsv(string filepath)
@@ -1680,7 +1782,7 @@ namespace TimeTask
                 Header = "📤 导出数据",
                 ToolTip = "导出任务数据为JSON格式"
             };
-            exportItem.Click += async (s, e) => await ExportAllData();
+            exportItem.Click += (s, e) => ExportAllData();
             contextMenu.Items.Add(exportItem);
             
             contextMenu.Items.Add(new Separator());
@@ -1712,7 +1814,7 @@ namespace TimeTask
             }
         }
 
-        private async Task ExportAllData()
+        private void ExportAllData()
         {
             try
             {
@@ -1956,7 +2058,8 @@ namespace TimeTask
         
         private void StatisticsButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("统计功能暂时不可用", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            var statisticsWindow = new TaskStatisticsWindow();
+            statisticsWindow.Show();
         }
 
         private void StartAutoBackup()
