@@ -504,7 +504,7 @@ namespace TimeTask
             AddTaskWindow addTaskWindow = new AddTaskWindow(_llmService, quadrantIndex);
             bool? dialogResult = addTaskWindow.ShowDialog();
 
-            if (dialogResult == true && addTaskWindow.IsTaskAdded && addTaskWindow.NewTask != null)
+            if (dialogResult == true && addTaskWindow.TaskAdded && addTaskWindow.NewTask != null)
             {
                 ItemGrid newTask = addTaskWindow.NewTask;
                 int finalQuadrantIndex = AddTaskWindow.GetIndexFromPriority(newTask.Importance, newTask.Urgency);
@@ -1750,7 +1750,7 @@ namespace TimeTask
                     AddTaskWindow addTaskWindow = new AddTaskWindow(_llmService, quadrantIndex);
                     bool? dialogResult = addTaskWindow.ShowDialog();
 
-                    if (dialogResult == true && addTaskWindow.IsTaskAdded && addTaskWindow.NewTask != null)
+                    if (dialogResult == true && addTaskWindow.TaskAdded && addTaskWindow.NewTask != null)
                     {
                         ItemGrid newTask = addTaskWindow.NewTask;
 
@@ -1802,7 +1802,29 @@ namespace TimeTask
         {
             ShowSettingsMenu();
         }
-        
+
+        private void DraftsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 创建草稿管理器实例
+            TaskDraftManager draftManager;
+            try
+            {
+                draftManager = new TaskDraftManager();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法加载草稿管理器: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var draftWindow = new DraftViewerWindow(draftManager);
+            draftWindow.Owner = this;
+            draftWindow.ShowDialog();
+
+            // 释放资源
+            draftManager.Dispose();
+        }
+
         private void ShowSettingsMenu()
         {
             var contextMenu = new ContextMenu();

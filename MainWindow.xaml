@@ -184,6 +184,33 @@
                     </Style>
                 </Button.Style>
             </Button>
+
+            <Button x:Name="DraftsButton"
+                    Content="📋"
+                    Width="30"
+                    Height="30"
+                    FontSize="16"
+                    FontWeight="Bold"
+                    ToolTip="View Task Drafts"
+                    Click="DraftsButton_Click">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#333333"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
 
         <!-- Quadrant 1: Important & Urgent -->
