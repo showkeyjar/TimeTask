@@ -152,8 +152,8 @@
       <DependentUpon>SetLongTermGoalWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ConfirmGoalTasksWindow.xaml.cs">
-      <DependentUpon>ConfirmGoalTasksWindow.xaml</DependentUpon>
+    <Compile Include="LongTermGoalManagerWindow.xaml.cs">
+      <DependentUpon>LongTermGoalManagerWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SetLearningPlanWindow.xaml.cs">
