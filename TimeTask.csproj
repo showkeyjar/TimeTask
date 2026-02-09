@@ -46,20 +46,21 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Speech" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xaml">
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.0.4" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Npgsql" Version="6.0.11" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
     <PackageReference Include="System.Text.Json" Version="9.0.0" />
@@ -69,6 +70,15 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ReminderSettingsWindow.xaml.cs">
+      <DependentUpon>ReminderSettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SmartQuadrantSelectorWindow.xaml.cs">
+      <DependentUpon>SmartQuadrantSelectorWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TaskReminderWindow.xaml.cs">
+      <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TaskStatisticsWindow.xaml.cs">
       <DependentUpon>TaskStatisticsWindow.xaml</DependentUpon>
     </Compile>
@@ -94,6 +104,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="ReminderSettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="SetLongTermGoalWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -102,15 +116,11 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="TaskReminderWindow.xaml">
+    <Page Include="SetLearningPlanWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="SmartQuadrantSelectorWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="ReminderSettingsWindow.xaml">
+    <Page Include="LearningPlanManagerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -146,22 +156,37 @@
       <DependentUpon>ConfirmGoalTasksWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="TaskReminderWindow.xaml.cs">
-      <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
+    <Compile Include="SetLearningPlanWindow.xaml.cs">
+      <DependentUpon>SetLearningPlanWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="SmartQuadrantSelectorWindow.xaml.cs">
-      <DependentUpon>SmartQuadrantSelectorWindow.xaml</DependentUpon>
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ReminderSettingsWindow.xaml.cs">
-      <DependentUpon>ReminderSettingsWindow.xaml</DependentUpon>
+    <Compile Include="LearningPlanManagerWindow.xaml.cs">
+      <DependentUpon>LearningPlanManagerWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="LlmService.cs" />
     <Compile Include="ILlmService.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
+    <Compile Include="EnhancedAudioCaptureService.cs" />
+    <Compile Include="IntentRecognizer.cs" />
+    <Compile Include="TaskDraftManager.cs" />
+    <Compile Include="NotificationManager.cs" />
+    <Compile Include="DraftViewerWindow.xaml.cs">
+      <DependentUpon>DraftViewerWindow.xaml</DependentUpon>
+    </Compile>
+    <Page Include="SmartQuadrantSelectorWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TaskReminderWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="DraftViewerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="TaskStatisticsWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

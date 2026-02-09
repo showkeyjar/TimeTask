@@ -10,20 +10,42 @@ namespace TimeTask
     public partial class AddTaskWindow : Window
     {
         private LlmService _llmService;
+        private DatabaseService _databaseService;
         private bool _isClarificationRound = false; // State for clarification
         private string _originalTaskDescription = string.Empty; // To store original task if clarification is needed
         private bool _isLlmConfigErrorNotified = false; // Flag to track if user has been notified of LLM config error
 
         public string TaskDescription { get; private set; }
         public int SelectedListIndex { get; private set; } // 0-indexed
-        public bool IsTaskAdded { get; private set; } = false;
+        public bool TaskAdded { get; private set; } = false; // Renamed from IsTaskAdded for clarity
         public ItemGrid NewTask { get; private set; } // The newly created task object
 
+        // 预填充任务描述（用于从草稿添加）
+        private string _preFilledDescription = null;
+        private string _preFilledQuadrant = null;
+
+        // 兼容旧版本的构造函数
+        public AddTaskWindow(DatabaseService databaseService, LlmService llmService, int? defaultQuadrantIndex = null)
+        {
+            InitializeComponent();
+            _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
+            _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
+
+            InitializeCombobox(defaultQuadrantIndex);
+        }
+
+        // 兼容旧版本：只传 LlmService
         public AddTaskWindow(LlmService llmService, int? defaultQuadrantIndex = null)
         {
             InitializeComponent();
             _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
+            _databaseService = null;
 
+            InitializeCombobox(defaultQuadrantIndex);
+        }
+
+        private void InitializeCombobox(int? defaultQuadrantIndex)
+        {
             // Populate ComboBox
             ListSelectorComboBox.ItemsSource = new List<string> {
                 "重要且紧急", // Important & Urgent
@@ -51,6 +73,37 @@ namespace TimeTask
             ReminderDatePicker.SelectedDate = DateTime.Today;
             ReminderHourComboBox.SelectedIndex = 0; // Default to "00"
             ReminderMinuteComboBox.SelectedIndex = 0; // Default to "00"
+        }
+
+        /// <summary>
+        /// 预填充任务描述（用于从草稿添加）
+        /// </summary>
+        public void SetPreFilledTask(string description, string quadrant)
+        {
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                _preFilledDescription = description;
+                TaskDescriptionTextBox.Text = description;
+            }
+
+            if (!string.IsNullOrWhiteSpace(quadrant))
+            {
+                _preFilledQuadrant = quadrant;
+                // 映射象限名称到索引
+                var quadrantMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "重要且紧急", 0 },
+                    { "重要不紧急", 1 },
+                    { "不重要但紧急", 2 },
+                    { "不重要紧急", 2 }, // 兼容不同表述
+                    { "不重要不紧急", 3 }
+                };
+
+                if (quadrantMap.TryGetValue(quadrant, out int index))
+                {
+                    ListSelectorComboBox.SelectedIndex = index;
+                }
+            }
         }
 
         // Removed older synchronous AddTaskButton_Click method. The async version below is used.
@@ -198,7 +251,7 @@ namespace TimeTask
                     ReminderTime = reminderTime
                 };
 
-                IsTaskAdded = true;
+                TaskAdded = true;
                 this.DialogResult = true;
                 this.Close();
             }

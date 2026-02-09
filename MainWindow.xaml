@@ -157,15 +157,15 @@
                     </Style>
                 </Button.Style>
             </Button>
-            <Button x:Name="StatisticsButton"
-                    Content="📊"
+
+            <Button x:Name="SettingsButton"
+                    Content="⚙"
                     Width="30"
                     Height="30"
                     FontSize="16"
                     FontWeight="Bold"
-                    ToolTip="查看任务统计"
-                    Margin="0,0,5,0"
-                    Click="StatisticsButton_Click">
+                    ToolTip="Open LLM Settings"
+                    Click="SettingsButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="15"/>
@@ -184,15 +184,15 @@
                     </Style>
                 </Button.Style>
             </Button>
-            
-            <Button x:Name="SettingsButton"
-                    Content="⚙"
+
+            <Button x:Name="DraftsButton"
+                    Content="📋"
                     Width="30"
                     Height="30"
                     FontSize="16"
                     FontWeight="Bold"
-                    ToolTip="Open LLM Settings"
-                    Click="SettingsButton_Click">
+                    ToolTip="View Task Drafts"
+                    Click="DraftsButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="15"/>

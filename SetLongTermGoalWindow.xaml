@@ -4,29 +4,112 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Set Your Long-Term Goal" Height="300" Width="400">
-    <Grid Margin="10">
+        Title="设定长期目标" Height="400" Width="500"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="25">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
 
-        <TextBlock Text="Describe your long-term goal:" Grid.Row="0" Grid.Column="0" Margin="0,0,0,5"/>
-        <TextBox Name="GoalDescriptionTextBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,10"/>
+        <TextBlock Grid.Row="0" Text="📋 选择目标类型" FontWeight="Bold" FontSize="14" Margin="0,0,0,15"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,20">
+            <RadioButton Name="NormalGoalRadioButton" Content="🎯 普通目标" Margin="0,0,25,0" IsChecked="True" Checked="GoalType_Checked" FontSize="13"/>
+            <RadioButton Name="LearningPlanRadioButton" Content="📚 学习计划" Checked="GoalType_Checked" FontSize="13"/>
+        </StackPanel>
 
-        <TextBlock Text="Enter duration (e.g., '1 year', '6 months', '90 days'):" Grid.Row="2" Grid.Column="0" Margin="0,0,0,5"/>
-        <TextBox Name="DurationTextBox" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,10"/>
+        <TextBlock Grid.Row="2" Name="GoalDescriptionLabel" Text="📝 目标描述" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+        <TextBox Name="GoalDescriptionTextBox" Grid.Row="3" Height="80" AcceptsReturn="True" TextWrapping="Wrap" 
+                 Margin="0,0,0,15" Padding="10" FontSize="12" BorderBrush="#FFCCCCCC">
+            <TextBox.Style>
+                <Style TargetType="TextBox">
+                    <Style.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <VisualBrush AlignmentX="Left" AlignmentY="Top" Stretch="None">
+                                        <VisualBrush.Visual>
+                                            <TextBlock Text="例如：准备考研数学、学习Python编程..." Foreground="Gray" FontStyle="Italic" Margin="10,8,0,0"/>
+                                        </VisualBrush.Visual>
+                                    </VisualBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBox.Style>
+        </TextBox>
 
-        <StackPanel Orientation="Horizontal" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Right">
-            <Button Name="SubmitButton" Content="Submit" Click="SubmitButton_Click" Margin="0,0,10,0" Padding="10,5"/>
-            <Button Name="CancelButton" Content="Cancel" Click="CancelButton_Click" IsCancel="True" Padding="10,5"/>
+        <TextBlock Grid.Row="4" Name="DurationLabel" Text="⏱️ 预计时长" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+        <TextBox Name="DurationTextBox" Grid.Row="5" Margin="0,0,0,15" Padding="10" FontSize="12" BorderBrush="#FFCCCCCC">
+            <TextBox.Style>
+                <Style TargetType="TextBox">
+                    <Style.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <VisualBrush AlignmentX="Left" AlignmentY="Top" Stretch="None">
+                                        <VisualBrush.Visual>
+                                            <TextBlock Text="例如：3个月、半年、1年..." Foreground="Gray" FontStyle="Italic" Margin="10,8,0,0"/>
+                                        </VisualBrush.Visual>
+                                    </VisualBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBox.Style>
+        </TextBox>
+
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Name="SubmitButton" Content="✓ 创建目标" Width="110" Height="35" Margin="0,0,10,0" Click="SubmitButton_Click" 
+                    Background="#FF4CAF50" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="15,8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FF45A049"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Name="CancelButton" Content="✕ 取消" Width="90" Height="35" Click="CancelButton_Click" IsCancel="True"
+                    Background="#FF9E9E9E" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="15,8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FF757575"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
     </Grid>
 </Window>

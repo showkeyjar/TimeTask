@@ -403,11 +403,9 @@ namespace TimeTask
                 var description = GetTaskDescription(item);
                 if (!string.IsNullOrEmpty(description))
                 {
-                    // CSV格式，安全处理包含逗号、引号或其他特殊字符的文本
-                    var csvQuadrantName = EscapeCsvField(quadrantName);
-                    var csvDescription = EscapeCsvField(description);
-                    var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    sb.AppendLine($"{csvQuadrantName},{csvDescription},{timestamp}");
+                    // CSV格式，处理包含逗号的文本
+                    var csvDescription = description.Contains(",") ? $"\"{description}\"" : description;
+                    sb.AppendLine($"{quadrantName},{csvDescription},{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                 }
             }
         }
@@ -422,24 +420,6 @@ namespace TimeTask
         private static void ShowInfoMessage(string message)
         {
             MessageBox.Show(message, "信息", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        
-        // Method to escape CSV fields that contain special characters
-        private static string EscapeCsvField(string field)
-        {
-            if (string.IsNullOrEmpty(field))
-            {
-                return "";
-            }
-            
-            // If field contains comma, newline, or quote, wrap in quotes and escape inner quotes
-            if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
-            {
-                // Escape double quotes by replacing them with two double quotes
-                return '"' + field.Replace("\"", "\"\"") + '"';
-            }
-            
-            return field;
         }
 
         private static void ShowWarningMessage(string message)
