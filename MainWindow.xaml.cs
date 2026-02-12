@@ -560,9 +560,13 @@ namespace TimeTask
             
             _llmService = LlmService.Create();
 
-            
-            this.Top = (double)Properties.Settings.Default.Top;
-            this.Left = (double)Properties.Settings.Default.Left;
+            var normalizedPosition = NormalizeWindowPosition(
+                (double)Properties.Settings.Default.Left,
+                (double)Properties.Settings.Default.Top,
+                this.Width,
+                this.Height);
+            this.Left = normalizedPosition.X;
+            this.Top = normalizedPosition.Y;
             
             loadDataGridView();
 
@@ -1329,9 +1333,90 @@ namespace TimeTask
 
         private void location_Save(object sender, EventArgs e)
         {
-            Properties.Settings.Default.Top = this.Top;
-            Properties.Settings.Default.Left = this.Left;
+            var normalizedPosition = NormalizeWindowPosition(this.Left, this.Top, this.ActualWidth, this.ActualHeight);
+            Properties.Settings.Default.Top = normalizedPosition.Y;
+            Properties.Settings.Default.Left = normalizedPosition.X;
             Properties.Settings.Default.Save();
+        }
+
+        private static Point NormalizeWindowPosition(double left, double top, double width, double height)
+        {
+            const int minVisiblePixels = 80;
+            const double fallbackWidth = 810;
+            const double fallbackHeight = 630;
+
+            if (double.IsNaN(width) || width <= 0)
+            {
+                width = fallbackWidth;
+            }
+
+            if (double.IsNaN(height) || height <= 0)
+            {
+                height = fallbackHeight;
+            }
+
+            var windowRect = new System.Drawing.Rectangle(
+                (int)Math.Round(left),
+                (int)Math.Round(top),
+                (int)Math.Round(width),
+                (int)Math.Round(height));
+
+            var screens = System.Windows.Forms.Screen.AllScreens;
+            foreach (var screen in screens)
+            {
+                var intersection = System.Drawing.Rectangle.Intersect(windowRect, screen.WorkingArea);
+                if (intersection.Width >= minVisiblePixels && intersection.Height >= minVisiblePixels)
+                {
+                    return new Point(left, top);
+                }
+            }
+
+            var targetWorkingArea = (screens.Length > 0 ? screens[0] : System.Windows.Forms.Screen.PrimaryScreen)?.WorkingArea
+                ?? new System.Drawing.Rectangle(0, 0, (int)fallbackWidth, (int)fallbackHeight);
+            var windowCenterX = left + width / 2;
+            var windowCenterY = top + height / 2;
+            var minDistance = double.MaxValue;
+
+            foreach (var screen in screens)
+            {
+                var area = screen.WorkingArea;
+                var clampedX = Math.Max(area.Left, Math.Min(windowCenterX, area.Right));
+                var clampedY = Math.Max(area.Top, Math.Min(windowCenterY, area.Bottom));
+                var distance = Math.Pow(windowCenterX - clampedX, 2) + Math.Pow(windowCenterY - clampedY, 2);
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    targetWorkingArea = area;
+                }
+            }
+
+            double normalizedLeft;
+            double normalizedTop;
+
+            if (width >= targetWorkingArea.Width)
+            {
+                normalizedLeft = targetWorkingArea.Left;
+            }
+            else
+            {
+                normalizedLeft = Math.Max(
+                    targetWorkingArea.Left,
+                    Math.Min(left, targetWorkingArea.Right - width));
+            }
+
+            if (height >= targetWorkingArea.Height)
+            {
+                normalizedTop = targetWorkingArea.Top;
+            }
+            else
+            {
+                normalizedTop = Math.Max(
+                    targetWorkingArea.Top,
+                    Math.Min(top, targetWorkingArea.Bottom - height));
+            }
+
+            return new Point(normalizedLeft, normalizedTop);
         }
 
         public void DeleteTaskRow_Click(object sender, RoutedEventArgs e)
