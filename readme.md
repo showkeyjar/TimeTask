@@ -69,13 +69,18 @@
 
 ## 界面截图
 
-### 主界面（四象限任务管理）
+为避免单张图片过大导致阅读疲劳，以下截图采用小尺寸分组展示：
 
-![主界面四象限任务管理](docs/p1.png)
+### 主流程界面
 
-### 设置长期目标窗口
+<img src="docs/p1.png" alt="主界面四象限任务管理" width="360" />
+<img src="docs/p2.png" alt="设置长期目标窗口" width="360" />
 
-![设置长期目标窗口](docs/p2.png)
+### 配置与高级功能
+
+<img src="docs/p3.png" alt="任务提醒设置窗口" width="320" />
+<img src="docs/p4.png" alt="LLM 设置窗口" width="320" />
+<img src="docs/p5.png" alt="任务草稿窗口" width="360" />
 
 ## LLM Provider Configuration
 
