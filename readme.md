@@ -67,6 +67,16 @@
     - 如需临时关闭，可在系统托盘或应用设置中加入开关（后续版本提供 UI）；当前可通过退出程序停止监听。
     - 首次运行如提示缺少语音识别引擎或无可用麦克风，请确认 Windows 已安装语音识别组件并正确连接麦克风。
 
+## 界面截图
+
+### 主界面（四象限任务管理）
+
+![主界面四象限任务管理](docs/p1.png)
+
+### 设置长期目标窗口
+
+![设置长期目标窗口](docs/p2.png)
+
 ## LLM Provider Configuration
 
 This application uses Large Language Models (LLMs) to provide features like automatic task classification, smart reminders, and task decomposition. The primary supported provider is Zhipu AI, but the configuration is flexible. To enable these features, you need to configure your API key and other relevant settings.
