@@ -132,6 +132,12 @@ namespace TimeTask
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
 
+        private const string ConversationTaskExtractPrompt =
+            "You are an assistant helping a user capture personal action items from a multi-speaker conversation. " +
+            "Extract ONLY tasks that the user should do. " +
+            "Return a JSON array of strings. Do not include any extra text.\n" +
+            "Conversation:\n";
+
         private const string GoalDecompositionSystemPrompt = @"
       You are an expert goal planning assistant. Your task is to take a user's long-term goal and a specified duration, and break it down into a series of smaller, actionable daily tasks. For each task, you must also categorize it into one of four quadrants based on its importance and urgency, and provide an estimated time for completion.
 
@@ -794,6 +800,36 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 return ("Unknown", "Unknown");
             }
             return ParsePriorityResponse(llmResponse);
+        }
+
+        public async Task<List<string>> ExtractTasksFromConversationAsync(string conversation)
+        {
+            if (string.IsNullOrWhiteSpace(conversation))
+                return new List<string>();
+
+            string prompt = ConversationTaskExtractPrompt + conversation;
+            string llmResponse = await GetCompletionAsync(prompt);
+
+            if (IsErrorResponse(llmResponse))
+            {
+                Console.WriteLine($"LLM did not provide valid conversation extraction. Response: {llmResponse}");
+                return new List<string>();
+            }
+
+            try
+            {
+                var tasks = JsonSerializer.Deserialize<List<string>>(llmResponse);
+                if (tasks != null && tasks.Count > 0)
+                    return tasks.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+            }
+            catch { }
+
+            // Fallback parse: split lines
+            var lines = llmResponse.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim().TrimStart('-', '*', '•'))
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+            return lines;
         }
         
         private void LoadLlmConfig() // Renamed and updated

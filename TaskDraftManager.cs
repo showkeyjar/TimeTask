@@ -176,6 +176,14 @@ namespace TimeTask
             }
         }
 
+        public void Refresh()
+        {
+            lock (_lock)
+            {
+                LoadDrafts();
+            }
+        }
+
         private void LoadDrafts()
         {
             try

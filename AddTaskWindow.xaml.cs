@@ -23,6 +23,7 @@ namespace TimeTask
         // 预填充任务描述（用于从草稿添加）
         private string _preFilledDescription = null;
         private string _preFilledQuadrant = null;
+        private bool _skipClarificationForPrefilled = true;
 
         // 兼容旧版本的构造函数
         public AddTaskWindow(DatabaseService databaseService, LlmService llmService, int? defaultQuadrantIndex = null)
@@ -149,7 +150,7 @@ namespace TimeTask
 
             try
             {
-                if (!_isClarificationRound)
+                if (!_isClarificationRound && !(_skipClarificationForPrefilled && !string.IsNullOrWhiteSpace(_preFilledDescription)))
                 {
                     // Initial Submission: Analyze Clarity
                     _originalTaskDescription = currentTaskDescription; // Save for potential reset

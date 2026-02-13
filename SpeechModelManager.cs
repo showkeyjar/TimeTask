@@ -3,6 +3,7 @@ using System.Configuration;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Threading;
@@ -253,7 +254,10 @@ namespace TimeTask
             {
                 string hintsPath = GetHintsFilePath();
                 if (File.Exists(hintsPath))
+                {
+                    MergeUserLexicon(hintsPath);
                     return;
+                }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(hintsPath));
                 var lines = new[]
@@ -268,10 +272,47 @@ namespace TimeTask
                 };
                 File.WriteAllLines(hintsPath, lines);
                 VoiceRuntimeLog.Info($"Default phrases.txt created: {hintsPath}");
+                MergeUserLexicon(hintsPath);
             }
             catch (Exception ex)
             {
                 VoiceRuntimeLog.Error("Failed to create default phrases.txt.", ex);
+            }
+        }
+
+        private void MergeUserLexicon(string hintsPath)
+        {
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string lexiconPath = Path.Combine(appData, "TimeTask", "voice_lexicon.txt");
+                if (!File.Exists(lexiconPath))
+                    return;
+
+                var userPhrases = File.ReadAllLines(lexiconPath)
+                    .Select(l => l?.Trim())
+                    .Where(l => !string.IsNullOrWhiteSpace(l))
+                    .ToList();
+
+                if (userPhrases.Count == 0)
+                    return;
+
+                var existing = File.Exists(hintsPath)
+                    ? File.ReadAllLines(hintsPath).Select(l => l?.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList()
+                    : new List<string>();
+
+                var merged = existing
+                    .Concat(userPhrases)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(500)
+                    .ToList();
+
+                File.WriteAllLines(hintsPath, merged);
+                VoiceRuntimeLog.Info($"Merged user lexicon into phrases.txt, count={merged.Count}");
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("Failed to merge user lexicon into phrases.txt.", ex);
             }
         }
 

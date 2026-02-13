@@ -34,8 +34,22 @@ namespace TimeTask
         private readonly bool _autoAddVoiceTasks;
         private readonly float _autoAddMinConfidence;
         private readonly bool _useLlmForVoiceQuadrant;
+        private readonly bool _requireDraftConfirmation;
+        private readonly bool _conversationExtractEnabled;
+        private readonly TimeSpan _conversationWindow;
+        private readonly int _conversationMinTurns;
+        private DateTime _lastConversationExtract = DateTime.MinValue;
+        private readonly List<(DateTime ts, string text)> _conversationBuffer = new List<(DateTime, string)>();
         private readonly SemaphoreSlim _llmSemaphore = new SemaphoreSlim(1, 1);
         private LlmService _llmService;
+        private readonly SpeakerVerificationService _speakerService;
+        private readonly bool _speakerVerifyEnabled;
+        private readonly bool _speakerEnrollMode;
+        private readonly double _speakerThreshold;
+        private readonly double _speakerMinSeconds;
+        private bool _lastSpeakerVerified;
+        private DateTime _lastSpeakerVerifyTime = DateTime.MinValue;
+        private readonly List<byte> _speechBuffer = new List<byte>(16000 * 2 * 5);
 
         private SpeechRecognitionEngine _recognizer;
         private Model _voskModel;
@@ -84,6 +98,15 @@ namespace TimeTask
             _autoAddVoiceTasks = ReadBoolSetting("VoiceAutoAddToQuadrant", false);
             _autoAddMinConfidence = ReadFloatSetting("VoiceAutoAddMinConfidence", 0.65f);
             _useLlmForVoiceQuadrant = ReadBoolSetting("VoiceUseLlmQuadrant", false);
+            _requireDraftConfirmation = ReadBoolSetting("VoiceRequireConfirmation", true);
+            _conversationExtractEnabled = ReadBoolSetting("VoiceConversationExtractEnabled", true);
+            _conversationWindow = TimeSpan.FromSeconds(ReadIntSetting("VoiceConversationWindowSeconds", 45));
+            _conversationMinTurns = ReadIntSetting("VoiceConversationMinTurns", 3);
+            _speakerService = new SpeakerVerificationService();
+            _speakerVerifyEnabled = ReadBoolSetting("VoiceSpeakerVerifyEnabled", false);
+            _speakerEnrollMode = ReadBoolSetting("VoiceSpeakerEnrollMode", false);
+            _speakerThreshold = ReadDoubleSetting("VoiceSpeakerThreshold", 0.72);
+            _speakerMinSeconds = ReadDoubleSetting("VoiceSpeakerMinSeconds", 2.0);
         }
 
         /// <summary>
@@ -367,6 +390,7 @@ namespace TimeTask
                     {
                         StopAudioCapture();
                         Console.WriteLine("[EnhancedAudioCaptureService] Silence timeout, stopped recording.");
+                        EvaluateSpeakerSegment(_waveIn?.WaveFormat ?? _wasapi?.WaveFormat);
                     }
                 }
             }
@@ -380,6 +404,7 @@ namespace TimeTask
             if (format == null || e.BytesRecorded <= 0) return;
 
             TryProcessVoskAudio(e.Buffer, e.BytesRecorded, format);
+            CaptureSpeechBufferIfNeeded(e.Buffer, e.BytesRecorded);
 
             // 计算帧时长（毫秒）
             int bytesPerMs = format.AverageBytesPerSecond / 1000;
@@ -425,6 +450,7 @@ namespace TimeTask
                     {
                         _isRecording = false;
                         Console.WriteLine("[EnhancedAudioCaptureService] Stopped recording (silence detected).");
+                        EvaluateSpeakerSegment(format);
                     }
                 }
 
@@ -789,6 +815,12 @@ namespace TimeTask
             if (IsDuplicateRecognition(text))
                 return;
 
+            if (_speakerVerifyEnabled && !IsSpeakerVerified())
+            {
+                VoiceRuntimeLog.Info("Speaker verification failed or not confirmed. Ignoring recognition.");
+                return;
+            }
+
             TotalSpeechDetections++;
             LastDetectionTime = DateTime.Now;
             _lastSpeechTime = DateTime.UtcNow;
@@ -808,12 +840,19 @@ namespace TimeTask
                     {
                         EnqueueLlmQuadrant(draft, confidence);
                     }
-                    else
+                    else if (!_requireDraftConfirmation)
                     {
                         TryAutoAddTaskToQuadrant(draft, confidence);
                     }
                 }
             }
+            else
+            {
+                VoiceRuntimeLog.Info($"Skip draft: not task-like. text={text}");
+            }
+
+            BufferConversation(text);
+            TryExtractConversationTasksAsync();
         }
 
         private bool IsDuplicateRecognition(string text)
@@ -975,6 +1014,104 @@ namespace TimeTask
             }
         }
 
+        private static double ReadDoubleSetting(string key, double fallback)
+        {
+            try
+            {
+                var value = ConfigurationManager.AppSettings[key];
+                return double.TryParse(value, out double parsed) ? parsed : fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        private void CaptureSpeechBufferIfNeeded(byte[] buffer, int bytesRecorded)
+        {
+            if (!_speakerVerifyEnabled)
+                return;
+
+            if (!_isRecording || buffer == null || bytesRecorded <= 0)
+                return;
+
+            lock (_speechBuffer)
+            {
+                int maxBytes = (int)(16000 * 2 * 6); // ~6s
+                int copy = Math.Min(bytesRecorded, maxBytes - _speechBuffer.Count);
+                if (copy > 0)
+                {
+                    for (int i = 0; i < copy; i++) _speechBuffer.Add(buffer[i]);
+                }
+            }
+        }
+
+        private void EvaluateSpeakerSegment(WaveFormat format)
+        {
+            if (!_speakerVerifyEnabled)
+                return;
+
+            if (format == null || format.SampleRate != 16000 || format.BitsPerSample != 16 || format.Channels != 1)
+                return;
+
+            byte[] pcm;
+            lock (_speechBuffer)
+            {
+                pcm = _speechBuffer.ToArray();
+                _speechBuffer.Clear();
+            }
+
+            if (pcm == null || pcm.Length == 0) return;
+
+            double seconds = pcm.Length / (double)(format.SampleRate * 2);
+            if (seconds < _speakerMinSeconds)
+            {
+                VoiceRuntimeLog.Info($"Speaker segment too short: {seconds:F2}s");
+                return;
+            }
+
+            if (_speakerEnrollMode)
+            {
+                _speakerService.Enroll(pcm, format.SampleRate);
+                _lastSpeakerVerified = true;
+                _lastSpeakerVerifyTime = DateTime.UtcNow;
+                VoiceRuntimeLog.Info($"Speaker enrolled/updated. seconds={seconds:F2}");
+                return;
+            }
+
+            double score = _speakerService.Verify(pcm, format.SampleRate);
+            _lastSpeakerVerified = score >= _speakerThreshold;
+            _lastSpeakerVerifyTime = DateTime.UtcNow;
+            VoiceRuntimeLog.Info($"Speaker verification score={score:F3} pass={_lastSpeakerVerified}");
+        }
+
+        private bool IsSpeakerVerified()
+        {
+            if (!_speakerVerifyEnabled)
+                return true;
+
+            if (_speakerEnrollMode)
+                return true;
+
+            if ((DateTime.UtcNow - _lastSpeakerVerifyTime) > TimeSpan.FromSeconds(5))
+                return false;
+
+            return _lastSpeakerVerified;
+        }
+
+        private static int ReadIntSetting(string key, int fallback)
+        {
+            try
+            {
+                var value = ConfigurationManager.AppSettings[key];
+                return int.TryParse(value, out int parsed) ? parsed : fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
         private void EnqueueLlmQuadrant(TaskDraft draft, float confidence)
         {
             _ = Task.Run(() => EnhanceDraftWithLlmAsync(draft, confidence));
@@ -1004,16 +1141,87 @@ namespace TimeTask
                 _draftManager.UpdateDraft(draft);
 
                 VoiceRuntimeLog.Info($"LLM quadrant result: {draft.CleanedText} -> {draft.EstimatedQuadrant} (I={importance}, U={urgency})");
-                TryAutoAddTaskToQuadrant(draft, confidence);
+                if (!_requireDraftConfirmation)
+                {
+                    TryAutoAddTaskToQuadrant(draft, confidence);
+                }
             }
             catch (Exception ex)
             {
                 VoiceRuntimeLog.Error("LLM quadrant failed.", ex);
-                TryAutoAddTaskToQuadrant(draft, confidence);
+                if (!_requireDraftConfirmation)
+                {
+                    TryAutoAddTaskToQuadrant(draft, confidence);
+                }
             }
             finally
             {
                 _llmSemaphore.Release();
+            }
+        }
+
+        private void BufferConversation(string text)
+        {
+            if (!_conversationExtractEnabled)
+                return;
+
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            var now = DateTime.UtcNow;
+            _conversationBuffer.Add((now, text));
+
+            // keep only recent
+            _conversationBuffer.RemoveAll(x => now - x.ts > _conversationWindow);
+        }
+
+        private void TryExtractConversationTasksAsync()
+        {
+            if (!_conversationExtractEnabled)
+                return;
+
+            var now = DateTime.UtcNow;
+            if (now - _lastConversationExtract < TimeSpan.FromSeconds(20))
+                return;
+
+            if (_conversationBuffer.Count < _conversationMinTurns)
+                return;
+
+            // Heuristic: presence of “你/他说/她说/我们” indicates conversation context
+            string combined = string.Join("。", _conversationBuffer.Select(x => x.text));
+            if (!Regex.IsMatch(combined, @"(你说|他说|她说|我们|他们|对方|聊|讨论|商量)"))
+                return;
+
+            _lastConversationExtract = now;
+            _ = Task.Run(() => ExtractTasksFromConversationAsync(combined));
+        }
+
+        private async Task ExtractTasksFromConversationAsync(string conversation)
+        {
+            try
+            {
+                var llm = GetLlmService();
+                var tasks = await llm.ExtractTasksFromConversationAsync(conversation).ConfigureAwait(false);
+                if (tasks == null || tasks.Count == 0)
+                    return;
+
+                foreach (var task in tasks)
+                {
+                    if (string.IsNullOrWhiteSpace(task))
+                        continue;
+                    var draft = ProcessPotentialTask(task, 0.6f);
+                    if (draft != null)
+                    {
+                        if (_useLlmForVoiceQuadrant)
+                        {
+                            EnqueueLlmQuadrant(draft, 0.6f);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("Conversation task extraction failed.", ex);
             }
         }
 

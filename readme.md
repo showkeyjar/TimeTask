@@ -124,6 +124,11 @@ This application uses Large Language Models (LLMs) to provide features like auto
 * 运行日志输出到 `%AppData%/TimeTask/logs/voice-runtime.log`，可用于排查下载和识别初始化问题。
 * 语音草稿可自动加入四象限（默认开启），由 `VoiceAutoAddToQuadrant` 控制。
 * 语音草稿可使用 LLM 重新计算象限（默认开启），由 `VoiceUseLlmQuadrant` 控制。
+* 语音草稿默认需要用户确认后才进入四象限，由 `VoiceRequireConfirmation` 控制。
+* 可从对话内容中自动抽取代办事项草稿，由 `VoiceConversationExtractEnabled` 控制。
+* 用户确认的草稿会加入个人词库，用于提升后续识别准确率。
+* 支持声纹识别（简单声纹），用于确认是否为用户本人发声。
+* 草稿支持多选和一键添加全部，并减少频繁通知。
 
 `App.config` 示例：
 ```xml
@@ -134,6 +139,14 @@ This application uses Large Language Models (LLMs) to provide features like auto
 <add key="VoiceAutoAddToQuadrant" value="true" />
 <add key="VoiceAutoAddMinConfidence" value="0.65" />
 <add key="VoiceUseLlmQuadrant" value="true" />
+<add key="VoiceRequireConfirmation" value="true" />
+<add key="VoiceConversationExtractEnabled" value="true" />
+<add key="VoiceConversationWindowSeconds" value="45" />
+<add key="VoiceConversationMinTurns" value="3" />
+<add key="VoiceSpeakerVerifyEnabled" value="true" />
+<add key="VoiceSpeakerEnrollMode" value="true" />
+<add key="VoiceSpeakerThreshold" value="0.72" />
+<add key="VoiceSpeakerMinSeconds" value="2.0" />
 ```
 
 说明：

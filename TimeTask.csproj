@@ -177,6 +177,8 @@
     <Compile Include="EnhancedAudioCaptureService.cs" />
     <Compile Include="SpeechModelManager.cs" />
     <Compile Include="VoiceRuntimeLog.cs" />
+    <Compile Include="SpeakerVerificationService.cs" />
+    <Compile Include="VoiceLexiconManager.cs" />
     <Compile Include="IntentRecognizer.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="NotificationManager.cs" />

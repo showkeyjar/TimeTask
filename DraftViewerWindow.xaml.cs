@@ -35,60 +35,103 @@ namespace TimeTask
 
         private void AddToTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            var selectedDraft = DraftsDataGrid.SelectedItem as TaskDraft;
-            if (selectedDraft == null)
+            var selectedDrafts = DraftsDataGrid.SelectedItems.Cast<TaskDraft>().ToList();
+            if (selectedDrafts == null || selectedDrafts.Count == 0)
             {
-                MessageBox.Show("请先选择一个草稿", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("请先选择草稿", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            // 获取主窗口实例
+            AddDraftsToQuadrants(selectedDrafts);
+        }
+
+        private void AddAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            var drafts = _draftManager.GetUnprocessedDrafts();
+            if (drafts == null || drafts.Count == 0)
+            {
+                MessageBox.Show("没有草稿可添加", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (MessageBox.Show($"确定要添加全部 {drafts.Count} 个草稿吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            AddDraftsToQuadrants(drafts);
+        }
+
+        private void AddDraftsToQuadrants(List<TaskDraft> drafts)
+        {
+            if (drafts == null || drafts.Count == 0) return;
+
             var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string dataDir = System.IO.Path.Combine(baseDir, "data");
+            System.IO.Directory.CreateDirectory(dataDir);
 
-            // 尝试获取 LLM Service
-            LlmService llmService = null;
-            try
+            foreach (var draft in drafts)
             {
-                var app = Application.Current as App;
-                if (app != null)
+                if (string.IsNullOrWhiteSpace(draft?.CleanedText))
+                    continue;
+
+                int quadrantIndex = GetQuadrantIndex(draft);
+                if (quadrantIndex < 0) continue;
+
+                string csvNumber = (quadrantIndex + 1).ToString();
+                string csvPath = System.IO.Path.Combine(dataDir, $"{csvNumber}.csv");
+                var items = HelperClass.ReadCsv(csvPath) ?? new List<ItemGrid>();
+
+                var newItem = new ItemGrid
                 {
-                    // 通过反射获取私有字段
-                    var field = typeof(App).GetField("_llmService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (field != null)
-                    {
-                        llmService = field.GetValue(app) as LlmService;
-                    }
-                }
-            }
-            catch { }
+                    Task = draft.CleanedText,
+                    Importance = draft.Importance ?? "Unknown",
+                    Urgency = draft.Urgency ?? "Unknown",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now,
+                    LastModifiedDate = DateTime.Now,
+                    IsActiveInQuadrant = true,
+                    InactiveWarningCount = 0,
+                    Result = string.Empty
+                };
 
-            if (llmService == null && mainWindow != null)
-            {
-                // 备用方案：直接创建（LLM功能可能不可用）
-                llmService = new LlmService();
-            }
-
-            if (llmService != null)
-            {
-                var addTaskWindow = new AddTaskWindow(llmService);
-                addTaskWindow.SetPreFilledTask(selectedDraft.CleanedText, selectedDraft.EstimatedQuadrant);
-                if (mainWindow != null)
+                items.Insert(0, newItem);
+                for (int i = 0; i < items.Count; i++)
                 {
-                    addTaskWindow.Owner = mainWindow;
+                    items[i].Score = items.Count - i;
                 }
-                addTaskWindow.ShowDialog();
 
-                // 如果任务被添加，标记草稿为已处理
-                if (addTaskWindow.TaskAdded)
+                HelperClass.WriteCsv(items, csvPath);
+
+                _draftManager.MarkAsProcessed(draft.Id);
+                try
                 {
-                    _draftManager.MarkAsProcessed(selectedDraft.Id);
-                    LoadDrafts();
+                    var lexicon = new VoiceLexiconManager();
+                    lexicon.RecordConfirmedPhrase(draft.CleanedText);
                 }
+                catch { }
             }
-            else
+
+            if (mainWindow != null)
             {
-                MessageBox.Show("无法获取 LLM 服务", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                mainWindow.loadDataGridView();
             }
+
+            LoadDrafts();
+        }
+
+        private int GetQuadrantIndex(TaskDraft draft)
+        {
+            string q = draft.EstimatedQuadrant?.Trim();
+            if (string.Equals(q, "重要且紧急", StringComparison.OrdinalIgnoreCase)) return 0;
+            if (string.Equals(q, "重要不紧急", StringComparison.OrdinalIgnoreCase)) return 1;
+            if (string.Equals(q, "不重要紧急", StringComparison.OrdinalIgnoreCase)) return 2;
+            if (string.Equals(q, "不重要不紧急", StringComparison.OrdinalIgnoreCase)) return 3;
+
+            if (draft.Importance == "High" && draft.Urgency == "High") return 0;
+            if (draft.Importance == "High" && draft.Urgency == "Low") return 1;
+            if (draft.Importance == "Low" && draft.Urgency == "High") return 2;
+            if (draft.Importance == "Low" && draft.Urgency == "Low") return 3;
+            return -1;
         }
 
         private void IgnoreButton_Click(object sender, RoutedEventArgs e)

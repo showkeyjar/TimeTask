@@ -316,6 +316,8 @@ namespace TimeTask
         private static TimeSpan FirstWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.FirstWarningAfterDays);
         private static TimeSpan SecondWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.SecondWarningAfterDays);
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
+        private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
+        private TaskDraftManager _draftBadgeManager;
 
         private DatabaseService _databaseService;
         private System.Windows.Threading.DispatcherTimer _syncTimer;
@@ -589,6 +591,8 @@ namespace TimeTask
 
             // 应用快速改进功能
             ApplyQuickImprovements();
+
+            InitializeDraftBadgeMonitor();
         }
 
         private void ApplyQuickImprovements()
@@ -607,6 +611,38 @@ namespace TimeTask
             {
                 Console.WriteLine($"启用快速改进功能时出错: {ex.Message}");
             }
+        }
+
+        private void InitializeDraftBadgeMonitor()
+        {
+            try
+            {
+                _draftBadgeManager = new TaskDraftManager();
+                _draftBadgeTimer = new System.Windows.Threading.DispatcherTimer();
+                _draftBadgeTimer.Interval = TimeSpan.FromSeconds(30);
+                _draftBadgeTimer.Tick += (s, e) => UpdateDraftBadge();
+                _draftBadgeTimer.Start();
+                UpdateDraftBadge();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Draft badge init failed: {ex.Message}");
+            }
+        }
+
+        private void UpdateDraftBadge()
+        {
+            try
+            {
+                if (_draftBadgeManager == null) return;
+                _draftBadgeManager.Refresh();
+                int count = _draftBadgeManager.UnprocessedCount;
+                if (DraftBadge == null || DraftBadgeText == null) return;
+
+                DraftBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                DraftBadgeText.Text = count > 99 ? "99+" : count.ToString();
+            }
+            catch { }
         }
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
@@ -1908,6 +1944,7 @@ namespace TimeTask
 
             // 释放资源
             draftManager.Dispose();
+            UpdateDraftBadge();
         }
 
         private void ShowSettingsMenu()

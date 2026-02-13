@@ -186,7 +186,6 @@
             </Button>
 
             <Button x:Name="DraftsButton"
-                    Content="📋"
                     Width="30"
                     Height="30"
                     FontSize="16"
@@ -210,6 +209,26 @@
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
+                <Grid>
+                    <TextBlock Text="📋" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border x:Name="DraftBadge"
+                            Background="#E53935"
+                            CornerRadius="8"
+                            MinWidth="16"
+                            Height="16"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,-4,-4,0"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="DraftBadgeText"
+                                   Foreground="White"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Padding="4,0"/>
+                    </Border>
+                </Grid>
             </Button>
         </StackPanel>
 

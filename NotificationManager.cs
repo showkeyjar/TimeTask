@@ -27,12 +27,15 @@ namespace TimeTask
         private const int MaxBlinkCount = 6; // 闪烁6次后停止
 
         // 通知阈值
-        private const int DraftNotificationThreshold = 3; // 草稿累积到3个时通知
-        private const int WorkReminderIntervalMinutes = 120; // 每2小时提醒休息
+        private const int DraftNotificationThreshold = 1; // 有草稿即提示
+        private const int WorkReminderIntervalMinutes = 240; // 每4小时提醒一次
+        private static readonly TimeSpan DraftNotificationCooldown = TimeSpan.FromMinutes(30);
 
         // 状态
         private DateTime _lastWorkReminder = DateTime.MinValue;
         private int _consecutiveDraftCounts = 0;
+        private DateTime _lastDraftNotificationTime = DateTime.MinValue;
+        private int _lastNotifiedDraftCount = 0;
 
         public NotificationManager(TaskDraftManager draftManager)
         {
@@ -90,12 +93,12 @@ namespace TimeTask
             // 1. 检查草稿累积
             if (unprocessedCount >= DraftNotificationThreshold)
             {
-                // 连续3次检查都超过阈值才通知，避免瞬间波动
+                // 连续2次检查都超过阈值才通知，避免瞬间波动
                 _consecutiveDraftCounts++;
 
-                if (_consecutiveDraftCounts >= 3)
+                if (_consecutiveDraftCounts >= 2)
                 {
-                    ShowDraftNotification(unprocessedCount);
+                    TryShowDraftNotification(unprocessedCount);
                     _consecutiveDraftCounts = 0; // 重置
                 }
             }
@@ -135,10 +138,16 @@ namespace TimeTask
             }
         }
 
-        private void ShowDraftNotification(int count)
+        private void TryShowDraftNotification(int count)
         {
             try
             {
+                var now = DateTime.Now;
+                if (now - _lastDraftNotificationTime < DraftNotificationCooldown && count <= _lastNotifiedDraftCount)
+                {
+                    return;
+                }
+
                 // 使用 Toast 通知（可忽略，不打断工作）
                 _notifyIcon.ShowBalloonTip(
                     5000, // 显示5秒
@@ -149,6 +158,9 @@ namespace TimeTask
 
                 // 托盘图标闪烁
                 StartBlinking();
+
+                _lastDraftNotificationTime = now;
+                _lastNotifiedDraftCount = count;
 
                 Console.WriteLine($"[NotificationManager] Draft notification shown: {count} drafts.");
             }

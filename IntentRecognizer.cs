@@ -15,13 +15,15 @@ namespace TimeTask
         {
             "做","完成","处理","解决","写","编辑","修改","检查","审核","提交","发送","回复",
             "安排","计划","准备","整理","归档","备份","安装","配置","学习","研究","阅读","查看",
-            "访问","联系","打电话","开会","讨论","汇报","演示","修复","跟进","推进","确认","上线"
+            "访问","联系","打电话","开会","讨论","汇报","演示","修复","跟进","推进","确认","上线",
+            "复盘","同步","对接","沟通","约见","拜访","评审","汇总","跟踪","催办"
         };
 
         private static readonly string[] TaskNouns = new[]
         {
             "任务","工作","项目","方案","文档","邮件","报告","代码","bug","缺陷","问题","需求",
-            "版本","会议","周报","计划","材料","排期","测试","部署","合同","发票","同步"
+            "版本","会议","周报","计划","材料","排期","测试","部署","合同","发票","同步",
+            "客户","进度","里程碑","评审","复盘"
         };
 
         private static readonly string[] UrgentWords = new[]
@@ -53,7 +55,10 @@ namespace TimeTask
 
         public bool IsPotentialTask(string text)
         {
-            return ScoreTaskLikelihood(text) >= 0.55;
+            if (ScoreTaskLikelihood(text) >= 0.45)
+                return true;
+
+            return IsLikelyTaskByTimeAndTopic(text);
         }
 
         /// <summary>
@@ -180,6 +185,16 @@ namespace TimeTask
                 return true;
 
             return false;
+        }
+
+        private bool IsLikelyTaskByTimeAndTopic(string text)
+        {
+            string normalized = NormalizeText(text);
+            bool hasTime = Regex.IsMatch(normalized, @"(今天|明天|后天|本周|下周|周[一二三四五六日天]|上午|下午|晚上|明早|明晚)");
+            bool hasAction = ContainsAny(normalized, ActionWords);
+            bool hasTopic = ContainsAny(normalized, TaskNouns);
+
+            return (hasTime && hasAction) || (hasTime && hasTopic);
         }
 
         private static bool ContainsAny(string text, IEnumerable<string> words)
