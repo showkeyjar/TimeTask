@@ -115,6 +115,33 @@ This application uses Large Language Models (LLMs) to provide features like auto
 *   程序启动时，为超过两周未更新的活动任务生成提醒信息和行动建议。
 *   当旧任务的提醒中包含分解建议，并且用户同意后，尝试将任务分解为子任务。
 
+## 语音模型自动下载与提炼优化
+当前版本已支持语音模型自动准备：
+* 启动时会自动检查 `%AppData%/TimeTask/speech-models/<SpeechModelName>/`。
+* 若本地不存在模型且 `SpeechModelAutoDownload=true`，会从 `SpeechModelUrl` 下载 zip 并自动解压。
+* 可选配置 `SpeechModelSha256` 做完整性校验。
+* 若模型目录下存在 `phrases.txt`，会自动加载为识别提示词，提高任务类语句识别准确率。
+* 运行日志输出到 `%AppData%/TimeTask/logs/voice-runtime.log`，可用于排查下载和识别初始化问题。
+* 语音草稿可自动加入四象限（默认开启），由 `VoiceAutoAddToQuadrant` 控制。
+* 语音草稿可使用 LLM 重新计算象限（默认开启），由 `VoiceUseLlmQuadrant` 控制。
+
+`App.config` 示例：
+```xml
+<add key="SpeechModelAutoDownload" value="true" />
+<add key="SpeechModelName" value="vosk-model-cn-0.22" />
+<add key="SpeechModelUrl" value="" />
+<add key="SpeechModelSha256" value="" />
+<add key="VoiceAutoAddToQuadrant" value="true" />
+<add key="VoiceAutoAddMinConfidence" value="0.65" />
+<add key="VoiceUseLlmQuadrant" value="true" />
+```
+
+说明：
+* 当 `SpeechModelUrl` 留空且 `SpeechModelName=vosk-model-cn-0.22` 时，程序会使用内置默认地址自动下载更大中文模型（更准确，体积更大）。
+* 当前识别链路为：`Vosk 模型优先`，`System.Speech` 作为回退。
+* 日志中出现 `Vosk recognizer initialized`、`Recognized(vosk)` 表示模型已真实参与语音转写。
+* `phrases.txt` 会用于提升 Vosk 识别准确率（语音热词/短语列表）。
+
 ## 注意事项
 
 1.读写csv

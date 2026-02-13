@@ -111,6 +111,29 @@ namespace TimeTask
         }
 
         /// <summary>
+        /// 更新草稿内容（例如 LLM 重算象限后）
+        /// </summary>
+        public void UpdateDraft(TaskDraft updated)
+        {
+            if (updated == null || string.IsNullOrWhiteSpace(updated.Id))
+                return;
+
+            lock (_lock)
+            {
+                var draft = _drafts.FirstOrDefault(d => d.Id == updated.Id);
+                if (draft == null)
+                    return;
+
+                draft.CleanedText = updated.CleanedText;
+                draft.Importance = updated.Importance;
+                draft.Urgency = updated.Urgency;
+                draft.EstimatedQuadrant = updated.EstimatedQuadrant;
+                draft.LastDetected = DateTime.Now;
+                SaveDrafts();
+            }
+        }
+
+        /// <summary>
         /// 删除草稿
         /// </summary>
         public void DeleteDraft(string draftId)

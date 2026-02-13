@@ -27,6 +27,9 @@ namespace TimeTask
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e); // Call base implementation
+            VoiceRuntimeLog.Info("App startup.");
+            VoiceRuntimeLog.Info($"ProcessBitness: {(Environment.Is64BitProcess ? "x64" : "x86")}, OS: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
+            VoiceRuntimeLog.Info($"BaseDirectory: {AppDomain.CurrentDomain.BaseDirectory}");
 
             // Check for API Key configuration
             string apiKey = System.Configuration.ConfigurationManager.AppSettings["OpenAIApiKey"];
@@ -78,6 +81,7 @@ namespace TimeTask
             catch (Exception ex)
             {
                 Console.WriteLine($"[App] EnhancedAudioCaptureService start failed: {ex.Message}");
+                VoiceRuntimeLog.Error("EnhancedAudioCaptureService start failed.", ex);
 
                 // 回退到原有服务
                 Console.WriteLine("[App] Falling back to legacy AudioCaptureService...");
@@ -85,10 +89,18 @@ namespace TimeTask
                 {
                     _legacyAudioService = new AudioCaptureService();
                     _legacyAudioService.Start();
+                    VoiceRuntimeLog.Info("Legacy AudioCaptureService started as fallback.");
                 }
                 catch (Exception ex2)
                 {
                     Console.WriteLine($"[App] Legacy AudioCaptureService also failed: {ex2.Message}");
+                    VoiceRuntimeLog.Error("Legacy AudioCaptureService start failed.", ex2);
+                    MessageBox.Show(
+                        "语音识别初始化失败，系统未检测到可用语音识别引擎或麦克风权限异常。\n" +
+                        $"请查看日志：{VoiceRuntimeLog.LogFilePath}",
+                        "语音功能不可用",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
                 }
             }
         }
