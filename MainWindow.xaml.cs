@@ -40,6 +40,7 @@ namespace TimeTask
                 let temparry = line.Split(',')
                 let parse = int.TryParse(temparry[1], out parseScore)
                 let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True"
+                let parsedLastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now
                 select new ItemGrid {
                     Task = temparry[0],
                     Score = parseScore,
@@ -48,12 +49,16 @@ namespace TimeTask
                     Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
                     Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
                     CreatedDate = temparry.Length > 6 && DateTime.TryParse(temparry[6], out DateTime cd) ? cd : DateTime.Now,
-                    LastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now,
+                    LastModifiedDate = parsedLastModifiedDate,
                     ReminderTime = temparry.Length > 8 && DateTime.TryParse(temparry[8], out DateTime rt) ? rt : (DateTime?)null,
                     LongTermGoalId = temparry.Length > 9 && !string.IsNullOrWhiteSpace(temparry[9]) ? temparry[9] : null,
                     OriginalScheduledDay = temparry.Length > 10 && int.TryParse(temparry[10], out int osd) ? osd : 0,
                     IsActiveInQuadrant = temparry.Length > 11 && bool.TryParse(temparry[11], out bool iaiq) ? iaiq : true, // Default to true for backward compatibility
-                    InactiveWarningCount = temparry.Length > 12 && int.TryParse(temparry[12], out int iwc) ? iwc : 0 // New field
+                    InactiveWarningCount = temparry.Length > 12 && int.TryParse(temparry[12], out int iwc) ? iwc : 0,
+                    LastProgressDate = temparry.Length > 13 && DateTime.TryParse(temparry[13], out DateTime lpd) ? lpd : parsedLastModifiedDate,
+                    LastInteractionDate = temparry.Length > 14 && DateTime.TryParse(temparry[14], out DateTime lid) ? lid : parsedLastModifiedDate,
+                    ReminderSnoozeUntil = temparry.Length > 15 && DateTime.TryParse(temparry[15], out DateTime rsu) ? rsu : (DateTime?)null,
+                    LastReminderDate = temparry.Length > 16 && DateTime.TryParse(temparry[16], out DateTime lrd) ? lrd : (DateTime?)null
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -71,12 +76,12 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount}" // Added InactiveWarningCount
+                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount},{item.LastProgressDate:o},{item.LastInteractionDate:o},{item.ReminderSnoozeUntil?.ToString("o") ?? ""},{item.LastReminderDate?.ToString("o") ?? ""}"
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
             // Updated header
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount"; // Added inactiveWarningCount header
+            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount,lastProgressDate,lastInteractionDate,reminderSnoozeUntil,lastReminderDate";
             File.WriteAllLines(filepath, contents);
         }
 
@@ -283,7 +288,11 @@ namespace TimeTask
         public string Urgency { set; get; } = "Unknown";
         public DateTime CreatedDate { set; get; } = DateTime.Now;
         public DateTime LastModifiedDate { set; get; } = DateTime.Now;
+        public DateTime LastProgressDate { get; set; } = DateTime.Now;
+        public DateTime LastInteractionDate { get; set; } = DateTime.Now;
         public DateTime? ReminderTime { get; set; } = null;
+        public DateTime? ReminderSnoozeUntil { get; set; } = null;
+        public DateTime? LastReminderDate { get; set; } = null;
         public string TaskType { get; set; }
         public DateTime? CompletionTime { get; set; }
         public string CompletionStatus { get; set; }
@@ -318,6 +327,10 @@ namespace TimeTask
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
         private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
         private TaskDraftManager _draftBadgeManager;
+        private const int DailyReminderLimit = 3;
+        private static readonly TimeSpan ReminderCooldown = TimeSpan.FromMinutes(45);
+        private int _remindersShownToday = 0;
+        private DateTime _reminderCounterDate = DateTime.Today;
 
         private DatabaseService _databaseService;
         private System.Windows.Threading.DispatcherTimer _syncTimer;
@@ -765,18 +778,27 @@ namespace TimeTask
         
         private async Task HandleTaskReminderResult(ItemGrid task, TaskReminderResult result)
         {
+            DateTime now = DateTime.Now;
+
             switch (result)
             {
                 case TaskReminderResult.Completed:
                     task.IsActive = false;
-                    task.CompletionTime = DateTime.Now;
+                    task.CompletionTime = now;
                     task.CompletionStatus = "Completed";
-                    task.LastModifiedDate = DateTime.Now;
+                    task.LastModifiedDate = now;
+                    task.LastProgressDate = now;
+                    task.LastInteractionDate = now;
+                    task.InactiveWarningCount = 0;
+                    task.ReminderSnoozeUntil = null;
                     break;
                     
                 case TaskReminderResult.Updated:
-                    task.LastModifiedDate = DateTime.Now;
+                    task.LastModifiedDate = now;
+                    task.LastProgressDate = now;
+                    task.LastInteractionDate = now;
                     task.InactiveWarningCount = 0; // Reset warning count
+                    task.ReminderSnoozeUntil = null;
                     break;
                     
                 case TaskReminderResult.Decompose:
@@ -784,14 +806,13 @@ namespace TimeTask
                     break;
                     
                 case TaskReminderResult.Snoozed:
-                    // Snooze for 1 day
-                    task.LastModifiedDate = DateTime.Now.AddDays(-Properties.Settings.Default.FirstWarningAfterDays + 1);
+                    task.LastInteractionDate = now;
+                    task.ReminderSnoozeUntil = now.AddHours(8);
                     break;
                     
                 case TaskReminderResult.Dismissed:
                 default:
-                    // Do nothing, just update last interaction time
-                    task.LastModifiedDate = DateTime.Now;
+                    task.LastInteractionDate = now;
                     break;
             }
             
@@ -821,6 +842,10 @@ namespace TimeTask
                         task.IsActive = false;
                         task.CompletionStatus = "Decomposed";
                         task.LastModifiedDate = DateTime.Now;
+                        task.LastProgressDate = DateTime.Now;
+                        task.LastInteractionDate = DateTime.Now;
+                        task.InactiveWarningCount = 0;
+                        task.ReminderSnoozeUntil = null;
                         
                         MessageBox.Show(this, $"任务已成功分解为 {subTaskStrings.Count} 个子任务并分配到相应象限。", 
                                       "任务分解完成", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -863,6 +888,8 @@ namespace TimeTask
                         IsActive = true,
                         CreatedDate = DateTime.Now,
                         LastModifiedDate = DateTime.Now,
+                        LastProgressDate = DateTime.Now,
+                        LastInteractionDate = DateTime.Now,
                         LongTermGoalId = originalTask.LongTermGoalId, // Inherit from parent
                         IsActiveInQuadrant = true,
                         InactiveWarningCount = 0
@@ -935,7 +962,21 @@ namespace TimeTask
         
         private Task CheckForStaleTasksAndRemind()
         {
+            DateTime now = DateTime.Now;
+            if (_reminderCounterDate != now.Date)
+            {
+                _reminderCounterDate = now.Date;
+                _remindersShownToday = 0;
+            }
+
+            if (_remindersShownToday >= DailyReminderLimit)
+            {
+                return Task.CompletedTask;
+            }
+
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            ItemGrid candidate = null;
+            TimeSpan candidateInactive = TimeSpan.Zero;
             
             foreach (var dataGrid in dataGrids)
             {
@@ -943,28 +984,37 @@ namespace TimeTask
                 {
                     foreach (var task in tasks.Where(t => t.IsActive && t.IsActiveInQuadrant))
                     {
-                        TimeSpan inactiveDuration = DateTime.Now - task.LastModifiedDate;
+                        TimeSpan inactiveDuration = now - task.LastProgressDate;
                         
-                        // Check if task needs reminder
-                        if (ShouldShowReminder(task, inactiveDuration))
+                        if (ShouldShowReminder(task, inactiveDuration, now) && inactiveDuration > candidateInactive)
                         {
-                            ShowFriendlyReminder(task, GetReminderMessage(task, inactiveDuration));
-                            
-                            // Update warning count and last modified date
-                            task.InactiveWarningCount++;
-                            task.LastModifiedDate = DateTime.Now;
-                            
-                            // Only show one reminder per check cycle
-                            break;
+                            candidate = task;
+                            candidateInactive = inactiveDuration;
                         }
                     }
                 }
             }
+
+            if (candidate != null)
+            {
+                ShowFriendlyReminder(candidate, GetReminderMessage(candidate, candidateInactive));
+                candidate.InactiveWarningCount++;
+                candidate.LastInteractionDate = now;
+                candidate.LastReminderDate = now;
+                _remindersShownToday++;
+                UpdateTaskInAllGrids(candidate);
+            }
             return Task.CompletedTask;
         }
         
-        private bool ShouldShowReminder(ItemGrid task, TimeSpan inactiveDuration)
+        private bool ShouldShowReminder(ItemGrid task, TimeSpan inactiveDuration, DateTime now)
         {
+            if (task.ReminderSnoozeUntil.HasValue && task.ReminderSnoozeUntil.Value > now)
+                return false;
+
+            if (task.LastReminderDate.HasValue && (now - task.LastReminderDate.Value) < ReminderCooldown)
+                return false;
+
             // First warning after configured days
             if (inactiveDuration > FirstWarningAfter && task.InactiveWarningCount == 0)
                 return true;
@@ -974,10 +1024,12 @@ namespace TimeTask
                 return true;
                 
             // Subsequent warnings for very stale tasks
-            if (inactiveDuration > StaleTaskThreshold && task.InactiveWarningCount >= 2)
+            if (inactiveDuration > StaleTaskThreshold && task.InactiveWarningCount >= 2 && task.InactiveWarningCount < MaxInactiveWarnings)
             {
                 // Show reminder every few days for very stale tasks
-                var daysSinceLastWarning = (DateTime.Now - task.LastModifiedDate).TotalDays;
+                var daysSinceLastWarning = task.LastReminderDate.HasValue
+                    ? (now - task.LastReminderDate.Value).TotalDays
+                    : (now - task.LastInteractionDate).TotalDays;
                 return daysSinceLastWarning >= 3; // Remind every 3 days for very stale tasks
             }
             
@@ -1232,7 +1284,8 @@ namespace TimeTask
 
                             // Mark reminder as shown by clearing it
                             task.ReminderTime = null;
-                            task.LastModifiedDate = now; // Update last modified date
+                            task.LastInteractionDate = now;
+                            task.LastReminderDate = now;
                             changesMadeInCurrentGrid = true;
                             // changesMadeOverall = true;
                         }
@@ -1272,6 +1325,10 @@ namespace TimeTask
 
                         item.Task = newDescription; // Update the task description
                         item.LastModifiedDate = DateTime.Now; // Update the last modified date
+                        item.LastProgressDate = DateTime.Now;
+                        item.LastInteractionDate = DateTime.Now;
+                        item.InactiveWarningCount = 0;
+                        item.ReminderSnoozeUntil = null;
 
                         Console.WriteLine($"Task edited in grid. Task ID (if available): [{item.SourceTaskID}], New Description: [{newDescription}]");
 
@@ -1686,6 +1743,10 @@ namespace TimeTask
             sourceList.Remove(draggedItem);
             targetList.Add(draggedItem);
             draggedItem.LastModifiedDate = DateTime.Now;
+            draggedItem.LastProgressDate = DateTime.Now;
+            draggedItem.LastInteractionDate = DateTime.Now;
+            draggedItem.InactiveWarningCount = 0;
+            draggedItem.ReminderSnoozeUntil = null;
 
             string newImportance = "Unknown";
             string newUrgency = "Unknown";
@@ -1737,6 +1798,10 @@ namespace TimeTask
 
             list.Insert(actualInsertionIndex, draggedItem);
             draggedItem.LastModifiedDate = DateTime.Now;
+            draggedItem.LastProgressDate = DateTime.Now;
+            draggedItem.LastInteractionDate = DateTime.Now;
+            draggedItem.InactiveWarningCount = 0;
+            draggedItem.ReminderSnoozeUntil = null;
 
             // Update scores
             for (int i = 0; i < list.Count; i++)
@@ -2189,6 +2254,8 @@ namespace TimeTask
                             Result = string.Empty,
                             CreatedDate = DateTime.Now,
                             LastModifiedDate = DateTime.Now,
+                            LastProgressDate = DateTime.Now,
+                            LastInteractionDate = DateTime.Now,
                             LongTermGoalId = newLongTermGoal.Id,
                             OriginalScheduledDay = dayNumber,
                             IsActiveInQuadrant = false
