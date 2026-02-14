@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Configuration;
 using System.Windows;
 
 namespace TimeTask
@@ -20,6 +21,11 @@ namespace TimeTask
         private string _suggestionOutcomeText = "shown:0 / accepted:0 / deferred:0 / rejected:0";
         private string _recommendedStuckThresholdText = "90 分钟";
         private string _recommendedDailyNudgeLimitText = "2 次/天";
+        private bool _proactiveAssistEnabled = true;
+        private bool _behaviorLearningEnabled = true;
+        private bool _stuckNudgesEnabled = true;
+        private int _quietHoursStart = 22;
+        private int _quietHoursEnd = 8;
         
         public int FirstWarningAfterDays
         {
@@ -140,6 +146,56 @@ namespace TimeTask
                 OnPropertyChanged(nameof(RecommendedDailyNudgeLimitText));
             }
         }
+
+        public bool ProactiveAssistEnabled
+        {
+            get => _proactiveAssistEnabled;
+            set
+            {
+                _proactiveAssistEnabled = value;
+                OnPropertyChanged(nameof(ProactiveAssistEnabled));
+            }
+        }
+
+        public bool BehaviorLearningEnabled
+        {
+            get => _behaviorLearningEnabled;
+            set
+            {
+                _behaviorLearningEnabled = value;
+                OnPropertyChanged(nameof(BehaviorLearningEnabled));
+            }
+        }
+
+        public bool StuckNudgesEnabled
+        {
+            get => _stuckNudgesEnabled;
+            set
+            {
+                _stuckNudgesEnabled = value;
+                OnPropertyChanged(nameof(StuckNudgesEnabled));
+            }
+        }
+
+        public int QuietHoursStart
+        {
+            get => _quietHoursStart;
+            set
+            {
+                _quietHoursStart = value;
+                OnPropertyChanged(nameof(QuietHoursStart));
+            }
+        }
+
+        public int QuietHoursEnd
+        {
+            get => _quietHoursEnd;
+            set
+            {
+                _quietHoursEnd = value;
+                OnPropertyChanged(nameof(QuietHoursEnd));
+            }
+        }
         
         public ReminderSettingsWindow()
         {
@@ -157,12 +213,14 @@ namespace TimeTask
                 StaleTaskThresholdDays = Properties.Settings.Default.StaleTaskThresholdDays;
                 MaxInactiveWarnings = Properties.Settings.Default.MaxInactiveWarnings;
                 ReminderCheckIntervalMinutes = Properties.Settings.Default.ReminderCheckIntervalSeconds / 60;
+                LoadProactiveSettings();
                 LoadProfileMetrics();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading reminder settings: {ex.Message}");
                 LoadDefaultSettings();
+                LoadProactiveSettings();
                 LoadProfileMetrics();
             }
         }
@@ -174,6 +232,37 @@ namespace TimeTask
             StaleTaskThresholdDays = 14;
             MaxInactiveWarnings = 3;
             ReminderCheckIntervalMinutes = 5;
+            ProactiveAssistEnabled = true;
+            BehaviorLearningEnabled = true;
+            StuckNudgesEnabled = true;
+            QuietHoursStart = 22;
+            QuietHoursEnd = 8;
+        }
+
+        private void LoadProactiveSettings()
+        {
+            ProactiveAssistEnabled = GetAppSettingBool("ProactiveAssistEnabled", true);
+            BehaviorLearningEnabled = GetAppSettingBool("BehaviorLearningEnabled", true);
+            StuckNudgesEnabled = GetAppSettingBool("StuckNudgesEnabled", true);
+            QuietHoursStart = GetAppSettingInt("QuietHoursStart", 22, 0, 23);
+            QuietHoursEnd = GetAppSettingInt("QuietHoursEnd", 8, 0, 23);
+        }
+
+        private static bool GetAppSettingBool(string key, bool defaultValue)
+        {
+            string value = ConfigurationManager.AppSettings[key];
+            return bool.TryParse(value, out bool parsed) ? parsed : defaultValue;
+        }
+
+        private static int GetAppSettingInt(string key, int defaultValue, int min, int max)
+        {
+            string value = ConfigurationManager.AppSettings[key];
+            if (int.TryParse(value, out int parsed))
+            {
+                return Math.Max(min, Math.Min(max, parsed));
+            }
+
+            return defaultValue;
         }
 
         private void LoadProfileMetrics()
@@ -235,6 +324,7 @@ namespace TimeTask
                     Properties.Settings.Default.StaleTaskThresholdDays = StaleTaskThresholdDays;
                     Properties.Settings.Default.MaxInactiveWarnings = MaxInactiveWarnings;
                     Properties.Settings.Default.ReminderCheckIntervalSeconds = ReminderCheckIntervalMinutes * 60;
+                    SaveProactiveSettings();
                     
                     Properties.Settings.Default.Save();
                     
@@ -289,8 +379,42 @@ namespace TimeTask
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
+
+            if (QuietHoursStart < 0 || QuietHoursStart > 23 || QuietHoursEnd < 0 || QuietHoursEnd > 23)
+            {
+                MessageBox.Show("安静时段必须在0-23点之间。", "设置错误",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
             
             return true;
+        }
+
+        private void SaveProactiveSettings()
+        {
+            var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            var settings = config.AppSettings.Settings;
+
+            SetOrAddAppSetting(settings, "ProactiveAssistEnabled", ProactiveAssistEnabled ? "true" : "false");
+            SetOrAddAppSetting(settings, "BehaviorLearningEnabled", BehaviorLearningEnabled ? "true" : "false");
+            SetOrAddAppSetting(settings, "StuckNudgesEnabled", StuckNudgesEnabled ? "true" : "false");
+            SetOrAddAppSetting(settings, "QuietHoursStart", QuietHoursStart.ToString());
+            SetOrAddAppSetting(settings, "QuietHoursEnd", QuietHoursEnd.ToString());
+
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("appSettings");
+        }
+
+        private static void SetOrAddAppSetting(KeyValueConfigurationCollection settings, string key, string value)
+        {
+            if (settings[key] == null)
+            {
+                settings.Add(key, value);
+            }
+            else
+            {
+                settings[key].Value = value;
+            }
         }
         
         private void CancelButton_Click(object sender, RoutedEventArgs e)
