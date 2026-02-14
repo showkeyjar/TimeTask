@@ -1,7 +1,7 @@
 <Window x:Class="TimeTask.ReminderSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="任务提醒设置" Height="450" Width="500"
+        Title="任务提醒设置" Height="620" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#F5F5F5">
@@ -176,6 +176,54 @@
                                        Text="分钟" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 主动协同指标 -->
+                <Border Style="{StaticResource SettingGroupStyle}">
+                    <StackPanel>
+                        <TextBlock Text="📈 主动协同指标（只读）"
+                                   FontWeight="Bold"
+                                   FontSize="14"
+                                   Foreground="#333"
+                                   Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="统计窗口:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MetricsWindowLabel}" Margin="0,4" FontWeight="SemiBold"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="建议命中率:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SuggestionHitRateText}" Margin="0,4" FontWeight="SemiBold"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="过度打扰指数:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding InterruptionIndexText}" Margin="0,4" FontWeight="SemiBold"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="最有效动作类型:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TopEffectiveActionText}" Margin="0,4" FontWeight="SemiBold"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="建议反馈计数:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SuggestionOutcomeText}" Margin="0,4" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="推荐卡点阈值:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding RecommendedStuckThresholdText}" Margin="0,4" FontWeight="SemiBold"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="推荐每日上限:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding RecommendedDailyNudgeLimitText}" Margin="0,4" FontWeight="SemiBold"/>
                         </Grid>
                     </StackPanel>
                 </Border>

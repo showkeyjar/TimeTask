@@ -13,6 +13,13 @@ namespace TimeTask
         private int _staleTaskThresholdDays;
         private int _maxInactiveWarnings;
         private int _reminderCheckIntervalMinutes;
+        private string _metricsWindowLabel = "最近7天";
+        private string _suggestionHitRateText = "0.0%";
+        private string _interruptionIndexText = "0.0%";
+        private string _topEffectiveActionText = "N/A";
+        private string _suggestionOutcomeText = "shown:0 / accepted:0 / deferred:0 / rejected:0";
+        private string _recommendedStuckThresholdText = "90 分钟";
+        private string _recommendedDailyNudgeLimitText = "2 次/天";
         
         public int FirstWarningAfterDays
         {
@@ -63,6 +70,76 @@ namespace TimeTask
                 OnPropertyChanged(nameof(ReminderCheckIntervalMinutes));
             }
         }
+
+        public string MetricsWindowLabel
+        {
+            get => _metricsWindowLabel;
+            set
+            {
+                _metricsWindowLabel = value;
+                OnPropertyChanged(nameof(MetricsWindowLabel));
+            }
+        }
+
+        public string SuggestionHitRateText
+        {
+            get => _suggestionHitRateText;
+            set
+            {
+                _suggestionHitRateText = value;
+                OnPropertyChanged(nameof(SuggestionHitRateText));
+            }
+        }
+
+        public string InterruptionIndexText
+        {
+            get => _interruptionIndexText;
+            set
+            {
+                _interruptionIndexText = value;
+                OnPropertyChanged(nameof(InterruptionIndexText));
+            }
+        }
+
+        public string TopEffectiveActionText
+        {
+            get => _topEffectiveActionText;
+            set
+            {
+                _topEffectiveActionText = value;
+                OnPropertyChanged(nameof(TopEffectiveActionText));
+            }
+        }
+
+        public string SuggestionOutcomeText
+        {
+            get => _suggestionOutcomeText;
+            set
+            {
+                _suggestionOutcomeText = value;
+                OnPropertyChanged(nameof(SuggestionOutcomeText));
+            }
+        }
+
+        public string RecommendedStuckThresholdText
+        {
+            get => _recommendedStuckThresholdText;
+            set
+            {
+                _recommendedStuckThresholdText = value;
+                OnPropertyChanged(nameof(RecommendedStuckThresholdText));
+            }
+        }
+
+        public string RecommendedDailyNudgeLimitText
+        {
+            get => _recommendedDailyNudgeLimitText;
+            set
+            {
+                _recommendedDailyNudgeLimitText = value;
+                OnPropertyChanged(nameof(RecommendedDailyNudgeLimitText));
+            }
+        }
         
         public ReminderSettingsWindow()
         {
@@ -80,11 +157,13 @@ namespace TimeTask
                 StaleTaskThresholdDays = Properties.Settings.Default.StaleTaskThresholdDays;
                 MaxInactiveWarnings = Properties.Settings.Default.MaxInactiveWarnings;
                 ReminderCheckIntervalMinutes = Properties.Settings.Default.ReminderCheckIntervalSeconds / 60;
+                LoadProfileMetrics();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading reminder settings: {ex.Message}");
                 LoadDefaultSettings();
+                LoadProfileMetrics();
             }
         }
         
@@ -95,6 +174,54 @@ namespace TimeTask
             StaleTaskThresholdDays = 14;
             MaxInactiveWarnings = 3;
             ReminderCheckIntervalMinutes = 5;
+        }
+
+        private void LoadProfileMetrics()
+        {
+            try
+            {
+                var manager = new UserProfileManager();
+                var metrics = manager.GetDashboardMetrics(7);
+
+                MetricsWindowLabel = $"最近{metrics.WindowDays}天";
+                SuggestionHitRateText = $"{metrics.HitRate:P1}";
+                InterruptionIndexText = $"{metrics.InterruptionIndex:P1}";
+                TopEffectiveActionText = ToActionLabel(metrics.TopEffectiveActionId);
+                SuggestionOutcomeText = $"shown:{metrics.SuggestionsShown} / accepted:{metrics.SuggestionsAccepted} / deferred:{metrics.SuggestionsDeferred} / rejected:{metrics.SuggestionsRejected}";
+
+                var recommendation = manager.GetAdaptiveNudgeRecommendation(7);
+                RecommendedStuckThresholdText = $"{recommendation.RecommendedStuckThresholdMinutes} 分钟";
+                RecommendedDailyNudgeLimitText = $"{recommendation.RecommendedDailyNudgeLimit} 次/天";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading profile metrics: {ex.Message}");
+                MetricsWindowLabel = "最近7天";
+                SuggestionHitRateText = "N/A";
+                InterruptionIndexText = "N/A";
+                TopEffectiveActionText = "N/A";
+                SuggestionOutcomeText = "N/A";
+                RecommendedStuckThresholdText = "N/A";
+                RecommendedDailyNudgeLimitText = "N/A";
+            }
+        }
+
+        private static string ToActionLabel(string actionId)
+        {
+            switch ((actionId ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "start_10_min": return "10分钟最小动作";
+                case "split_20_min": return "20分钟切块";
+                case "delegate_or_drop": return "委托/降优先级";
+                case "pause_and_switch": return "暂停并切换";
+                case "decision_now": return "立即做决定";
+                case "fallback_min_step": return "最小下一步";
+                case "n/a":
+                case "":
+                    return "N/A";
+                default:
+                    return actionId;
+            }
         }
         
         private void SaveButton_Click(object sender, RoutedEventArgs e)

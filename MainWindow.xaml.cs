@@ -333,9 +333,16 @@ namespace TimeTask
         private int _remindersShownToday = 0;
         private DateTime _reminderCounterDate = DateTime.Today;
         private readonly Dictionary<string, TaskInteractionState> _taskInteractionStates = new Dictionary<string, TaskInteractionState>();
-        private const int DailyStuckNudgeLimit = 2;
+        private const int DefaultDailyStuckNudgeLimit = 2;
         private static readonly TimeSpan StuckNudgeCooldown = TimeSpan.FromHours(2);
-        private static readonly TimeSpan StuckNoProgressThreshold = TimeSpan.FromMinutes(90);
+        private static readonly TimeSpan DefaultStuckNoProgressThreshold = TimeSpan.FromMinutes(90);
+        private static readonly TimeSpan MinStuckNoProgressThreshold = TimeSpan.FromMinutes(60);
+        private static readonly TimeSpan MaxStuckNoProgressThreshold = TimeSpan.FromMinutes(180);
+        private const int MinDailyStuckNudgeLimit = 1;
+        private const int MaxDailyStuckNudgeLimit = 3;
+        private TimeSpan _adaptiveStuckNoProgressThreshold = DefaultStuckNoProgressThreshold;
+        private int _adaptiveDailyStuckNudgeLimit = DefaultDailyStuckNudgeLimit;
+        private DateTime _lastAdaptiveTuneAt = DateTime.MinValue;
         private int _stuckNudgesShownToday = 0;
         private DateTime _stuckNudgeCounterDate = DateTime.Today;
         private DateTime _lastStuckNudgeAt = DateTime.MinValue;
@@ -585,6 +592,7 @@ namespace TimeTask
             
             _llmService = LlmService.Create();
             _userProfileManager = new UserProfileManager();
+            UpdateAdaptiveNudgeParameters(force: true);
 
             var normalizedPosition = NormalizeWindowPosition(
                 (double)Properties.Settings.Default.Left,
@@ -979,6 +987,9 @@ namespace TimeTask
             public int SnoozeCount { get; set; } = 0;
             public int DismissCount { get; set; } = 0;
             public DateTime? LastNudgedAt { get; set; } = null;
+            public string LastSuggestedActionId { get; set; } = null;
+            public string PendingSuggestedActionId { get; set; } = null;
+            public DateTime? PendingSuggestedAt { get; set; } = null;
         }
         
         private void StartPeriodicTaskReminderChecks()
@@ -991,8 +1002,50 @@ namespace TimeTask
         
         private async void TaskReminderTimer_Tick(object sender, EventArgs e)
         {
+            UpdateAdaptiveNudgeParameters();
             await CheckForStaleTasksAndRemind();
             CheckForPotentialStuckTasks();
+        }
+
+        private void UpdateAdaptiveNudgeParameters(bool force = false)
+        {
+            DateTime now = DateTime.Now;
+            if (!force && (now - _lastAdaptiveTuneAt) < TimeSpan.FromHours(6))
+            {
+                return;
+            }
+
+            try
+            {
+                var recommendation = _userProfileManager?.GetAdaptiveNudgeRecommendation(7);
+                if (recommendation == null)
+                {
+                    return;
+                }
+
+                _adaptiveStuckNoProgressThreshold = ClampThreshold(TimeSpan.FromMinutes(recommendation.RecommendedStuckThresholdMinutes));
+                _adaptiveDailyStuckNudgeLimit = Math.Max(MinDailyStuckNudgeLimit, Math.Min(MaxDailyStuckNudgeLimit, recommendation.RecommendedDailyNudgeLimit));
+                _lastAdaptiveTuneAt = now;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Adaptive tuning failed: {ex.Message}");
+            }
+        }
+
+        private static TimeSpan ClampThreshold(TimeSpan threshold)
+        {
+            if (threshold < MinStuckNoProgressThreshold)
+            {
+                return MinStuckNoProgressThreshold;
+            }
+
+            if (threshold > MaxStuckNoProgressThreshold)
+            {
+                return MaxStuckNoProgressThreshold;
+            }
+
+            return threshold;
         }
 
         private void CheckForPotentialStuckTasks()
@@ -1004,7 +1057,7 @@ namespace TimeTask
                 _stuckNudgesShownToday = 0;
             }
 
-            if (_stuckNudgesShownToday >= DailyStuckNudgeLimit || (now - _lastStuckNudgeAt) < StuckNudgeCooldown)
+            if (_stuckNudgesShownToday >= _adaptiveDailyStuckNudgeLimit || (now - _lastStuckNudgeAt) < StuckNudgeCooldown)
             {
                 return;
             }
@@ -1041,7 +1094,7 @@ namespace TimeTask
                         continue;
                     }
 
-                    if (noProgressDuration >= StuckNoProgressThreshold && (hasHighFriction || hasAvoidancePattern))
+                    if (noProgressDuration >= _adaptiveStuckNoProgressThreshold && (hasHighFriction || hasAvoidancePattern))
                     {
                         if (candidate == null || noProgressDuration > candidateNoProgress)
                         {
@@ -1058,15 +1111,20 @@ namespace TimeTask
                 return;
             }
 
-            ShowPassiveStuckSuggestion(candidate, candidateNoProgress);
+            ShowPassiveStuckSuggestion(candidate, candidateNoProgress, candidateState);
             candidateState.LastNudgedAt = now;
             _stuckNudgesShownToday++;
             _lastStuckNudgeAt = now;
         }
 
-        private void ShowPassiveStuckSuggestion(ItemGrid task, TimeSpan noProgressDuration)
+        private void ShowPassiveStuckSuggestion(ItemGrid task, TimeSpan noProgressDuration, TaskInteractionState state)
         {
-            string nextStep = BuildStuckNextStep(task, noProgressDuration);
+            var suggestion = BuildStuckNextStep(task, noProgressDuration, state);
+            string nextStep = suggestion.Text;
+            state.LastSuggestedActionId = suggestion.Id;
+            state.PendingSuggestedActionId = suggestion.Id;
+            state.PendingSuggestedAt = DateTime.Now;
+            _userProfileManager?.RecordSuggestionShown(suggestion.Id);
 
             var notification = new System.Windows.Forms.NotifyIcon
             {
@@ -1084,28 +1142,21 @@ namespace TimeTask
             });
         }
 
-        private static string BuildStuckNextStep(ItemGrid task, TimeSpan noProgressDuration)
+        private UserProfileManager.StuckActionSuggestion BuildStuckNextStep(ItemGrid task, TimeSpan noProgressDuration, TaskInteractionState state)
         {
+            var suggestions = _userProfileManager?.GetRankedStuckSuggestions(task, noProgressDuration, state?.LastSuggestedActionId);
+            if (suggestions != null && suggestions.Count > 0)
+            {
+                return suggestions[0];
+            }
+
             int hours = Math.Max(1, (int)Math.Round(noProgressDuration.TotalHours));
-            bool highImportance = string.Equals(task.Importance, "High", StringComparison.OrdinalIgnoreCase);
-            bool highUrgency = string.Equals(task.Urgency, "High", StringComparison.OrdinalIgnoreCase);
-
-            if (highImportance && highUrgency)
+            return new UserProfileManager.StuckActionSuggestion
             {
-                return $"已卡住约 {hours} 小时，先做 10 分钟最小动作，完成后再扩展。";
-            }
-
-            if (highImportance && !highUrgency)
-            {
-                return $"已卡住约 {hours} 小时，拆成一个 20 分钟子任务并安排到今天。";
-            }
-
-            if (!highImportance && highUrgency)
-            {
-                return $"已卡住约 {hours} 小时，建议先确认是否委托或降低优先级。";
-            }
-
-            return $"已卡住约 {hours} 小时，建议先暂停此任务，转到更关键事项。";
+                Id = "fallback_min_step",
+                Text = $"已卡住约 {hours} 小时，先做一个最小下一步动作。",
+                Score = 0
+            };
         }
 
         private void TrackTaskInteraction(ItemGrid task, string interactionType)
@@ -1143,11 +1194,14 @@ namespace TimeTask
                     break;
                 case "snooze":
                     state.SnoozeCount++;
+                    TryResolvePendingSuggestionFeedback(state, now, "deferred");
                     break;
                 case "dismiss":
                     state.DismissCount++;
+                    TryResolvePendingSuggestionFeedback(state, now, "rejected");
                     break;
                 case "progress":
+                    TryResolvePendingSuggestionFeedback(state, now, "accepted");
                     state.EditCount = 0;
                     state.ReorderCount = 0;
                     state.MoveCount = 0;
@@ -1156,6 +1210,25 @@ namespace TimeTask
                     state.WindowStart = now;
                     break;
             }
+        }
+
+        private void TryResolvePendingSuggestionFeedback(TaskInteractionState state, DateTime now, string feedbackType)
+        {
+            if (state == null || string.IsNullOrWhiteSpace(state.PendingSuggestedActionId) || !state.PendingSuggestedAt.HasValue)
+            {
+                return;
+            }
+
+            if ((now - state.PendingSuggestedAt.Value) > TimeSpan.FromMinutes(30))
+            {
+                state.PendingSuggestedActionId = null;
+                state.PendingSuggestedAt = null;
+                return;
+            }
+
+            _userProfileManager?.RecordSuggestionFeedback(state.PendingSuggestedActionId, feedbackType);
+            state.PendingSuggestedActionId = null;
+            state.PendingSuggestedAt = null;
         }
 
         private static void ResetInteractionWindowIfNeeded(TaskInteractionState state, DateTime now)
