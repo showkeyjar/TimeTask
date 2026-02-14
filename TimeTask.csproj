@@ -180,6 +180,7 @@
     <Compile Include="SpeakerVerificationService.cs" />
     <Compile Include="VoiceLexiconManager.cs" />
     <Compile Include="IntentRecognizer.cs" />
+    <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="NotificationManager.cs" />
     <Compile Include="DraftViewerWindow.xaml.cs">

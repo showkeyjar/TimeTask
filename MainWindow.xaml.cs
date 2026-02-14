@@ -327,10 +327,18 @@ namespace TimeTask
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
         private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
         private TaskDraftManager _draftBadgeManager;
+        private UserProfileManager _userProfileManager;
         private const int DailyReminderLimit = 3;
         private static readonly TimeSpan ReminderCooldown = TimeSpan.FromMinutes(45);
         private int _remindersShownToday = 0;
         private DateTime _reminderCounterDate = DateTime.Today;
+        private readonly Dictionary<string, TaskInteractionState> _taskInteractionStates = new Dictionary<string, TaskInteractionState>();
+        private const int DailyStuckNudgeLimit = 2;
+        private static readonly TimeSpan StuckNudgeCooldown = TimeSpan.FromHours(2);
+        private static readonly TimeSpan StuckNoProgressThreshold = TimeSpan.FromMinutes(90);
+        private int _stuckNudgesShownToday = 0;
+        private DateTime _stuckNudgeCounterDate = DateTime.Today;
+        private DateTime _lastStuckNudgeAt = DateTime.MinValue;
 
         private DatabaseService _databaseService;
         private System.Windows.Threading.DispatcherTimer _syncTimer;
@@ -545,6 +553,8 @@ namespace TimeTask
                 }
 
                 items.Add(newTask);
+                TrackTaskInteraction(newTask, "progress");
+                _userProfileManager?.RecordTaskProgress(newTask, "manual_create");
                 for (int i = 0; i < items.Count; i++)
                 {
                     items[i].Score = items.Count - i;
@@ -574,6 +584,7 @@ namespace TimeTask
             // 配置验证已移除
             
             _llmService = LlmService.Create();
+            _userProfileManager = new UserProfileManager();
 
             var normalizedPosition = NormalizeWindowPosition(
                 (double)Properties.Settings.Default.Left,
@@ -734,7 +745,9 @@ namespace TimeTask
             {
                 // Generate AI-powered reminder and suggestions
                 TimeSpan taskAge = DateTime.Now - task.CreatedDate;
-                var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(task.Task, taskAge);
+                TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
+                string reminderContext = _userProfileManager?.BuildReminderContext(task, inactiveDuration);
+                var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(task.Task, taskAge, reminderContext);
                 
                 // Show modern reminder window
                 var reminderWindow = new TaskReminderWindow(task, reminder ?? message, suggestions)
@@ -791,6 +804,7 @@ namespace TimeTask
                     task.LastInteractionDate = now;
                     task.InactiveWarningCount = 0;
                     task.ReminderSnoozeUntil = null;
+                    TrackTaskInteraction(task, "progress");
                     break;
                     
                 case TaskReminderResult.Updated:
@@ -799,6 +813,7 @@ namespace TimeTask
                     task.LastInteractionDate = now;
                     task.InactiveWarningCount = 0; // Reset warning count
                     task.ReminderSnoozeUntil = null;
+                    TrackTaskInteraction(task, "progress");
                     break;
                     
                 case TaskReminderResult.Decompose:
@@ -808,13 +823,17 @@ namespace TimeTask
                 case TaskReminderResult.Snoozed:
                     task.LastInteractionDate = now;
                     task.ReminderSnoozeUntil = now.AddHours(8);
+                    TrackTaskInteraction(task, "snooze");
                     break;
                     
                 case TaskReminderResult.Dismissed:
                 default:
                     task.LastInteractionDate = now;
+                    TrackTaskInteraction(task, "dismiss");
                     break;
             }
+
+            _userProfileManager?.RecordReminderResult(task, result);
             
             // Save changes to CSV
             UpdateTaskInAllGrids(task);
@@ -846,6 +865,7 @@ namespace TimeTask
                         task.LastInteractionDate = DateTime.Now;
                         task.InactiveWarningCount = 0;
                         task.ReminderSnoozeUntil = null;
+                        TrackTaskInteraction(task, "progress");
                         
                         MessageBox.Show(this, $"任务已成功分解为 {subTaskStrings.Count} 个子任务并分配到相应象限。", 
                                       "任务分解完成", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -896,6 +916,8 @@ namespace TimeTask
                     };
                     
                     currentGridItems.Add(newTask);
+                    TrackTaskInteraction(newTask, "progress");
+                    _userProfileManager?.RecordTaskProgress(newTask, "decompose_create");
                     targetGrid.ItemsSource = null;
                     targetGrid.ItemsSource = currentGridItems;
                     RefreshDataGrid(targetGrid);
@@ -946,6 +968,18 @@ namespace TimeTask
         }
         
         private System.Windows.Threading.DispatcherTimer _taskReminderTimer;
+
+        private class TaskInteractionState
+        {
+            public DateTime WindowStart { get; set; } = DateTime.Now;
+            public DateTime LastInteractionAt { get; set; } = DateTime.Now;
+            public int EditCount { get; set; } = 0;
+            public int ReorderCount { get; set; } = 0;
+            public int MoveCount { get; set; } = 0;
+            public int SnoozeCount { get; set; } = 0;
+            public int DismissCount { get; set; } = 0;
+            public DateTime? LastNudgedAt { get; set; } = null;
+        }
         
         private void StartPeriodicTaskReminderChecks()
         {
@@ -958,6 +992,196 @@ namespace TimeTask
         private async void TaskReminderTimer_Tick(object sender, EventArgs e)
         {
             await CheckForStaleTasksAndRemind();
+            CheckForPotentialStuckTasks();
+        }
+
+        private void CheckForPotentialStuckTasks()
+        {
+            DateTime now = DateTime.Now;
+            if (_stuckNudgeCounterDate != now.Date)
+            {
+                _stuckNudgeCounterDate = now.Date;
+                _stuckNudgesShownToday = 0;
+            }
+
+            if (_stuckNudgesShownToday >= DailyStuckNudgeLimit || (now - _lastStuckNudgeAt) < StuckNudgeCooldown)
+            {
+                return;
+            }
+
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            ItemGrid candidate = null;
+            TaskInteractionState candidateState = null;
+            TimeSpan candidateNoProgress = TimeSpan.Zero;
+
+            foreach (var dataGrid in dataGrids)
+            {
+                if (!(dataGrid.ItemsSource is List<ItemGrid> tasks))
+                {
+                    continue;
+                }
+
+                foreach (var task in tasks.Where(t => t.IsActive && t.IsActiveInQuadrant))
+                {
+                    var key = GetTaskTrackingKey(task);
+                    if (!_taskInteractionStates.TryGetValue(key, out var state))
+                    {
+                        continue;
+                    }
+
+                    ResetInteractionWindowIfNeeded(state, now);
+                    TimeSpan noProgressDuration = now - task.LastProgressDate;
+
+                    bool hasHighFriction = state.EditCount + state.ReorderCount + state.MoveCount >= 3;
+                    bool hasAvoidancePattern = state.SnoozeCount + state.DismissCount >= 2;
+                    bool nudgeCoolingDown = state.LastNudgedAt.HasValue && (now - state.LastNudgedAt.Value) < StuckNudgeCooldown;
+
+                    if (nudgeCoolingDown)
+                    {
+                        continue;
+                    }
+
+                    if (noProgressDuration >= StuckNoProgressThreshold && (hasHighFriction || hasAvoidancePattern))
+                    {
+                        if (candidate == null || noProgressDuration > candidateNoProgress)
+                        {
+                            candidate = task;
+                            candidateState = state;
+                            candidateNoProgress = noProgressDuration;
+                        }
+                    }
+                }
+            }
+
+            if (candidate == null || candidateState == null)
+            {
+                return;
+            }
+
+            ShowPassiveStuckSuggestion(candidate, candidateNoProgress);
+            candidateState.LastNudgedAt = now;
+            _stuckNudgesShownToday++;
+            _lastStuckNudgeAt = now;
+        }
+
+        private void ShowPassiveStuckSuggestion(ItemGrid task, TimeSpan noProgressDuration)
+        {
+            string nextStep = BuildStuckNextStep(task, noProgressDuration);
+
+            var notification = new System.Windows.Forms.NotifyIcon
+            {
+                Visible = true,
+                Icon = System.Drawing.SystemIcons.Information,
+                BalloonTipTitle = "TimeTask - 轻提醒",
+                BalloonTipText = $"{task.Task}\n{nextStep}",
+                BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info
+            };
+
+            notification.ShowBalloonTip(5000);
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+                System.Threading.Thread.Sleep(5000);
+                notification.Dispose();
+            });
+        }
+
+        private static string BuildStuckNextStep(ItemGrid task, TimeSpan noProgressDuration)
+        {
+            int hours = Math.Max(1, (int)Math.Round(noProgressDuration.TotalHours));
+            bool highImportance = string.Equals(task.Importance, "High", StringComparison.OrdinalIgnoreCase);
+            bool highUrgency = string.Equals(task.Urgency, "High", StringComparison.OrdinalIgnoreCase);
+
+            if (highImportance && highUrgency)
+            {
+                return $"已卡住约 {hours} 小时，先做 10 分钟最小动作，完成后再扩展。";
+            }
+
+            if (highImportance && !highUrgency)
+            {
+                return $"已卡住约 {hours} 小时，拆成一个 20 分钟子任务并安排到今天。";
+            }
+
+            if (!highImportance && highUrgency)
+            {
+                return $"已卡住约 {hours} 小时，建议先确认是否委托或降低优先级。";
+            }
+
+            return $"已卡住约 {hours} 小时，建议先暂停此任务，转到更关键事项。";
+        }
+
+        private void TrackTaskInteraction(ItemGrid task, string interactionType)
+        {
+            if (task == null || string.IsNullOrWhiteSpace(interactionType))
+            {
+                return;
+            }
+
+            DateTime now = DateTime.Now;
+            string key = GetTaskTrackingKey(task);
+            if (!_taskInteractionStates.TryGetValue(key, out var state))
+            {
+                state = new TaskInteractionState
+                {
+                    WindowStart = now,
+                    LastInteractionAt = now
+                };
+                _taskInteractionStates[key] = state;
+            }
+
+            ResetInteractionWindowIfNeeded(state, now);
+            state.LastInteractionAt = now;
+
+            switch (interactionType)
+            {
+                case "edit":
+                    state.EditCount++;
+                    break;
+                case "reorder":
+                    state.ReorderCount++;
+                    break;
+                case "move":
+                    state.MoveCount++;
+                    break;
+                case "snooze":
+                    state.SnoozeCount++;
+                    break;
+                case "dismiss":
+                    state.DismissCount++;
+                    break;
+                case "progress":
+                    state.EditCount = 0;
+                    state.ReorderCount = 0;
+                    state.MoveCount = 0;
+                    state.SnoozeCount = 0;
+                    state.DismissCount = 0;
+                    state.WindowStart = now;
+                    break;
+            }
+        }
+
+        private static void ResetInteractionWindowIfNeeded(TaskInteractionState state, DateTime now)
+        {
+            if ((now - state.WindowStart) <= TimeSpan.FromHours(2))
+            {
+                return;
+            }
+
+            state.WindowStart = now;
+            state.EditCount = 0;
+            state.ReorderCount = 0;
+            state.MoveCount = 0;
+            state.SnoozeCount = 0;
+            state.DismissCount = 0;
+        }
+
+        private static string GetTaskTrackingKey(ItemGrid task)
+        {
+            string id = string.IsNullOrWhiteSpace(task.SourceTaskID) ? string.Empty : task.SourceTaskID.Trim();
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                return $"sid:{id}";
+            }
+
+            return $"{task.CreatedDate:o}|{task.Task}";
         }
         
         private Task CheckForStaleTasksAndRemind()
@@ -1002,6 +1226,7 @@ namespace TimeTask
                 candidate.LastInteractionDate = now;
                 candidate.LastReminderDate = now;
                 _remindersShownToday++;
+                _userProfileManager?.RecordReminderShown(candidate);
                 UpdateTaskInAllGrids(candidate);
             }
             return Task.CompletedTask;
@@ -1329,6 +1554,8 @@ namespace TimeTask
                         item.LastInteractionDate = DateTime.Now;
                         item.InactiveWarningCount = 0;
                         item.ReminderSnoozeUntil = null;
+                        TrackTaskInteraction(item, "edit");
+                        _userProfileManager?.RecordTaskProgress(item, "manual_edit");
 
                         Console.WriteLine($"Task edited in grid. Task ID (if available): [{item.SourceTaskID}], New Description: [{newDescription}]");
 
@@ -1743,7 +1970,6 @@ namespace TimeTask
             sourceList.Remove(draggedItem);
             targetList.Add(draggedItem);
             draggedItem.LastModifiedDate = DateTime.Now;
-            draggedItem.LastProgressDate = DateTime.Now;
             draggedItem.LastInteractionDate = DateTime.Now;
             draggedItem.InactiveWarningCount = 0;
             draggedItem.ReminderSnoozeUntil = null;
@@ -1798,7 +2024,6 @@ namespace TimeTask
 
             list.Insert(actualInsertionIndex, draggedItem);
             draggedItem.LastModifiedDate = DateTime.Now;
-            draggedItem.LastProgressDate = DateTime.Now;
             draggedItem.LastInteractionDate = DateTime.Now;
             draggedItem.InactiveWarningCount = 0;
             draggedItem.ReminderSnoozeUntil = null;
@@ -1867,6 +2092,8 @@ namespace TimeTask
                 // The visualDropIndex is the index in the list *before* removal, where the item should be inserted.
                 if (ProcessTaskReorder(draggedItem, sourceList, originalIndex, visualDropIndex))
                 {
+                    TrackTaskInteraction(draggedItem, "reorder");
+                    _userProfileManager?.RecordTaskProgress(draggedItem, "reorder");
                     RefreshDataGrid(targetDataGrid);
                     string quadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
                     if (quadrantNumber != null) update_csv(targetDataGrid, quadrantNumber);
@@ -1886,8 +2113,10 @@ namespace TimeTask
 
             if (ProcessTaskDrop(draggedItem, sourceList, targetList, targetDataGrid.Name))
             {
+                TrackTaskInteraction(draggedItem, "move");
                 string sourceQuadrantNumber = GetQuadrantNumber(_sourceDataGrid.Name);
                 string targetQuadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
+                _userProfileManager?.RecordQuadrantMove(draggedItem, sourceQuadrantNumber, targetQuadrantNumber);
 
                 // Update scores for the source list (optional, but good for consistency if scores mean global order)
                 // For now, let's assume scores are quadrant-local unless specified otherwise
@@ -1964,6 +2193,8 @@ namespace TimeTask
                         }
 
                         items.Add(newTask);
+                        TrackTaskInteraction(newTask, "progress");
+                        _userProfileManager?.RecordTaskProgress(newTask, "manual_create");
                         // Re-score all items in the list for consistent ordering
                         for (int i = 0; i < items.Count; i++)
                         {
@@ -2280,6 +2511,8 @@ namespace TimeTask
                                 break;
                         }
                         quadrantTasks.Add(newItem);
+                        TrackTaskInteraction(newItem, "progress");
+                        _userProfileManager?.RecordTaskProgress(newItem, "goal_plan_create");
                         tasksProcessedCount++;
                     }
                     HelperClass.WriteCsv(quadrantTasks, quadrantCsvPath);

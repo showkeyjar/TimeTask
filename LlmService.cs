@@ -132,6 +132,10 @@ namespace TimeTask
             "Suggestion2: Need to adjust its plan or priority?\n" +
             "Suggestion3: Want to break it into smaller pieces?";
 
+        private const string ReminderProfileHintTemplate =
+            "\n\nUser behavior context (local profile, use as soft guidance only):\n{userContext}\n" +
+            "Adapt tone and suggestions to reduce interruption. Keep one clear next step.";
+
         private const string ConversationTaskExtractPrompt =
             "You are an assistant helping a user capture personal action items from a multi-speaker conversation. " +
             "Extract ONLY tasks that the user should do. " +
@@ -508,9 +512,18 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         
         public async Task<(string reminder, List<string> suggestions)> GenerateTaskReminderAsync(string taskDescription, TimeSpan timeSinceLastModified)
         {
+            return await GenerateTaskReminderAsync(taskDescription, timeSinceLastModified, null);
+        }
+
+        public async Task<(string reminder, List<string> suggestions)> GenerateTaskReminderAsync(string taskDescription, TimeSpan timeSinceLastModified, string userContext)
+        {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (string.Empty, new List<string>());
             string formattedAge = FormatTimeSpan(timeSinceLastModified);
             string fullPrompt = TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
+            if (!string.IsNullOrWhiteSpace(userContext))
+            {
+                fullPrompt += ReminderProfileHintTemplate.Replace("{userContext}", userContext);
+            }
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
             {

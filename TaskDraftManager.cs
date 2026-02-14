@@ -43,6 +43,9 @@ namespace TimeTask
 
             lock (_lock)
             {
+                // 多实例并存时，先同步磁盘中的最新状态，避免旧内存覆盖已处理草稿。
+                LoadDrafts();
+
                 // 检查是否已存在相似草稿
                 var existing = _drafts.FirstOrDefault(d =>
                     d.RawText.Length > 10 &&
@@ -101,6 +104,7 @@ namespace TimeTask
         {
             lock (_lock)
             {
+                LoadDrafts();
                 var draft = _drafts.FirstOrDefault(d => d.Id == draftId);
                 if (draft != null)
                 {
@@ -120,6 +124,7 @@ namespace TimeTask
 
             lock (_lock)
             {
+                LoadDrafts();
                 var draft = _drafts.FirstOrDefault(d => d.Id == updated.Id);
                 if (draft == null)
                     return;
@@ -140,6 +145,7 @@ namespace TimeTask
         {
             lock (_lock)
             {
+                LoadDrafts();
                 _drafts = _drafts.Where(d => d.Id != draftId).ToList();
                 SaveDrafts();
             }
@@ -152,6 +158,7 @@ namespace TimeTask
         {
             lock (_lock)
             {
+                LoadDrafts();
                 _drafts.Clear();
                 SaveDrafts();
             }
@@ -160,7 +167,16 @@ namespace TimeTask
         /// <summary>
         /// 获取草稿数量
         /// </summary>
-        public int Count => _drafts.Count;
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _drafts.Count;
+                }
+            }
+        }
 
         /// <summary>
         /// 获取未处理草稿数量
