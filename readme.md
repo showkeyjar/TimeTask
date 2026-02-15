@@ -150,6 +150,7 @@ This application uses Large Language Models (LLMs) to provide features like auto
 <add key="ProactiveAssistEnabled" value="true" />
 <add key="BehaviorLearningEnabled" value="true" />
 <add key="StuckNudgesEnabled" value="true" />
+<add key="LlmSkillAssistEnabled" value="true" />
 <add key="QuietHoursStart" value="22" />
 <add key="QuietHoursEnd" value="8" />
 ```
@@ -161,6 +162,7 @@ This application uses Large Language Models (LLMs) to provide features like auto
 * `phrases.txt` 会用于提升 Vosk 识别准确率（语音热词/短语列表）。
 * 主动协同能力（提醒、卡点建议）可通过 `ProactiveAssistEnabled` 总开关控制。
 * 若只想保留提醒但不做用户画像学习，可将 `BehaviorLearningEnabled=false`。
+* 可通过 `LlmSkillAssistEnabled` 启用/停用“LLM Skill 推荐”（分解、冲刺、优先级重排、风险检查等）。
 * 可通过 `QuietHoursStart/QuietHoursEnd` 配置安静时段（例如 22 到 8）。
 
 ## 注意事项

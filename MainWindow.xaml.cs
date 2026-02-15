@@ -331,6 +331,7 @@ namespace TimeTask
         private bool _proactiveAssistEnabled = true;
         private bool _behaviorLearningEnabled = true;
         private bool _stuckNudgesEnabled = true;
+        private bool _llmSkillAssistEnabled = true;
         private int _quietHoursStart = 22;
         private int _quietHoursEnd = 8;
         private const int DailyReminderLimit = 3;
@@ -338,6 +339,7 @@ namespace TimeTask
         private int _remindersShownToday = 0;
         private DateTime _reminderCounterDate = DateTime.Today;
         private readonly Dictionary<string, TaskInteractionState> _taskInteractionStates = new Dictionary<string, TaskInteractionState>();
+        private readonly Dictionary<string, List<string>> _pendingReminderSkillIds = new Dictionary<string, List<string>>();
         private const int DefaultDailyStuckNudgeLimit = 2;
         private static readonly TimeSpan StuckNudgeCooldown = TimeSpan.FromHours(2);
         private static readonly TimeSpan DefaultStuckNoProgressThreshold = TimeSpan.FromMinutes(90);
@@ -656,6 +658,7 @@ namespace TimeTask
             _proactiveAssistEnabled = GetAppSettingBool("ProactiveAssistEnabled", true);
             _behaviorLearningEnabled = GetAppSettingBool("BehaviorLearningEnabled", true);
             _stuckNudgesEnabled = GetAppSettingBool("StuckNudgesEnabled", true);
+            _llmSkillAssistEnabled = GetAppSettingBool("LlmSkillAssistEnabled", true);
             _quietHoursStart = GetAppSettingInt("QuietHoursStart", 22, 0, 23);
             _quietHoursEnd = GetAppSettingInt("QuietHoursEnd", 8, 0, 23);
         }
@@ -860,9 +863,31 @@ namespace TimeTask
                 TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
                 string reminderContext = ShouldRecordBehavior() ? _userProfileManager.BuildReminderContext(task, inactiveDuration) : null;
                 var (reminder, suggestions) = await _llmService.GenerateTaskReminderAsync(task.Task, taskAge, reminderContext);
+                var mergedSuggestions = new List<string>(suggestions ?? new List<string>());
+
+                if (_llmSkillAssistEnabled)
+                {
+                    try
+                    {
+                        var skillRecs = await _llmService.RecommendTaskSkillsAsync(
+                            task.Task,
+                            task.Importance,
+                            task.Urgency,
+                            inactiveDuration,
+                            reminderContext,
+                            2);
+                        var shownSkillIds = new List<string>();
+                        mergedSuggestions = MergeSkillSuggestions(mergedSuggestions, skillRecs, shownSkillIds);
+                        RememberPendingReminderSkills(task, shownSkillIds);
+                    }
+                    catch (Exception skillEx)
+                    {
+                        Console.WriteLine($"Skill recommendation failed: {skillEx.Message}");
+                    }
+                }
                 
                 // Show modern reminder window
-                var reminderWindow = new TaskReminderWindow(task, reminder ?? message, suggestions)
+                var reminderWindow = new TaskReminderWindow(task, reminder ?? message, mergedSuggestions)
                 {
                     Owner = this
                 };
@@ -871,6 +896,10 @@ namespace TimeTask
                 if (result == true)
                 {
                     await HandleTaskReminderResult(task, reminderWindow.Result);
+                }
+                else
+                {
+                    await HandleTaskReminderResult(task, TaskReminderResult.Dismissed);
                 }
             }
             catch (Exception ex)
@@ -945,6 +974,7 @@ namespace TimeTask
                     break;
             }
 
+            ResolveReminderSkillFeedback(task, result);
             RecordReminderResultProfile(task, result);
             
             // Save changes to CSV
@@ -1138,6 +1168,91 @@ namespace TimeTask
             {
                 Console.WriteLine($"Adaptive tuning failed: {ex.Message}");
             }
+        }
+
+        private List<string> MergeSkillSuggestions(List<string> baseSuggestions, List<LlmSkillRecommendation> skills)
+        {
+            return MergeSkillSuggestions(baseSuggestions, skills, null);
+        }
+
+        private List<string> MergeSkillSuggestions(List<string> baseSuggestions, List<LlmSkillRecommendation> skills, List<string> shownSkillIds)
+        {
+            var result = baseSuggestions ?? new List<string>();
+            if (skills == null || skills.Count == 0)
+            {
+                return result;
+            }
+
+            foreach (var skill in skills)
+            {
+                if (skill == null) continue;
+                string text = $"Skill[{skill.Title}]: {skill.NextStep}";
+                if (!result.Any(s => string.Equals(s, text, StringComparison.OrdinalIgnoreCase)))
+                {
+                    result.Insert(0, text);
+                }
+                if (shownSkillIds != null && !string.IsNullOrWhiteSpace(skill.SkillId))
+                {
+                    string id = skill.SkillId.Trim().ToLowerInvariant();
+                    if (!shownSkillIds.Contains(id))
+                    {
+                        shownSkillIds.Add(id);
+                        RecordSuggestionShownProfile(id);
+                    }
+                }
+            }
+            return result.Take(5).ToList();
+        }
+
+        private void RememberPendingReminderSkills(ItemGrid task, List<string> shownSkillIds)
+        {
+            if (task == null) return;
+            string key = GetTaskTrackingKey(task);
+            if (shownSkillIds == null || shownSkillIds.Count == 0)
+            {
+                _pendingReminderSkillIds.Remove(key);
+                return;
+            }
+            _pendingReminderSkillIds[key] = shownSkillIds;
+        }
+
+        private void ResolveReminderSkillFeedback(ItemGrid task, TaskReminderResult result)
+        {
+            if (task == null) return;
+            string key = GetTaskTrackingKey(task);
+            if (!_pendingReminderSkillIds.TryGetValue(key, out var ids) || ids == null || ids.Count == 0)
+            {
+                return;
+            }
+
+            string feedbackType = null;
+            string targetSkillId = ids[0];
+
+            switch (result)
+            {
+                case TaskReminderResult.Decompose:
+                    feedbackType = "accepted";
+                    targetSkillId = ids.FirstOrDefault(id => string.Equals(id, "decompose", StringComparison.OrdinalIgnoreCase)) ?? targetSkillId;
+                    break;
+                case TaskReminderResult.Completed:
+                case TaskReminderResult.Updated:
+                    feedbackType = "accepted";
+                    break;
+                case TaskReminderResult.Snoozed:
+                    feedbackType = "deferred";
+                    break;
+                case TaskReminderResult.Dismissed:
+                default:
+                    feedbackType = "rejected";
+                    break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(feedbackType) && !string.IsNullOrWhiteSpace(targetSkillId))
+            {
+                RecordSuggestionFeedbackProfile(targetSkillId, feedbackType);
+            }
+
+            _pendingReminderSkillIds.Remove(key);
         }
 
         private static TimeSpan ClampThreshold(TimeSpan threshold)

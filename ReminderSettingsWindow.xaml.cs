@@ -24,6 +24,7 @@ namespace TimeTask
         private bool _proactiveAssistEnabled = true;
         private bool _behaviorLearningEnabled = true;
         private bool _stuckNudgesEnabled = true;
+        private bool _llmSkillAssistEnabled = true;
         private int _quietHoursStart = 22;
         private int _quietHoursEnd = 8;
         
@@ -177,6 +178,16 @@ namespace TimeTask
             }
         }
 
+        public bool LlmSkillAssistEnabled
+        {
+            get => _llmSkillAssistEnabled;
+            set
+            {
+                _llmSkillAssistEnabled = value;
+                OnPropertyChanged(nameof(LlmSkillAssistEnabled));
+            }
+        }
+
         public int QuietHoursStart
         {
             get => _quietHoursStart;
@@ -235,6 +246,7 @@ namespace TimeTask
             ProactiveAssistEnabled = true;
             BehaviorLearningEnabled = true;
             StuckNudgesEnabled = true;
+            LlmSkillAssistEnabled = true;
             QuietHoursStart = 22;
             QuietHoursEnd = 8;
         }
@@ -244,6 +256,7 @@ namespace TimeTask
             ProactiveAssistEnabled = GetAppSettingBool("ProactiveAssistEnabled", true);
             BehaviorLearningEnabled = GetAppSettingBool("BehaviorLearningEnabled", true);
             StuckNudgesEnabled = GetAppSettingBool("StuckNudgesEnabled", true);
+            LlmSkillAssistEnabled = GetAppSettingBool("LlmSkillAssistEnabled", true);
             QuietHoursStart = GetAppSettingInt("QuietHoursStart", 22, 0, 23);
             QuietHoursEnd = GetAppSettingInt("QuietHoursEnd", 8, 0, 23);
         }
@@ -398,6 +411,7 @@ namespace TimeTask
             SetOrAddAppSetting(settings, "ProactiveAssistEnabled", ProactiveAssistEnabled ? "true" : "false");
             SetOrAddAppSetting(settings, "BehaviorLearningEnabled", BehaviorLearningEnabled ? "true" : "false");
             SetOrAddAppSetting(settings, "StuckNudgesEnabled", StuckNudgesEnabled ? "true" : "false");
+            SetOrAddAppSetting(settings, "LlmSkillAssistEnabled", LlmSkillAssistEnabled ? "true" : "false");
             SetOrAddAppSetting(settings, "QuietHoursStart", QuietHoursStart.ToString());
             SetOrAddAppSetting(settings, "QuietHoursEnd", QuietHoursEnd.ToString());
 

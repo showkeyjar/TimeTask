@@ -197,6 +197,9 @@
                                   Margin="0,4"/>
                         <CheckBox Content="启用卡点轻提醒"
                                   IsChecked="{Binding StuckNudgesEnabled}"
+                                  Margin="0,4"/>
+                        <CheckBox Content="启用LLM技能建议"
+                                  IsChecked="{Binding LlmSkillAssistEnabled}"
                                   Margin="0,4,0,10"/>
 
                         <Grid>
