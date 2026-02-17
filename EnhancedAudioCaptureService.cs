@@ -10,6 +10,7 @@ using System.Threading;
 using System.Timers;
 using System.Windows;
 using System.Collections.Generic;
+using System.Diagnostics;
 using NAudio.Wave;
 using NAudio.CoreAudioApi;
 using Newtonsoft.Json.Linq;
@@ -56,6 +57,40 @@ namespace TimeTask
         private VoskRecognizer _voskRecognizer;
         private bool _voskEnabled;
         private bool _voskFormatWarningLogged;
+        private readonly bool _useStrictVoskGrammar;
+        private readonly bool _systemSpeechUseHints;
+        private readonly HashSet<string> _hintPhrases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly string _asrProvider;
+        private readonly bool _funAsrEnabled;
+        private readonly bool _funAsrOnlyMode;
+        private string _funAsrPythonExe;
+        private readonly string _funAsrScriptPath;
+        private readonly string _funAsrModel;
+        private readonly string _funAsrDevice;
+        private readonly int _funAsrTimeoutSeconds;
+        private readonly int _funAsrWorkerStartupTimeoutSeconds;
+        private readonly bool _funAsrUsePersistentWorker;
+        private readonly double _funAsrMinSegmentSeconds;
+        private Task<FunAsrRuntimeBootstrapResult> _funAsrBootstrapTask;
+        private readonly List<byte> _asrSegmentBuffer = new List<byte>(16000 * 2 * 12);
+        private readonly SemaphoreSlim _funAsrRecognitionSemaphore = new SemaphoreSlim(1, 1);
+        private Process _funAsrWorkerProcess;
+        private StreamWriter _funAsrWorkerInput;
+        private StreamReader _funAsrWorkerOutput;
+        private string _funAsrWorkerLastErr = string.Empty;
+        private readonly object _funAsrWorkerErrLock = new object();
+        private DateTime _funAsrWorkerStdoutLogUtc = DateTime.MinValue;
+        private bool _funAsrScriptMissingLogged;
+        private bool _funAsrPythonMissingLogged;
+        private bool _funAsrRepairInProgress;
+        private int _funAsrAutoRepairAttempts;
+        private int _funAsrFailureCount;
+        private bool _classicFallbackEnabled;
+        private bool _funAsrRuntimeReady;
+        private bool _funAsrBootstrapMonitorStarted;
+        private CancellationTokenSource _funAsrRetryCts;
+        private int _recognizingStateEpoch;
+        private DateTime _lastRecognizingTouchUtc = DateTime.MinValue;
         private string _lastRecognizedText;
         private DateTime _lastRecognizedTextTime = DateTime.MinValue;
         private DateTime _lastSpeechTime = DateTime.MinValue;
@@ -107,6 +142,28 @@ namespace TimeTask
             _speakerEnrollMode = ReadBoolSetting("VoiceSpeakerEnrollMode", false);
             _speakerThreshold = ReadDoubleSetting("VoiceSpeakerThreshold", 0.72);
             _speakerMinSeconds = ReadDoubleSetting("VoiceSpeakerMinSeconds", 2.0);
+            _useStrictVoskGrammar = ReadBoolSetting("VoiceUseStrictVoskGrammar", false);
+            _systemSpeechUseHints = ReadBoolSetting("VoiceSystemSpeechUseHints", false);
+            _asrProvider = ReadStringSetting("VoiceAsrProvider", "hybrid");
+            _funAsrEnabled = _asrProvider.IndexOf("funasr", StringComparison.OrdinalIgnoreCase) >= 0;
+            _funAsrOnlyMode = string.Equals(_asrProvider, "funasr", StringComparison.OrdinalIgnoreCase);
+            _funAsrPythonExe = ReadStringSetting("FunAsrPythonExe", "python");
+            _funAsrScriptPath = ReadStringSetting("FunAsrScriptPath", @"scripts\funasr_asr.py");
+            _funAsrModel = ReadStringSetting("FunAsrModel", "iic/SenseVoiceSmall");
+            _funAsrDevice = ReadStringSetting("FunAsrDevice", "cpu");
+            _funAsrTimeoutSeconds = ReadIntSetting("FunAsrTimeoutSeconds", 45);
+            _funAsrWorkerStartupTimeoutSeconds = ReadIntSetting("FunAsrWorkerStartupTimeoutSeconds", 600);
+            _funAsrUsePersistentWorker = ReadBoolSetting("FunAsrUsePersistentWorker", true);
+            _funAsrMinSegmentSeconds = ReadDoubleSetting("FunAsrMinSegmentSeconds", 0.5);
+            if (_funAsrEnabled)
+            {
+                VoiceRuntimeLog.Info($"EnhancedAudioCaptureService ctor: requesting FunASR bootstrap task. provider={_asrProvider}");
+                _funAsrBootstrapTask = FunAsrRuntimeManager.EnsureReadyAsync();
+            }
+            else
+            {
+                VoiceRuntimeLog.Info($"EnhancedAudioCaptureService ctor: FunASR disabled by provider={_asrProvider}");
+            }
         }
 
         /// <summary>
@@ -118,32 +175,50 @@ namespace TimeTask
             {
                 if (_enabled) return;
                 _enabled = true;
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用（初始化中）");
 
                 Console.WriteLine("[EnhancedAudioCaptureService] Starting...");
                 VoiceRuntimeLog.Info("EnhancedAudioCaptureService starting.");
 
-                // 初始化语音识别
                 bool voskReady = false;
-                try
+                if (!_funAsrOnlyMode)
                 {
-                    TryWaitModelBootstrap();
-                    voskReady = TryInitializeVoskRecognizer();
-
-                    if (!voskReady)
+                    // 初始化语音识别
+                    try
                     {
-                        InitializeSystemSpeechRecognizer();
+                        TryWaitModelBootstrap();
+                        voskReady = TryInitializeVoskRecognizer();
+
+                        if (!voskReady)
+                        {
+                            InitializeSystemSpeechRecognizer();
+                        }
+
+                        if (!voskReady && _recognizer == null && !_funAsrEnabled)
+                        {
+                            throw new InvalidOperationException("Vosk 和 System.Speech 均未初始化成功。");
+                        }
                     }
-
-                    if (!voskReady && _recognizer == null)
+                    catch (Exception ex)
                     {
-                    throw new InvalidOperationException("Vosk 和 System.Speech 均未初始化成功。");
+                        Console.WriteLine($"[EnhancedAudioCaptureService] Failed to start speech recognition: {ex.Message}");
+                        VoiceRuntimeLog.Error("Failed to start speech recognition.", ex);
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音引擎初始化失败");
+                        throw new InvalidOperationException("语音识别初始化失败，请检查系统语音识别组件和麦克风权限。", ex);
                     }
                 }
-                catch (Exception ex)
+
+                if (_funAsrEnabled)
                 {
-                    Console.WriteLine($"[EnhancedAudioCaptureService] Failed to start speech recognition: {ex.Message}");
-                    VoiceRuntimeLog.Error("Failed to start speech recognition.", ex);
-                    throw new InvalidOperationException("语音识别初始化失败，请检查系统语音识别组件和麦克风权限。", ex);
+                    StartFunAsrBootstrapMonitor();
+                    TryWaitFunAsrBootstrap(TimeSpan.FromSeconds(2));
+                    var resolvedScript = ResolveFunAsrScriptPath();
+                    if (string.IsNullOrWhiteSpace(resolvedScript))
+                    {
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "FunASR 脚本缺失，语音监听不可用");
+                        throw new InvalidOperationException($"FunASR 脚本不存在：{_funAsrScriptPath}");
+                    }
+                    VoiceRuntimeLog.Info($"FunASR subprocess enabled. provider={_asrProvider}, python={_funAsrPythonExe}, script={resolvedScript}, model={_funAsrModel}, device={_funAsrDevice}, persistentWorker={_funAsrUsePersistentWorker}, timeoutSec={_funAsrTimeoutSeconds}");
                 }
 
                 // 启动静音检测定时器
@@ -155,13 +230,23 @@ namespace TimeTask
                 // 启动音频采集
                 StartAudioCapture();
 
-                if (!voskReady)
+                if (!voskReady && !_funAsrOnlyMode)
                 {
                     HookLateVoskInitialization();
                 }
 
                 Console.WriteLine("[EnhancedAudioCaptureService] Started successfully.");
                 VoiceRuntimeLog.Info("EnhancedAudioCaptureService started successfully.");
+
+                bool canListen = IsRecognitionPipelineAvailable();
+                if (canListen)
+                {
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "语音监听可用");
+                }
+                else
+                {
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "FunASR 尚未就绪，语音监听不可用");
+                }
             }
         }
 
@@ -204,9 +289,13 @@ namespace TimeTask
                 _voskEnabled = false;
 
                 StopAudioCapture();
+                CancelFunAsrRetry();
+                StopFunAsrWorker();
 
                 Console.WriteLine("[EnhancedAudioCaptureService] Stopped.");
                 VoiceRuntimeLog.Info("EnhancedAudioCaptureService stopped.");
+                ResetRecognizingStateTimer();
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听已停止");
             }
         }
 
@@ -249,6 +338,8 @@ namespace TimeTask
                 var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
                 _wasapi = new WasapiCapture(device);
                 _wasapi.ShareMode = AudioClientShareMode.Shared;
+                // 尽量统一到 16k/16bit/mono，避免 Vosk 因格式不匹配而被跳过。
+                _wasapi.WaveFormat = new WaveFormat(16000, 16, 1);
                 _wasapi.DataAvailable += OnWaveData;
                 _wasapi.RecordingStopped += OnRecordingStopped;
                 _wasapi.StartRecording();
@@ -299,7 +390,10 @@ namespace TimeTask
 
             var bestCandidate = SelectBestCandidate(e);
             if (bestCandidate == null)
+            {
+                VoiceRuntimeLog.Info($"System.Speech ignored: text={e.Result.Text}, conf={e.Result.Confidence:F2}");
                 return;
+            }
 
             HandleRecognizedText(bestCandidate.Text, bestCandidate.Confidence, "system-speech");
         }
@@ -307,6 +401,9 @@ namespace TimeTask
         private string CleanRecognizedText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return text;
+
+            // 清理 SenseVoice 常见标签，如 <|zh|><|NEUTRAL|><|Speech|>
+            text = Regex.Replace(text, @"<\|[^|>]+\|>", "");
 
             // 移除多余的空白
             text = Regex.Replace(text, @"\s+", " ");
@@ -322,14 +419,10 @@ namespace TimeTask
             // 常见口头/识别噪声前缀清理
             text = Regex.Replace(text, @"^(编辑行|编辑|嗯|那个|就是|请|麻烦)\s*", "", RegexOptions.IgnoreCase);
 
-            // 简单纠错：特定场景下的常见替换
-            if (text.Contains("部门") && text.Contains("明天") && text.Contains("规律"))
+            // 若只剩问号/占位符，视为无效文本
+            if (Regex.IsMatch(text, @"^[\?\uFF1F\.\,\!\s]+$"))
             {
-                text = text.Replace("规律", "会议");
-            }
-            if (text.Contains("自打不过来"))
-            {
-                text = text.Replace("自打不过来", "市场部门");
+                return string.Empty;
             }
 
             return text;
@@ -390,7 +483,7 @@ namespace TimeTask
                     {
                         StopAudioCapture();
                         Console.WriteLine("[EnhancedAudioCaptureService] Silence timeout, stopped recording.");
-                        EvaluateSpeakerSegment(_waveIn?.WaveFormat ?? _wasapi?.WaveFormat);
+                        EvaluateCompletedSegment(_waveIn?.WaveFormat ?? _wasapi?.WaveFormat);
                     }
                 }
             }
@@ -403,7 +496,25 @@ namespace TimeTask
             var format = _waveIn?.WaveFormat ?? (_wasapi?.WaveFormat);
             if (format == null || e.BytesRecorded <= 0) return;
 
-            TryProcessVoskAudio(e.Buffer, e.BytesRecorded, format);
+            // 在 funasr-only 且运行时未就绪时，不进入分段录音流程，避免“界面不可用但后台在录音”的矛盾状态。
+            if (!IsRecognitionPipelineAvailable())
+            {
+                lock (_lock)
+                {
+                    _isRecording = false;
+                    _consecAboveMs = 0;
+                    _consecBelowMs = 0;
+                }
+
+                lock (_speechBuffer) { _speechBuffer.Clear(); }
+                lock (_asrSegmentBuffer) { _asrSegmentBuffer.Clear(); }
+                return;
+            }
+
+            if (!string.Equals(_asrProvider, "funasr", StringComparison.OrdinalIgnoreCase) || _classicFallbackEnabled)
+            {
+                TryProcessVoskAudio(e.Buffer, e.BytesRecorded, format);
+            }
             CaptureSpeechBufferIfNeeded(e.Buffer, e.BytesRecorded);
 
             // 计算帧时长（毫秒）
@@ -431,26 +542,33 @@ namespace TimeTask
             }
 
             bool recentAudioSpeech = (DateTime.UtcNow - _lastAudioStateSpeech) < TimeSpan.FromSeconds(1.0);
+            bool vadOnlyStart = string.Equals(_asrProvider, "funasr", StringComparison.OrdinalIgnoreCase);
 
             lock (_lock)
             {
                 // 开始录音条件
                 if (!_isRecording)
                 {
-                    if (recentAudioSpeech && _consecAboveMs >= _minStartMs)
+                    if ((recentAudioSpeech || vadOnlyStart) && _consecAboveMs >= _minStartMs)
                     {
                         _isRecording = true;
+                        TouchRecognizingState();
                         Console.WriteLine("[EnhancedAudioCaptureService] Started recording (VAD triggered).");
                     }
                 }
                 else
                 {
+                    if (above || _consecBelowMs < _hangoverMs)
+                    {
+                        TouchRecognizingState();
+                    }
+
                     // 停止录音条件
                     if (_consecBelowMs >= _hangoverMs)
                     {
                         _isRecording = false;
                         Console.WriteLine("[EnhancedAudioCaptureService] Stopped recording (silence detected).");
-                        EvaluateSpeakerSegment(format);
+                        EvaluateCompletedSegment(format);
                     }
                 }
 
@@ -559,6 +677,12 @@ namespace TimeTask
                 if (!phrases.Any())
                     return;
 
+                _hintPhrases.Clear();
+                foreach (var phrase in phrases)
+                {
+                    _hintPhrases.Add(phrase);
+                }
+
                 var choices = new Choices(phrases.ToArray());
                 var grammar = new Grammar(new GrammarBuilder(choices))
                 {
@@ -592,6 +716,23 @@ namespace TimeTask
 
                 if (!phrases.Any())
                     return;
+
+                _hintPhrases.Clear();
+                foreach (var phrase in phrases)
+                {
+                    _hintPhrases.Add(phrase);
+                }
+
+                if (!_useStrictVoskGrammar)
+                {
+                    VoiceRuntimeLog.Info("Vosk grammar hints loaded for ranking only (strict grammar disabled).");
+                    return;
+                }
+
+                if (!phrases.Contains("[unk]", StringComparer.OrdinalIgnoreCase))
+                {
+                    phrases.Add("[unk]");
+                }
 
                 string grammarJson = Newtonsoft.Json.JsonConvert.SerializeObject(phrases);
                 if (_voskRecognizer != null)
@@ -683,7 +824,10 @@ namespace TimeTask
             _recognizer = CreateRecognizer();
             _recognizer.SetInputToDefaultAudioDevice();
             _recognizer.LoadGrammar(new DictationGrammar());
-            TryLoadHintsGrammar();
+            if (_systemSpeechUseHints)
+            {
+                TryLoadHintsGrammar();
+            }
 
             TryUpdateRecognizerSetting("BabbleTimeout", TimeSpan.FromSeconds(3));
             TryUpdateRecognizerSetting("InitialSilenceTimeout", TimeSpan.FromSeconds(6));
@@ -732,6 +876,23 @@ namespace TimeTask
                     return (string.Empty, 0f);
 
                 var root = JObject.Parse(json);
+                var words = root["result"] as JArray;
+                float wordAvgConf = 0.6f;
+                if (words != null && words.Count > 0)
+                {
+                    var confs = words
+                        .OfType<JObject>()
+                        .Select(w => (float?)w["conf"])
+                        .Where(c => c.HasValue)
+                        .Select(c => c.Value)
+                        .ToList();
+
+                    if (confs.Count > 0)
+                    {
+                        wordAvgConf = confs.Average();
+                    }
+                }
+
                 var alternatives = root["alternatives"] as JArray;
                 if (alternatives != null && alternatives.Count > 0)
                 {
@@ -740,7 +901,7 @@ namespace TimeTask
                         .Select(x => new
                         {
                             Text = (string)x["text"],
-                            Confidence = (float?)x["confidence"] ?? 0.6f
+                            Confidence = (float?)x["confidence"] ?? wordAvgConf
                         })
                         .Select(x => new
                         {
@@ -756,19 +917,10 @@ namespace TimeTask
                 }
 
                 string text = (string)root["text"] ?? string.Empty;
-                var words = root["result"] as JArray;
                 if (words == null || words.Count == 0)
-                    return (text, 0.6f);
+                    return (text, wordAvgConf);
 
-                var confs = words
-                    .OfType<JObject>()
-                    .Select(w => (float?)w["conf"])
-                    .Where(c => c.HasValue)
-                    .Select(c => c.Value)
-                    .ToList();
-
-                float conf = confs.Count > 0 ? confs.Average() : 0.6f;
-                return (text, ClampConfidence(conf));
+                return (text, ClampConfidence(wordAvgConf));
             }
             catch (Exception ex)
             {
@@ -782,13 +934,39 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(text))
                 return 0;
 
+            string normalized = CleanRecognizedText(text);
+            if (string.IsNullOrWhiteSpace(normalized))
+                return 0;
+
             double score = ClampConfidence(confidence);
-            if (text.Contains("会议")) score += 0.25;
-            if (text.Contains("市场")) score += 0.25;
-            if (text.Contains("部门")) score += 0.15;
-            if (text.Contains("提醒")) score += 0.15;
-            if (text.Contains("明天")) score += 0.15;
+            score += (_intentRecognizer?.ScoreTaskLikelihood(normalized) ?? 0) * 0.25;
+            score += ScoreHintMatch(normalized);
+
+            if (Regex.IsMatch(normalized, @"^(嗯+|啊+|额+|哦+|那个|就是)$", RegexOptions.IgnoreCase))
+            {
+                score -= 0.25;
+            }
+            if (normalized.Length <= 2)
+            {
+                score -= 0.15;
+            }
             return score;
+        }
+
+        private double ScoreHintMatch(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || _hintPhrases.Count == 0)
+                return 0;
+
+            string normalized = text.Trim();
+            if (_hintPhrases.Contains(normalized))
+                return 0.20;
+
+            bool containsHint = _hintPhrases.Any(p => p.Length >= 2 && normalized.IndexOf(p, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (containsHint)
+                return 0.10;
+
+            return 0;
         }
 
         private static float ClampConfidence(float value)
@@ -824,10 +1002,17 @@ namespace TimeTask
             TotalSpeechDetections++;
             LastDetectionTime = DateTime.Now;
             _lastSpeechTime = DateTime.UtcNow;
+            MarkRecognizingState();
 
             VoiceRuntimeLog.Info($"Recognized({source}) conf={confidence:F2} text={text}");
 
-            if (confidence < _confidenceThreshold * 0.55f)
+            bool isSystemFallback = _classicFallbackEnabled && string.Equals(source, "system-speech", StringComparison.OrdinalIgnoreCase);
+            double taskLikelihood = _intentRecognizer.ScoreTaskLikelihood(text);
+            float minConfidence = isSystemFallback
+                ? Math.Max(0.05f, _confidenceThreshold * 0.12f)
+                : _confidenceThreshold * 0.55f;
+
+            if (confidence < minConfidence && taskLikelihood < 0.55 && !_intentRecognizer.IsReminderLike(text))
                 return;
 
             if (_intentRecognizer.IsPotentialTask(text) || _intentRecognizer.IsReminderLike(text))
@@ -1027,22 +1212,57 @@ namespace TimeTask
             }
         }
 
+        private static string ReadStringSetting(string key, string fallback)
+        {
+            try
+            {
+                var value = ConfigurationManager.AppSettings[key];
+                return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
         private void CaptureSpeechBufferIfNeeded(byte[] buffer, int bytesRecorded)
         {
-            if (!_speakerVerifyEnabled)
-                return;
-
             if (!_isRecording || buffer == null || bytesRecorded <= 0)
                 return;
 
-            lock (_speechBuffer)
+            if (_speakerVerifyEnabled)
             {
-                int maxBytes = (int)(16000 * 2 * 6); // ~6s
-                int copy = Math.Min(bytesRecorded, maxBytes - _speechBuffer.Count);
-                if (copy > 0)
+                lock (_speechBuffer)
                 {
-                    for (int i = 0; i < copy; i++) _speechBuffer.Add(buffer[i]);
+                    int maxBytes = (int)(16000 * 2 * 6); // ~6s
+                    int copy = Math.Min(bytesRecorded, maxBytes - _speechBuffer.Count);
+                    if (copy > 0)
+                    {
+                        for (int i = 0; i < copy; i++) _speechBuffer.Add(buffer[i]);
+                    }
                 }
+            }
+
+            if (_funAsrEnabled)
+            {
+                lock (_asrSegmentBuffer)
+                {
+                    int maxBytes = (int)(16000 * 2 * 20); // ~20s
+                    int copy = Math.Min(bytesRecorded, maxBytes - _asrSegmentBuffer.Count);
+                    if (copy > 0)
+                    {
+                        for (int i = 0; i < copy; i++) _asrSegmentBuffer.Add(buffer[i]);
+                    }
+                }
+            }
+        }
+
+        private void EvaluateCompletedSegment(WaveFormat format)
+        {
+            EvaluateSpeakerSegment(format);
+            if (_funAsrEnabled)
+            {
+                TryRecognizeSegmentWithFunAsr(format);
             }
         }
 
@@ -1083,6 +1303,966 @@ namespace TimeTask
             _lastSpeakerVerified = score >= _speakerThreshold;
             _lastSpeakerVerifyTime = DateTime.UtcNow;
             VoiceRuntimeLog.Info($"Speaker verification score={score:F3} pass={_lastSpeakerVerified}");
+        }
+
+        private void TryRecognizeSegmentWithFunAsr(WaveFormat format)
+        {
+            if (!_funAsrEnabled)
+                return;
+
+            if (_classicFallbackEnabled)
+                return;
+
+            if (_funAsrRepairInProgress)
+            {
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Installing, "语音环境修复中，稍后自动恢复");
+                return;
+            }
+
+            if (format == null || format.SampleRate != 16000 || format.BitsPerSample != 16 || format.Channels != 1)
+                return;
+
+            byte[] pcm;
+            lock (_asrSegmentBuffer)
+            {
+                pcm = _asrSegmentBuffer.ToArray();
+                _asrSegmentBuffer.Clear();
+            }
+
+            if (pcm == null || pcm.Length == 0)
+                return;
+
+            double seconds = pcm.Length / (double)(format.SampleRate * 2);
+            if (seconds < _funAsrMinSegmentSeconds)
+            {
+                VoiceRuntimeLog.Info($"FunASR segment too short: {seconds:F2}s");
+                return;
+            }
+
+            _ = Task.Run(() => RecognizeWithFunAsrAsync(pcm, format.SampleRate, false));
+        }
+
+        private async Task RecognizeWithFunAsrAsync(byte[] pcm, int sampleRate, bool isRetryAfterRepair)
+        {
+            if (!await EnsureFunAsrRuntimeReadyAsync().ConfigureAwait(false))
+            {
+                HandleFunAsrFailure("语音环境未就绪");
+                return;
+            }
+
+            string scriptPath = ResolveFunAsrScriptPath();
+            if (string.IsNullOrWhiteSpace(scriptPath))
+            {
+                if (!_funAsrScriptMissingLogged)
+                {
+                    _funAsrScriptMissingLogged = true;
+                    VoiceRuntimeLog.Info($"FunASR script not found. config={_funAsrScriptPath}");
+                }
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "FunASR 脚本缺失");
+                return;
+            }
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "TimeTask", "funasr");
+            Directory.CreateDirectory(tempDir);
+            string wavPath = Path.Combine(tempDir, $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}.wav");
+
+            await _funAsrRecognitionSemaphore.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                WritePcm16MonoWav(wavPath, pcm, sampleRate);
+                if (_funAsrUsePersistentWorker)
+                {
+                    bool workerReady = await EnsureFunAsrWorkerReadyAsync(scriptPath).ConfigureAwait(false);
+                    if (!workerReady)
+                    {
+                        HandleFunAsrFailure("FunASR 工作进程启动失败");
+                        return;
+                    }
+
+                    bool wavExists = File.Exists(wavPath);
+                    VoiceRuntimeLog.Info($"FunASR worker request: wav={wavPath}, exists={wavExists}, bytes={pcm.Length}");
+                    string req = JObject.FromObject(new { wav = wavPath }).ToString(Newtonsoft.Json.Formatting.None);
+                    await _funAsrWorkerInput.WriteLineAsync(req).ConfigureAwait(false);
+                    await _funAsrWorkerInput.FlushAsync().ConfigureAwait(false);
+
+                    string response = await ReadJsonLineWithTimeoutAsync(
+                        _funAsrWorkerOutput,
+                        TimeSpan.FromSeconds(Math.Max(5, _funAsrTimeoutSeconds)),
+                        "inference").ConfigureAwait(false);
+                    if (response == null)
+                    {
+                        VoiceRuntimeLog.Info($"FunASR worker timeout. timeoutSec={_funAsrTimeoutSeconds}");
+                        StopFunAsrWorker();
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音识别超时");
+                        HandleFunAsrFailure("FunASR 识别超时");
+                        return;
+                    }
+
+                    _funAsrFailureCount = 0;
+                    _funAsrAutoRepairAttempts = 0;
+                    ParseAndHandleFunAsrOutput(response, GetFunAsrWorkerLastErr());
+                    return;
+                }
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = _funAsrPythonExe,
+                    Arguments = $"\"{scriptPath}\" --wav \"{wavPath}\" --model \"{_funAsrModel}\" --device \"{_funAsrDevice}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+
+                using (var process = new Process { StartInfo = psi })
+                {
+                    process.Start();
+                    Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+                    Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+
+                    bool exited = await Task.Run(() => process.WaitForExit(Math.Max(5, _funAsrTimeoutSeconds) * 1000)).ConfigureAwait(false);
+                    if (!exited)
+                    {
+                        try { process.Kill(); } catch { }
+                        VoiceRuntimeLog.Info($"FunASR subprocess timeout. timeoutSec={_funAsrTimeoutSeconds}");
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音识别超时");
+                        return;
+                    }
+
+                    string stdout = await stdoutTask.ConfigureAwait(false);
+                    string stderr = await stderrTask.ConfigureAwait(false);
+
+                    if (process.ExitCode != 0)
+                    {
+                        string failureDetails = BuildFunAsrFailureDetails(process.ExitCode, stdout, stderr);
+                        bool missingModule = failureDetails.IndexOf("No module named", StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (!_funAsrPythonMissingLogged && missingModule)
+                        {
+                            _funAsrPythonMissingLogged = true;
+                            VoiceRuntimeLog.Info("FunASR python dependency missing detected from subprocess output.");
+                        }
+                        VoiceRuntimeLog.Info(failureDetails);
+
+                        if (missingModule && !isRetryAfterRepair && _funAsrAutoRepairAttempts < 1)
+                        {
+                            bool repaired = await TryRepairFunAsrRuntimeAsync().ConfigureAwait(false);
+                            if (repaired)
+                            {
+                                _ = Task.Run(() => RecognizeWithFunAsrAsync(pcm, sampleRate, true));
+                                return;
+                            }
+                            TryEnableClassicRecognizerFallback("funasr-missing-module-after-repair");
+                        }
+
+                        HandleFunAsrFailure("FunASR 子进程异常");
+                        return;
+                    }
+
+                    _funAsrFailureCount = 0;
+                    _funAsrAutoRepairAttempts = 0;
+                    ParseAndHandleFunAsrOutput(stdout, stderr);
+                }
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR subprocess recognition failed.", ex);
+                HandleFunAsrFailure("FunASR 识别异常");
+            }
+            finally
+            {
+                _funAsrRecognitionSemaphore.Release();
+                try { File.Delete(wavPath); } catch { }
+            }
+        }
+
+        private async Task<bool> TryRepairFunAsrRuntimeAsync()
+        {
+            try
+            {
+                _funAsrAutoRepairAttempts++;
+                _funAsrRepairInProgress = true;
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Installing, "正在修复语音运行环境");
+                VoiceRuntimeLog.Info("Trying to repair FunASR runtime automatically.");
+
+                _funAsrBootstrapTask = FunAsrRuntimeManager.ForceRebootstrapAsync();
+                var repairedTask = _funAsrBootstrapTask;
+                var result = await repairedTask.ConfigureAwait(false);
+                if (result != null && result.IsReady && !string.IsNullOrWhiteSpace(result.PythonExe))
+                {
+                    _funAsrPythonExe = result.PythonExe;
+                    VoiceRuntimeLog.Info($"FunASR runtime repaired. python={_funAsrPythonExe}");
+                    return true;
+                }
+
+                VoiceRuntimeLog.Info($"FunASR runtime repair failed. msg={result?.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR runtime repair attempt failed.", ex);
+                return false;
+            }
+            finally
+            {
+                _funAsrRepairInProgress = false;
+            }
+        }
+
+        private async Task<bool> EnsureFunAsrWorkerReadyAsync(string scriptPath)
+        {
+            try
+            {
+                if (_funAsrWorkerProcess != null && !_funAsrWorkerProcess.HasExited && _funAsrWorkerInput != null && _funAsrWorkerOutput != null)
+                {
+                    return true;
+                }
+
+                StopFunAsrWorker();
+                string workerArgs = $"\"{scriptPath}\" --server --model \"{_funAsrModel}\" --device \"{_funAsrDevice}\"";
+                var psi = new ProcessStartInfo
+                {
+                    FileName = _funAsrPythonExe,
+                    Arguments = workerArgs,
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+
+                var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                process.Exited += (s, e) =>
+                {
+                    VoiceRuntimeLog.Info("FunASR worker exited.");
+                };
+
+                process.Start();
+                _funAsrWorkerProcess = process;
+                _funAsrWorkerInput = process.StandardInput;
+                _funAsrWorkerOutput = process.StandardOutput;
+                StartFunAsrWorkerStderrPump(process);
+
+                int startupTimeout = Math.Max(_funAsrTimeoutSeconds, _funAsrWorkerStartupTimeoutSeconds);
+                string readyLine = await ReadJsonLineWithTimeoutAsync(
+                    _funAsrWorkerOutput,
+                    TimeSpan.FromSeconds(startupTimeout),
+                    "startup").ConfigureAwait(false);
+                if (readyLine == null)
+                {
+                    VoiceRuntimeLog.Info($"FunASR worker startup timeout. timeoutSec={startupTimeout}");
+                    StopFunAsrWorker();
+                    return false;
+                }
+
+                var root = JObject.Parse(readyLine);
+                bool ok = (bool?)root["ok"] ?? false;
+                string evt = (string)root["event"] ?? string.Empty;
+                if (!ok || !string.Equals(evt, "ready", StringComparison.OrdinalIgnoreCase))
+                {
+                    VoiceRuntimeLog.Info($"FunASR worker not ready. payload={readyLine}");
+                    StopFunAsrWorker();
+                    return false;
+                }
+
+                VoiceRuntimeLog.Info($"FunASR worker started. timeoutSec={_funAsrTimeoutSeconds}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR worker startup failed.", ex);
+                StopFunAsrWorker();
+                return false;
+            }
+        }
+
+        private void StartFunAsrWorkerStderrPump(Process process)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (process != null && !process.HasExited)
+                    {
+                        string line = await process.StandardError.ReadLineAsync().ConfigureAwait(false);
+                        if (line == null)
+                        {
+                            break;
+                        }
+
+                        string trimmed = line.Trim();
+                        if (string.IsNullOrWhiteSpace(trimmed))
+                            continue;
+
+                        lock (_funAsrWorkerErrLock)
+                        {
+                            _funAsrWorkerLastErr = trimmed;
+                        }
+
+                        string lower = trimmed.ToLowerInvariant();
+                        if (lower.Contains("error") || lower.Contains("traceback") || lower.Contains("failed"))
+                        {
+                            VoiceRuntimeLog.Info($"FunASR worker stderr: {trimmed}");
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        private async Task<string> ReadLineWithTimeoutAsync(StreamReader reader, TimeSpan timeout)
+        {
+            if (reader == null)
+                return null;
+
+            Task<string> readTask = reader.ReadLineAsync();
+            Task delayTask = Task.Delay(timeout);
+            Task completed = await Task.WhenAny(readTask, delayTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, readTask))
+            {
+                return null;
+            }
+
+            return await readTask.ConfigureAwait(false);
+        }
+
+        private async Task<string> ReadJsonLineWithTimeoutAsync(StreamReader reader, TimeSpan timeout, string phase)
+        {
+            DateTime deadline = DateTime.UtcNow.Add(timeout);
+            while (DateTime.UtcNow < deadline)
+            {
+                TimeSpan remaining = deadline - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                    break;
+
+                string line = await ReadLineWithTimeoutAsync(reader, remaining).ConfigureAwait(false);
+                if (line == null)
+                    return null;
+
+                string trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed))
+                    continue;
+
+                if (trimmed.StartsWith("{"))
+                    return trimmed;
+
+                if ((DateTime.UtcNow - _funAsrWorkerStdoutLogUtc) >= TimeSpan.FromSeconds(3))
+                {
+                    _funAsrWorkerStdoutLogUtc = DateTime.UtcNow;
+                    if (trimmed.Length > 180)
+                    {
+                        trimmed = trimmed.Substring(0, 180) + "...";
+                    }
+                    VoiceRuntimeLog.Info($"FunASR worker {phase} stdout(non-json): {trimmed}");
+                }
+            }
+            return null;
+        }
+
+        private string GetFunAsrWorkerLastErr()
+        {
+            lock (_funAsrWorkerErrLock)
+            {
+                return _funAsrWorkerLastErr;
+            }
+        }
+
+        private void StopFunAsrWorker()
+        {
+            try
+            {
+                if (_funAsrWorkerInput != null)
+                {
+                    try
+                    {
+                        _funAsrWorkerInput.WriteLine("{\"cmd\":\"shutdown\"}");
+                        _funAsrWorkerInput.Flush();
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (_funAsrWorkerProcess != null && !_funAsrWorkerProcess.HasExited)
+                {
+                    try { _funAsrWorkerProcess.Kill(); } catch { }
+                }
+            }
+            catch { }
+
+            try { _funAsrWorkerInput?.Dispose(); } catch { }
+            try { _funAsrWorkerOutput?.Dispose(); } catch { }
+            try { _funAsrWorkerProcess?.Dispose(); } catch { }
+
+            _funAsrWorkerInput = null;
+            _funAsrWorkerOutput = null;
+            _funAsrWorkerProcess = null;
+        }
+
+        private void TryWaitFunAsrBootstrap(TimeSpan timeout)
+        {
+            try
+            {
+                if (_funAsrBootstrapTask == null)
+                    return;
+
+                if (_funAsrBootstrapTask.Wait(timeout))
+                {
+                    var result = _funAsrBootstrapTask.Result;
+                    _funAsrRuntimeReady = result?.IsReady ?? false;
+                    if (result != null && !string.IsNullOrWhiteSpace(result.PythonExe))
+                    {
+                        _funAsrPythonExe = result.PythonExe;
+                    }
+                    VoiceRuntimeLog.Info($"FunASR bootstrap ready={result?.IsReady}, python={result?.PythonExe}, msg={result?.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR bootstrap wait failed.", ex);
+            }
+        }
+
+        private async Task<bool> EnsureFunAsrRuntimeReadyAsync()
+        {
+            if (_funAsrBootstrapTask == null)
+                return true;
+
+            try
+            {
+                var result = await _funAsrBootstrapTask.ConfigureAwait(false);
+                if (result != null && !string.IsNullOrWhiteSpace(result.PythonExe))
+                {
+                    _funAsrPythonExe = result.PythonExe;
+                }
+
+                _funAsrRuntimeReady = result?.IsReady ?? false;
+
+                if (!_funAsrRuntimeReady && !_classicFallbackEnabled)
+                {
+                    if (_funAsrOnlyMode)
+                    {
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, $"FunASR 未就绪：{result?.Message}");
+                    }
+                    else
+                    {
+                        string reason = $"funasr-bootstrap-not-ready:{result?.Message}";
+                        bool fallbackReady = TryEnableClassicRecognizerFallback(reason);
+                        if (fallbackReady)
+                        {
+                            VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "FunASR 不可用，已自动回退本地引擎");
+                        }
+                    }
+                }
+                return _funAsrRuntimeReady;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("EnsureFunAsrRuntimeReadyAsync failed.", ex);
+                return false;
+            }
+        }
+
+        private void MarkRecognizingState()
+        {
+            VoiceListenerStatusCenter.Publish(VoiceListenerState.Recognizing, "语音识别中");
+
+            int epoch;
+            lock (_lock)
+            {
+                _recognizingStateEpoch++;
+                epoch = _recognizingStateEpoch;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1200).ConfigureAwait(false);
+
+                    bool stillLatest;
+                    lock (_lock)
+                    {
+                        stillLatest = epoch == _recognizingStateEpoch;
+                    }
+
+                    if (_enabled && stillLatest)
+                    {
+                        if (_funAsrOnlyMode && !_funAsrRuntimeReady && !_classicFallbackEnabled)
+                        {
+                            VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "FunASR 尚未就绪，语音监听不可用");
+                        }
+                        else
+                        {
+                            VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "语音监听可用");
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        private void TouchRecognizingState()
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastRecognizingTouchUtc) < TimeSpan.FromMilliseconds(350))
+                return;
+
+            _lastRecognizingTouchUtc = now;
+            MarkRecognizingState();
+        }
+
+        private bool IsRecognitionPipelineAvailable()
+        {
+            if (!_funAsrOnlyMode)
+                return true;
+
+            return _funAsrRuntimeReady || _classicFallbackEnabled;
+        }
+
+        private void ResetRecognizingStateTimer()
+        {
+            lock (_lock)
+            {
+                _recognizingStateEpoch++;
+            }
+        }
+
+        private bool IsFunAsrBootstrapFailed()
+        {
+            try
+            {
+                if (_funAsrBootstrapTask == null || !_funAsrBootstrapTask.IsCompleted)
+                    return false;
+
+                var result = _funAsrBootstrapTask.Result;
+                return result == null || !result.IsReady;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private string BuildFunAsrFailureDetails(int exitCode, string stdout, string stderr)
+        {
+            string cleanStdErr = (stderr ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(cleanStdErr))
+            {
+                return $"FunASR subprocess failed. code={exitCode}, err={cleanStdErr}";
+            }
+
+            string errorFromStdout = ExtractFunAsrErrorFromStdout(stdout);
+            if (!string.IsNullOrWhiteSpace(errorFromStdout))
+            {
+                return $"FunASR subprocess failed. code={exitCode}, out_error={errorFromStdout}";
+            }
+
+            string compactStdout = string.IsNullOrWhiteSpace(stdout) ? string.Empty : stdout.Trim();
+            if (compactStdout.Length > 240)
+            {
+                compactStdout = compactStdout.Substring(0, 240) + "...";
+            }
+            return $"FunASR subprocess failed. code={exitCode}, out={compactStdout}";
+        }
+
+        private string ExtractFunAsrErrorFromStdout(string stdout)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(stdout))
+                    return string.Empty;
+
+                string jsonLine = stdout
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .LastOrDefault(l => l.TrimStart().StartsWith("{"));
+                if (string.IsNullOrWhiteSpace(jsonLine))
+                    return string.Empty;
+
+                var root = JObject.Parse(jsonLine);
+                return (string)root["error"] ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private void HandleFunAsrFailure(string userMessage)
+        {
+            _funAsrFailureCount++;
+            _funAsrRuntimeReady = false;
+
+            if (_classicFallbackEnabled)
+            {
+                VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "已回退系统语音引擎，监听可用");
+                return;
+            }
+
+            if (!_funAsrOnlyMode && _funAsrFailureCount >= 3)
+            {
+                bool fallbackReady = TryEnableClassicRecognizerFallback("funasr-consecutive-failures");
+                if (fallbackReady)
+                {
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "FunASR 不可用，已回退系统语音引擎");
+                    return;
+                }
+            }
+
+            VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, userMessage);
+        }
+
+        private bool TryEnableClassicRecognizerFallback(string reason)
+        {
+            if (_funAsrOnlyMode)
+            {
+                VoiceRuntimeLog.Info($"Classic recognizer fallback blocked in funasr-only mode. reason={reason}");
+                return false;
+            }
+
+            lock (_lock)
+            {
+                if (_classicFallbackEnabled)
+                    return true;
+
+                try
+                {
+                    bool anyReady = false;
+
+                    // 回退优先 Vosk，System.Speech 仅兜底，避免部分系统引擎在中文场景不稳定。
+                    if (!_voskEnabled)
+                    {
+                        TryWaitModelBootstrap();
+                        bool voskReady = TryInitializeVoskRecognizer();
+                        if (voskReady)
+                        {
+                            anyReady = true;
+                            VoiceRuntimeLog.Info($"Classic fallback using Vosk, reason={reason}");
+                        }
+                        else
+                        {
+                            HookLateVoskInitialization();
+                        }
+                    }
+
+                    if (!anyReady && _recognizer == null)
+                    {
+                        InitializeSystemSpeechRecognizer();
+                    }
+
+                    anyReady = anyReady || _voskEnabled || _recognizer != null;
+                    _classicFallbackEnabled = anyReady;
+                    VoiceRuntimeLog.Info($"Classic recognizer fallback enabled={_classicFallbackEnabled}, reason={reason}");
+                    return _classicFallbackEnabled;
+                }
+                catch (Exception ex)
+                {
+                    VoiceRuntimeLog.Error($"Classic recognizer fallback failed. reason={reason}", ex);
+                    return false;
+                }
+            }
+        }
+
+        private void ParseAndHandleFunAsrOutput(string stdout, string stderr)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(stdout))
+                {
+                    VoiceRuntimeLog.Info($"FunASR output empty. stderr={stderr}");
+                    HandleFunAsrFailure("语音识别结果为空");
+                    return;
+                }
+
+                string jsonLine = stdout
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .LastOrDefault(l => l.TrimStart().StartsWith("{"));
+                if (string.IsNullOrWhiteSpace(jsonLine))
+                {
+                    VoiceRuntimeLog.Info($"FunASR output parse skipped. stdout={stdout}");
+                    HandleFunAsrFailure("语音识别结果解析失败");
+                    return;
+                }
+
+                var root = JObject.Parse(jsonLine);
+                bool ok = (bool?)root["ok"] ?? false;
+                if (!ok)
+                {
+                    string error = (string)root["error"] ?? stderr ?? "unknown";
+                    VoiceRuntimeLog.Info($"FunASR returned not-ok. error={error}");
+
+                    // 单次推理失败不应立即把监听状态打成不可用，允许用户继续说下一句。
+                    _funAsrFailureCount++;
+                    bool severe = error.IndexOf("import funasr failed", StringComparison.OrdinalIgnoreCase) >= 0
+                        || error.IndexOf("No module named", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (severe)
+                    {
+                        HandleFunAsrFailure("FunASR 运行环境异常");
+                        return;
+                    }
+
+                    if (_funAsrFailureCount >= 3)
+                    {
+                        HandleFunAsrFailure("FunASR 连续识别失败");
+                        return;
+                    }
+
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "语音监听可用（本次未识别，请重试）");
+                    return;
+                }
+
+                string text = (string)root["text"] ?? string.Empty;
+                float confidence = ClampConfidence((float?)root["confidence"] ?? 0.6f);
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    HandleFunAsrFailure("语音识别文本为空");
+                    return;
+                }
+
+                _funAsrFailureCount = 0;
+                _funAsrRuntimeReady = true;
+                HandleRecognizedText(text, confidence, "funasr");
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR output parse failed.", ex);
+                HandleFunAsrFailure("FunASR 结果解析异常");
+            }
+        }
+
+        private void StartFunAsrBootstrapMonitor()
+        {
+            if (_funAsrBootstrapTask == null || _funAsrBootstrapMonitorStarted)
+                return;
+
+            _funAsrBootstrapMonitorStarted = true;
+            VoiceRuntimeLog.Info("FunASR bootstrap monitor started.");
+            ObserveFunAsrBootstrapTask(_funAsrBootstrapTask, "initial");
+        }
+
+        private void ObserveFunAsrBootstrapTask(Task<FunAsrRuntimeBootstrapResult> task, string source)
+        {
+            if (task == null)
+                return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await task.ConfigureAwait(false);
+                    _funAsrRuntimeReady = result?.IsReady ?? false;
+
+                    if (result != null && !string.IsNullOrWhiteSpace(result.PythonExe))
+                    {
+                        _funAsrPythonExe = result.PythonExe;
+                    }
+
+                    VoiceRuntimeLog.Info($"FunASR bootstrap monitor completed. source={source}, ready={result?.IsReady}, msg={result?.Message}");
+
+                    if (!_enabled)
+                        return;
+
+                    if (_funAsrRuntimeReady)
+                    {
+                        CancelFunAsrRetry();
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "FunASR 就绪，语音监听可用");
+                    }
+                    else
+                    {
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, $"FunASR 未就绪：{result?.Message}");
+                        TryScheduleFunAsrRetry(result?.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    VoiceRuntimeLog.Error("FunASR bootstrap monitor failed.", ex);
+                    if (_enabled)
+                    {
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "FunASR 初始化失败");
+                    }
+                }
+            });
+        }
+
+        private void TryScheduleFunAsrRetry(string message)
+        {
+            if (!_enabled || string.IsNullOrWhiteSpace(message))
+                return;
+
+            int remainingSeconds = ParseRetryAfterSeconds(message);
+            if (remainingSeconds <= 0)
+                return;
+
+            int retryPollSeconds = Math.Max(15, ReadIntSetting("FunAsrRetryPollSeconds", 60));
+            int waitSeconds = Math.Min(remainingSeconds, retryPollSeconds);
+
+            lock (_lock)
+            {
+                if (_funAsrRetryCts != null)
+                    return;
+
+                _funAsrRetryCts = new CancellationTokenSource();
+            }
+
+            VoiceRuntimeLog.Info($"FunASR retry scheduled: remainingSeconds={remainingSeconds}, nextCheckSeconds={waitSeconds}, reason={message}");
+            VoiceListenerStatusCenter.Publish(
+                VoiceListenerState.Unavailable,
+                $"FunASR 冷却中（剩余约 {FormatDurationZh(remainingSeconds)}），将在 {waitSeconds} 秒后自动重试");
+
+            var cts = _funAsrRetryCts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(Math.Max(1, waitSeconds) * 1000, cts.Token).ConfigureAwait(false);
+                    if (!_enabled || cts.IsCancellationRequested)
+                        return;
+
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading, "FunASR 自动重试中");
+                    VoiceRuntimeLog.Info("FunASR auto retry trigger: calling ForceRebootstrapAsync.");
+                    _funAsrBootstrapTask = FunAsrRuntimeManager.ForceRebootstrapAsync();
+                    ObserveFunAsrBootstrapTask(_funAsrBootstrapTask, "auto-retry");
+                }
+                catch (TaskCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    VoiceRuntimeLog.Error("FunASR auto retry failed.", ex);
+                }
+                finally
+                {
+                    lock (_lock)
+                    {
+                        if (ReferenceEquals(_funAsrRetryCts, cts))
+                        {
+                            _funAsrRetryCts.Dispose();
+                            _funAsrRetryCts = null;
+                        }
+                    }
+                }
+            });
+        }
+
+        private static int ParseRetryAfterSeconds(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return 0;
+
+            const string token = "retry-after-sec=";
+            int idx = message.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                return 0;
+
+            int start = idx + token.Length;
+            int end = start;
+            while (end < message.Length && char.IsDigit(message[end]))
+            {
+                end++;
+            }
+
+            if (end <= start)
+                return 0;
+
+            string number = message.Substring(start, end - start);
+            return int.TryParse(number, out int sec) ? sec : 0;
+        }
+
+        private static string FormatDurationZh(int totalSeconds)
+        {
+            if (totalSeconds <= 0)
+                return "0秒";
+
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+            if (minutes <= 0)
+                return $"{seconds}秒";
+            if (seconds == 0)
+                return $"{minutes}分";
+            return $"{minutes}分{seconds}秒";
+        }
+
+        private void CancelFunAsrRetry()
+        {
+            lock (_lock)
+            {
+                if (_funAsrRetryCts == null)
+                    return;
+
+                try { _funAsrRetryCts.Cancel(); } catch { }
+                try { _funAsrRetryCts.Dispose(); } catch { }
+                _funAsrRetryCts = null;
+            }
+        }
+
+        private string ResolveFunAsrScriptPath()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_funAsrScriptPath))
+                    return null;
+
+                if (Path.IsPathRooted(_funAsrScriptPath) && File.Exists(_funAsrScriptPath))
+                    return _funAsrScriptPath;
+
+                string baseDirPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _funAsrScriptPath);
+                if (File.Exists(baseDirPath))
+                    return baseDirPath;
+
+                string currentDirPath = Path.Combine(Environment.CurrentDirectory, _funAsrScriptPath);
+                if (File.Exists(currentDirPath))
+                    return currentDirPath;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void WritePcm16MonoWav(string path, byte[] pcmData, int sampleRate)
+        {
+            using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var bw = new BinaryWriter(fs))
+            {
+                int subChunk2Size = pcmData?.Length ?? 0;
+                int byteRate = sampleRate * 2;
+                short blockAlign = 2;
+                short bitsPerSample = 16;
+                int chunkSize = 36 + subChunk2Size;
+
+                bw.Write(Encoding.ASCII.GetBytes("RIFF"));
+                bw.Write(chunkSize);
+                bw.Write(Encoding.ASCII.GetBytes("WAVE"));
+                bw.Write(Encoding.ASCII.GetBytes("fmt "));
+                bw.Write(16);
+                bw.Write((short)1);
+                bw.Write((short)1);
+                bw.Write(sampleRate);
+                bw.Write(byteRate);
+                bw.Write(blockAlign);
+                bw.Write(bitsPerSample);
+                bw.Write(Encoding.ASCII.GetBytes("data"));
+                bw.Write(subChunk2Size);
+                if (subChunk2Size > 0)
+                {
+                    bw.Write(pcmData);
+                }
+            }
         }
 
         private bool IsSpeakerVerified()
@@ -1261,6 +2441,8 @@ namespace TimeTask
 
             SpeechCandidate best = null;
             double bestScore = double.NegativeInfinity;
+            double bestTaskLikelihood = 0;
+            bool relaxedForSystemFallback = _classicFallbackEnabled;
 
             foreach (var candidate in candidates
                 .GroupBy(c => c.Text, StringComparer.OrdinalIgnoreCase)
@@ -1271,20 +2453,37 @@ namespace TimeTask
                     continue;
 
                 double taskLikelihood = _intentRecognizer.ScoreTaskLikelihood(normalizedText);
-                double combinedScore = taskLikelihood * 0.7 + candidate.Confidence * 0.3;
+                double hintScore = ScoreHintMatch(normalizedText);
+                double combinedScore = relaxedForSystemFallback
+                    ? taskLikelihood * 0.62 + candidate.Confidence * 0.23 + hintScore * 0.15
+                    : taskLikelihood * 0.4 + candidate.Confidence * 0.45 + hintScore * 0.15;
 
                 if (combinedScore > bestScore)
                 {
                     bestScore = combinedScore;
                     best = new SpeechCandidate(normalizedText, candidate.Confidence);
+                    bestTaskLikelihood = taskLikelihood;
                 }
             }
 
             if (best == null)
                 return null;
 
-            if (bestScore < 0.45 || best.Confidence < _confidenceThreshold * 0.7f)
-                return null;
+            if (relaxedForSystemFallback)
+            {
+                if (bestScore < 0.18 && bestTaskLikelihood < 0.60)
+                    return null;
+
+                if (best.Confidence < Math.Max(0.03f, _confidenceThreshold * 0.08f) && bestTaskLikelihood < 0.65)
+                    return null;
+            }
+            else
+            {
+                if (bestScore < 0.35 || best.Confidence < _confidenceThreshold * 0.65f)
+                    return null;
+            }
+
+            VoiceRuntimeLog.Info($"System.Speech selected: text={best.Text}, conf={best.Confidence:F2}, score={bestScore:F2}, taskLike={bestTaskLikelihood:F2}");
 
             return best;
         }
@@ -1317,6 +2516,8 @@ namespace TimeTask
         public void Dispose()
         {
             Stop();
+            try { _funAsrRecognitionSemaphore?.Dispose(); } catch { }
+            try { _llmSemaphore?.Dispose(); } catch { }
             _draftManager?.Dispose();
         }
     }

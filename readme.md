@@ -121,6 +121,7 @@ This application uses Large Language Models (LLMs) to provide features like auto
 * 若本地不存在模型且 `SpeechModelAutoDownload=true`，会从 `SpeechModelUrl` 下载 zip 并自动解压。
 * 可选配置 `SpeechModelSha256` 做完整性校验。
 * 若模型目录下存在 `phrases.txt`，会自动加载为识别提示词，提高任务类语句识别准确率。
+* 默认不会将 `phrases.txt` 作为 Vosk 强约束词表，避免对自然口语造成漏识别；可通过 `VoiceUseStrictVoskGrammar=true` 开启严格模式。
 * 运行日志输出到 `%AppData%/TimeTask/logs/voice-runtime.log`，可用于排查下载和识别初始化问题。
 * 语音草稿可自动加入四象限（默认开启），由 `VoiceAutoAddToQuadrant` 控制。
 * 语音草稿可使用 LLM 重新计算象限（默认开启），由 `VoiceUseLlmQuadrant` 控制。
@@ -130,11 +131,44 @@ This application uses Large Language Models (LLMs) to provide features like auto
 * 支持声纹识别（简单声纹），用于确认是否为用户本人发声。
 * 草稿支持多选和一键添加全部，并减少频繁通知。
 
+FunASR 本地子进程模式：
+* `VoiceAsrProvider=funasr` 时，程序会在每段语音结束后调用本地 Python 脚本 `scripts/funasr_asr.py` 进行识别。
+* 推荐使用“预置运行时包”模式：将可用 Python 环境打包为 `funasr-runtime-bundle.zip`，程序启动时自动解压并直接使用。
+* 推荐最小流程（开发机一次性操作）：
+  * `powershell -ExecutionPolicy Bypass -File scripts/build_funasr_runtime_bundle.ps1 -PythonExe "<你的 py311 路径>"`
+  * 将生成的 `funasr-runtime-bundle.zip` 放到程序目录（如 `bin\Release`）。
+* 默认启用 `FunAsrUsePersistentWorker=true`：使用常驻子进程复用已加载模型，避免每段语音都重复加载模型导致超时。
+* 当 `FunAsrPreferPrebuiltRuntime=true` 且 `FunAsrAllowOnlineInstallFallback=false` 时，未找到预置包将直接提示不可用（不会进入复杂在线安装流程）。
+* 一般无需用户手动执行 `pip install`；仅在网络受限或被安全策略拦截时，才需要手动处理。
+* 若运行中检测到 `No module named 'funasr'`，会自动触发一次运行时修复并重试识别。
+* 可通过 `FunAsrModel`、`FunAsrDevice`、`FunAsrTimeoutSeconds` 调整模型、设备和超时策略。
+
 `App.config` 示例：
 ```xml
 <add key="SpeechModelAutoDownload" value="true" />
 <add key="SpeechModelName" value="vosk-model-cn-0.22" />
 <add key="SpeechModelUrl" value="" />
+<add key="VoiceUseStrictVoskGrammar" value="false" />
+<add key="VoiceSystemSpeechUseHints" value="false" />
+<add key="VoiceAsrProvider" value="funasr" />
+<add key="FunAsrPythonExe" value="python" />
+<add key="FunAsrScriptPath" value="scripts\funasr_asr.py" />
+<add key="FunAsrModel" value="iic/SenseVoiceSmall" />
+<add key="FunAsrPreferPrebuiltRuntime" value="true" />
+<add key="FunAsrRuntimeBundlePath" value="funasr-runtime-bundle.zip" />
+<add key="FunAsrAllowOnlineInstallFallback" value="false" />
+<add key="FunAsrDevice" value="cpu" />
+<add key="FunAsrAutoBootstrap" value="true" />
+<add key="FunAsrBootstrapTimeoutSeconds" value="900" />
+<add key="FunAsrMaxPythonMinor" value="12" />
+<add key="FunAsrAutoProvisionCondaPython" value="true" />
+<add key="FunAsrCondaPythonVersion" value="3.11" />
+<add key="FunAsrCondaExe" value="" />
+<add key="FunAsrPipPackages" value="funasr modelscope torch torchaudio" />
+<add key="FunAsrUsePersistentWorker" value="true" />
+<add key="FunAsrWorkerStartupTimeoutSeconds" value="600" />
+<add key="FunAsrTimeoutSeconds" value="60" />
+<add key="FunAsrMinSegmentSeconds" value="0.5" />
 <add key="SpeechModelSha256" value="" />
 <add key="VoiceAutoAddToQuadrant" value="true" />
 <add key="VoiceAutoAddMinConfidence" value="0.65" />
@@ -157,8 +191,20 @@ This application uses Large Language Models (LLMs) to provide features like auto
 
 说明：
 * 当 `SpeechModelUrl` 留空且 `SpeechModelName=vosk-model-cn-0.22` 时，程序会使用内置默认地址自动下载更大中文模型（更准确，体积更大）。
-* 当前识别链路为：`Vosk 模型优先`，`System.Speech` 作为回退。
+* 当前识别链路可配置：`VoiceAsrProvider=funasr`（本地 Python 子进程）或 `VoiceAsrProvider=hybrid`（Vosk/System.Speech + FunASR）。
+* 当回退到 `System.Speech` 时，默认不加载 hints grammar（`VoiceSystemSpeechUseHints=false`），以降低部分中文引擎异常概率。
 * 日志中出现 `Vosk recognizer initialized`、`Recognized(vosk)` 表示模型已真实参与语音转写。
+* 日志中出现 `Recognized(funasr)` 表示 FunASR 子进程结果已进入任务提炼链路。
+* FunASR 自动安装日志会写入 `%AppData%/TimeTask/logs/voice-runtime.log`（关键字：`FunASR bootstrap`）。
+* 可通过脚本 `scripts/build_funasr_runtime_bundle.ps1` 在开发机生成预置运行包，再随程序分发。
+* 若当前系统 Python 为 3.13+，程序会自动判定为不兼容并回退本地引擎（可通过安装 3.10/3.11/3.12 并配置 `FunAsrPythonExe` 切回 FunASR）。
+* 新版本可在检测到 Python 不兼容时自动尝试通过 Conda 创建 Python 3.11 运行时（默认开启）。
+* 主界面“右上象限（重要不紧急）标题栏”提供“耳朵状态图标”：
+  * 同时显示文字状态（`语音·加载中/安装中/可监听/识别中/不可用`）
+  * 橙色并脉冲：模型安装/加载中
+  * 灰色：语音不可用
+  * 绿色：可监听
+  * 蓝色并脉冲：正在识别
 * `phrases.txt` 会用于提升 Vosk 识别准确率（语音热词/短语列表）。
 * 主动协同能力（提醒、卡点建议）可通过 `ProactiveAssistEnabled` 总开关控制。
 * 若只想保留提醒但不做用户画像学习，可将 `BehaviorLearningEnabled=false`。

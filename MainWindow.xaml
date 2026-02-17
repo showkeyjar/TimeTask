@@ -230,6 +230,7 @@
                     </Border>
                 </Grid>
             </Button>
+
         </StackPanel>
 
         <!-- Quadrant 1: Important & Urgent -->
@@ -282,16 +283,79 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
-                    <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
-                    <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
+                <Grid Grid.Row="0" Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                        <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="12.5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                    </StackPanel>
+
+                    <Button x:Name="VoiceStatusButton"
+                            Grid.Column="2"
+                            Width="Auto"
+                            Height="26"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Padding="8,0"
+                            Margin="0,0,4,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False"
+                            ToolTip="语音监听状态">
                         <Button.Resources>
                             <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="12.5"/>
+                                <Setter Property="CornerRadius" Value="13"/>
                             </Style>
                         </Button.Resources>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#DDDDDD"/>
+                                <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                                <Setter Property="Foreground" Value="#888888"/>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="VoiceStatusIcon"
+                                       Text="👂"
+                                       Grid.Column="0"
+                                       Margin="0,0,5,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.RenderTransform>
+                                    <ScaleTransform x:Name="VoiceStatusScale" ScaleX="1" ScaleY="1"/>
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                            <TextBlock x:Name="VoiceStatusText"
+                                       Grid.Column="1"
+                                       Text="语音·未知"
+                                       VerticalAlignment="Center"
+                                       Foreground="#666666"/>
+                            <Ellipse x:Name="VoiceStatusDot"
+                                     Grid.Column="2"
+                                     Width="7"
+                                     Height="7"
+                                     Fill="#888888"
+                                     VerticalAlignment="Center"
+                                     Margin="6,0,0,0"/>
+                        </Grid>
                     </Button>
-                </StackPanel>
+                </Grid>
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325">

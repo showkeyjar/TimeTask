@@ -14,6 +14,7 @@ namespace TimeTask
         private bool _isClarificationRound = false; // State for clarification
         private string _originalTaskDescription = string.Empty; // To store original task if clarification is needed
         private bool _isLlmConfigErrorNotified = false; // Flag to track if user has been notified of LLM config error
+        private readonly IntentRecognizer _intentRecognizer = new IntentRecognizer();
 
         public string TaskDescription { get; private set; }
         public int SelectedListIndex { get; private set; } // 0-indexed
@@ -128,7 +129,7 @@ namespace TimeTask
 
         private async void AddTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            string currentTaskDescription = TaskDescriptionTextBox.Text.Trim();
+            string currentTaskDescription = NormalizeTaskText(TaskDescriptionTextBox.Text);
             SelectedListIndex = ListSelectorComboBox.SelectedIndex;
             string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";
 
@@ -182,6 +183,7 @@ namespace TimeTask
                 // Prioritization & Task Creation (either directly or after clarification)
                 TaskDescription = currentTaskDescription; // Final task description
                 var (llmImportance, llmUrgency) = await _llmService.GetTaskPriorityAsync(TaskDescription);
+                var (ruleImportance, ruleUrgency) = _intentRecognizer.EstimatePriority(TaskDescription);
 
                 // Check for LLM configuration error after priority analysis
                 // string configErrorSubstring has been defined above
@@ -195,18 +197,20 @@ namespace TimeTask
                 }
 
                 // --- LLM Suggestion Logic ---
-                int suggestedIndex = GetIndexFromPriority(llmImportance, llmUrgency);
+                var (finalImportanceByAi, finalUrgencyByAi, sourceTag) = MergePriority(llmImportance, llmUrgency, ruleImportance, ruleUrgency);
+                int suggestedIndex = GetIndexFromPriority(finalImportanceByAi, finalUrgencyByAi);
                 ListSelectorComboBox.SelectedIndex = suggestedIndex;
 
                 if (suggestedIndex != -1 && ListSelectorComboBox.SelectedItem != null)
                 {
-                    LlmSuggestionText.Text = $"LLM Suggests: {ListSelectorComboBox.SelectedItem as string}";
+                    string label = ListSelectorComboBox.SelectedItem as string;
+                    LlmSuggestionText.Text = $"AI建议象限（{sourceTag}）: {label}";
                     LlmSuggestionText.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     // Handle cases where suggestion is ambiguous or mapping fails
-                    LlmSuggestionText.Text = "LLM suggestion unavailable.";
+                    LlmSuggestionText.Text = "AI建议暂不可用，请手动选择象限。";
                     LlmSuggestionText.Visibility = Visibility.Collapsed; // Or Visible with a different message
                 }
                 // --- End LLM Suggestion Logic ---
@@ -283,7 +287,7 @@ namespace TimeTask
 
             // Default or fallback for Medium/Unknown - could be -1 to indicate no selection
             // Or a specific category like "Important & Urgent"
-            return 0; // Defaulting to "Important & Urgent" for now
+            return 1; // 对未知结果偏向“重要不紧急”，降低默认紧急打扰
         }
 
         // Helper method to map ComboBox index back to Importance/Urgency strings
@@ -311,6 +315,60 @@ namespace TimeTask
         {
             this.DialogResult = false;
             this.Close();
+        }
+
+        private static bool IsKnownPriority(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string v = value.Trim().ToLowerInvariant();
+            return v == "high" || v == "medium" || v == "low";
+        }
+
+        private (string importance, string urgency, string sourceTag) MergePriority(
+            string llmImportance,
+            string llmUrgency,
+            string ruleImportance,
+            string ruleUrgency)
+        {
+            bool llmValid = IsKnownPriority(llmImportance) && IsKnownPriority(llmUrgency)
+                && !ContainsDummy(llmImportance)
+                && !ContainsDummy(llmUrgency);
+
+            if (llmValid)
+            {
+                return (llmImportance, llmUrgency, "LLM");
+            }
+
+            bool ruleValid = IsKnownPriority(ruleImportance) && IsKnownPriority(ruleUrgency);
+            if (ruleValid)
+            {
+                return (ruleImportance, ruleUrgency, "规则");
+            }
+
+            return ("Medium", "Low", "默认");
+        }
+
+        private static bool ContainsDummy(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.IndexOf("dummy response", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private string NormalizeTaskText(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return string.Empty;
+
+            string trimmed = raw.Trim();
+            string extracted = _intentRecognizer.ExtractTaskDescription(trimmed);
+            if (!string.IsNullOrWhiteSpace(extracted))
+            {
+                return extracted.Trim();
+            }
+
+            return trimmed;
         }
     }
 } // Closing brace for namespace TimeTask

@@ -15,6 +15,8 @@ namespace TimeTask
     /// </summary>
     public class TaskDraftManager : IDisposable
     {
+        public static event Action DraftsChanged;
+
         private readonly string _draftsFilePath;
         private readonly object _lock = new object();
         private List<TaskDraft> _drafts = new List<TaskDraft>();
@@ -58,6 +60,7 @@ namespace TimeTask
                     existing.LastDetected = DateTime.Now;
                     existing.DetectionCount++;
                     SaveDrafts();
+                    NotifyDraftsChanged();
                     return;
                 }
 
@@ -80,6 +83,7 @@ namespace TimeTask
                 CleanupOldDrafts();
 
                 SaveDrafts();
+                NotifyDraftsChanged();
 
                 // 检查是否需要触发通知
                 CheckAndNotify();
@@ -110,6 +114,7 @@ namespace TimeTask
                 {
                     draft.IsProcessed = true;
                     SaveDrafts();
+                    NotifyDraftsChanged();
                 }
             }
         }
@@ -135,6 +140,7 @@ namespace TimeTask
                 draft.EstimatedQuadrant = updated.EstimatedQuadrant;
                 draft.LastDetected = DateTime.Now;
                 SaveDrafts();
+                NotifyDraftsChanged();
             }
         }
 
@@ -148,6 +154,7 @@ namespace TimeTask
                 LoadDrafts();
                 _drafts = _drafts.Where(d => d.Id != draftId).ToList();
                 SaveDrafts();
+                NotifyDraftsChanged();
             }
         }
 
@@ -161,6 +168,7 @@ namespace TimeTask
                 LoadDrafts();
                 _drafts.Clear();
                 SaveDrafts();
+                NotifyDraftsChanged();
             }
         }
 
@@ -256,6 +264,17 @@ namespace TimeTask
         public void Dispose()
         {
             SaveDrafts();
+        }
+
+        private static void NotifyDraftsChanged()
+        {
+            try
+            {
+                DraftsChanged?.Invoke();
+            }
+            catch
+            {
+            }
         }
     }
 

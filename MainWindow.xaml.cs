@@ -326,6 +326,8 @@ namespace TimeTask
         private static TimeSpan SecondWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.SecondWarningAfterDays);
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
         private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
+        private System.Windows.Threading.DispatcherTimer _voiceStatusAnimTimer;
+        private VoiceListenerState _voiceListenerState = VoiceListenerState.Unknown;
         private TaskDraftManager _draftBadgeManager;
         private UserProfileManager _userProfileManager;
         private bool _proactiveAssistEnabled = true;
@@ -591,6 +593,8 @@ namespace TimeTask
         public MainWindow()
         {
             InitializeComponent();
+            InitializeVoiceStatusIndicator();
+            this.Closed += MainWindow_Closed;
             
             // 初始化用户体验改进功能
             UXImprovements.Initialize(this);
@@ -633,6 +637,225 @@ namespace TimeTask
             ApplyQuickImprovements();
 
             InitializeDraftBadgeMonitor();
+        }
+
+        private void InitializeVoiceStatusIndicator()
+        {
+            try
+            {
+                _voiceStatusAnimTimer = new System.Windows.Threading.DispatcherTimer();
+                _voiceStatusAnimTimer.Interval = TimeSpan.FromMilliseconds(280);
+                _voiceStatusAnimTimer.Tick += VoiceStatusAnimTimer_Tick;
+
+                VoiceListenerStatusCenter.StatusChanged += VoiceListenerStatusCenter_StatusChanged;
+                UpdateVoiceStatusUi(VoiceListenerStatusCenter.Current);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Voice status indicator init failed: {ex.Message}");
+            }
+        }
+
+        private void VoiceListenerStatusCenter_StatusChanged(object sender, VoiceListenerStatus status)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => UpdateVoiceStatusUi(status)));
+                return;
+            }
+
+            UpdateVoiceStatusUi(status);
+        }
+
+        private void UpdateVoiceStatusUi(VoiceListenerStatus status)
+        {
+            if (status == null || VoiceStatusButton == null || VoiceStatusIcon == null || VoiceStatusDot == null || VoiceStatusText == null)
+                return;
+
+            _voiceListenerState = status.State;
+            string statusLabel = GetVoiceStatusLabel(status.State);
+            string tooltipMessage = string.IsNullOrWhiteSpace(status.Message) ? statusLabel : status.Message;
+            string updatedLocal = status.UpdatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
+            VoiceStatusButton.ToolTip = $"语音状态: {statusLabel}\n{tooltipMessage}\n更新时间: {updatedLocal}";
+            VoiceStatusText.Text = BuildVoiceStatusText(statusLabel, status.Message);
+
+            switch (status.State)
+            {
+                case VoiceListenerState.Installing:
+                case VoiceListenerState.Loading:
+                    ApplyVoiceStatusBrush("#FFECEFF1", "#FFB0BEC5", "#FF90A4AE");
+                    StopVoiceStatusAnimation();
+                    break;
+                case VoiceListenerState.Unavailable:
+                    ApplyVoiceStatusBrush("#FFECEFF1", "#FFB0BEC5", "#FF90A4AE");
+                    StopVoiceStatusAnimation();
+                    break;
+                case VoiceListenerState.Ready:
+                    ApplyVoiceStatusBrush("#FFE8F5E9", "#FFA5D6A7", "#FF2E7D32");
+                    StopVoiceStatusAnimation();
+                    break;
+                case VoiceListenerState.Recognizing:
+                    ApplyVoiceStatusBrush("#FFE3F2FD", "#FF90CAF9", "#FF1E88E5");
+                    StartVoiceStatusAnimation();
+                    break;
+                default:
+                    ApplyVoiceStatusBrush("#FFECEFF1", "#FFCFD8DC", "#FF90A4AE");
+                    StopVoiceStatusAnimation();
+                    break;
+            }
+        }
+
+        private static string GetVoiceStatusLabel(VoiceListenerState state)
+        {
+            switch (state)
+            {
+                case VoiceListenerState.Installing:
+                case VoiceListenerState.Loading:
+                    return "不可用";
+                case VoiceListenerState.Unavailable:
+                    return "不可用";
+                case VoiceListenerState.Ready:
+                    return "可监听";
+                case VoiceListenerState.Recognizing:
+                    return "识别中";
+                default:
+                    return "未知";
+            }
+        }
+
+        private static string BuildVoiceStatusText(string statusLabel, string statusMessage)
+        {
+            string msg = statusMessage ?? string.Empty;
+            int retrySec = ParseRetryAfterSeconds(msg);
+            if (retrySec > 0)
+            {
+                return $"语音冷却中 约{FormatDurationZh(retrySec)}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(msg))
+            {
+                string compact = msg.Replace("：", " ").Trim();
+                if (compact.Length > 28)
+                {
+                    compact = compact.Substring(0, 28) + "...";
+                }
+                return compact;
+            }
+
+            return $"语音·{statusLabel}";
+        }
+
+        private static int ParseRetryAfterSeconds(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return 0;
+
+            const string token = "retry-after-sec=";
+            int idx = message.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                return 0;
+
+            int start = idx + token.Length;
+            int end = start;
+            while (end < message.Length && char.IsDigit(message[end]))
+            {
+                end++;
+            }
+
+            if (end <= start)
+                return 0;
+
+            string number = message.Substring(start, end - start);
+            return int.TryParse(number, out int sec) ? sec : 0;
+        }
+
+        private static string FormatDurationZh(int totalSeconds)
+        {
+            if (totalSeconds <= 0)
+                return "0秒";
+
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+            if (minutes <= 0)
+                return $"{seconds}秒";
+            if (seconds == 0)
+                return $"{minutes}分";
+            return $"{minutes}分{seconds}秒";
+        }
+
+        private void ApplyVoiceStatusBrush(string bgHex, string borderHex, string fgHex)
+        {
+            var bg = (Brush)new BrushConverter().ConvertFromString(bgHex);
+            var border = (Brush)new BrushConverter().ConvertFromString(borderHex);
+            var fg = (Brush)new BrushConverter().ConvertFromString(fgHex);
+
+            VoiceStatusButton.Background = bg;
+            VoiceStatusButton.BorderBrush = border;
+            VoiceStatusIcon.Foreground = fg;
+            VoiceStatusText.Foreground = fg;
+            VoiceStatusDot.Fill = fg;
+        }
+
+        private void StartVoiceStatusAnimation()
+        {
+            if (_voiceStatusAnimTimer != null && !_voiceStatusAnimTimer.IsEnabled)
+            {
+                _voiceStatusAnimTimer.Start();
+            }
+        }
+
+        private void StopVoiceStatusAnimation()
+        {
+            if (_voiceStatusAnimTimer != null && _voiceStatusAnimTimer.IsEnabled)
+            {
+                _voiceStatusAnimTimer.Stop();
+            }
+
+            if (VoiceStatusScale != null)
+            {
+                VoiceStatusScale.ScaleX = 1.0;
+                VoiceStatusScale.ScaleY = 1.0;
+            }
+
+            if (VoiceStatusIcon != null)
+            {
+                VoiceStatusIcon.Opacity = 1.0;
+            }
+        }
+
+        private void VoiceStatusAnimTimer_Tick(object sender, EventArgs e)
+        {
+            if (VoiceStatusScale == null || VoiceStatusIcon == null)
+                return;
+
+            bool activePulse = _voiceListenerState == VoiceListenerState.Recognizing;
+
+            if (!activePulse)
+            {
+                StopVoiceStatusAnimation();
+                return;
+            }
+
+            bool enlarged = VoiceStatusScale.ScaleX > 1.05;
+            VoiceStatusScale.ScaleX = enlarged ? 1.0 : 1.16;
+            VoiceStatusScale.ScaleY = enlarged ? 1.0 : 1.16;
+            VoiceStatusIcon.Opacity = enlarged ? 1.0 : 0.72;
+        }
+
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            try
+            {
+                VoiceListenerStatusCenter.StatusChanged -= VoiceListenerStatusCenter_StatusChanged;
+                TaskDraftManager.DraftsChanged -= TaskDraftManager_DraftsChanged;
+                if (_voiceStatusAnimTimer != null)
+                {
+                    _voiceStatusAnimTimer.Stop();
+                    _voiceStatusAnimTimer.Tick -= VoiceStatusAnimTimer_Tick;
+                    _voiceStatusAnimTimer = null;
+                }
+            }
+            catch { }
         }
 
         private void ApplyQuickImprovements()
@@ -757,8 +980,9 @@ namespace TimeTask
             try
             {
                 _draftBadgeManager = new TaskDraftManager();
+                TaskDraftManager.DraftsChanged += TaskDraftManager_DraftsChanged;
                 _draftBadgeTimer = new System.Windows.Threading.DispatcherTimer();
-                _draftBadgeTimer.Interval = TimeSpan.FromSeconds(30);
+                _draftBadgeTimer.Interval = TimeSpan.FromSeconds(3);
                 _draftBadgeTimer.Tick += (s, e) => UpdateDraftBadge();
                 _draftBadgeTimer.Start();
                 UpdateDraftBadge();
@@ -780,6 +1004,21 @@ namespace TimeTask
 
                 DraftBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
                 DraftBadgeText.Text = count > 99 ? "99+" : count.ToString();
+            }
+            catch { }
+        }
+
+        private void TaskDraftManager_DraftsChanged()
+        {
+            try
+            {
+                if (!Dispatcher.CheckAccess())
+                {
+                    Dispatcher.BeginInvoke(new Action(UpdateDraftBadge));
+                    return;
+                }
+
+                UpdateDraftBadge();
             }
             catch { }
         }

@@ -158,10 +158,6 @@
       <DependentUpon>SetLongTermGoalWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="LongTermGoalManagerWindow.xaml.cs">
-      <DependentUpon>LongTermGoalManagerWindow.xaml</DependentUpon>
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="SetLearningPlanWindow.xaml.cs">
       <DependentUpon>SetLearningPlanWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -183,6 +179,8 @@
     <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="NotificationManager.cs" />
+    <Compile Include="FunAsrRuntimeManager.cs" />
+    <Compile Include="VoiceListenerStatusCenter.cs" />
     <Compile Include="DraftViewerWindow.xaml.cs">
       <DependentUpon>DraftViewerWindow.xaml</DependentUpon>
     </Compile>
@@ -235,6 +233,12 @@
     </None>
     <None Include="data\1.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="scripts\funasr_asr.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="funasr-runtime-bundle.zip" Condition="Exists('funasr-runtime-bundle.zip')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

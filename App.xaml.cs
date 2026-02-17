@@ -30,6 +30,9 @@ namespace TimeTask
             VoiceRuntimeLog.Info("App startup.");
             VoiceRuntimeLog.Info($"ProcessBitness: {(Environment.Is64BitProcess ? "x64" : "x86")}, OS: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
             VoiceRuntimeLog.Info($"BaseDirectory: {AppDomain.CurrentDomain.BaseDirectory}");
+            VoiceRuntimeLog.Info($"Config: VoiceAsrProvider={ConfigurationManager.AppSettings["VoiceAsrProvider"]}, FunAsrAutoBootstrap={ConfigurationManager.AppSettings["FunAsrAutoBootstrap"]}");
+            VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用（启动初始化中）");
+            FunAsrRuntimeManager.KickoffIfNeeded();
 
             // Check for API Key configuration
             string apiKey = System.Configuration.ConfigurationManager.AppSettings["OpenAIApiKey"];
@@ -90,11 +93,13 @@ namespace TimeTask
                     _legacyAudioService = new AudioCaptureService();
                     _legacyAudioService.Start();
                     VoiceRuntimeLog.Info("Legacy AudioCaptureService started as fallback.");
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "已回退到系统语音引擎，监听可用");
                 }
                 catch (Exception ex2)
                 {
                     Console.WriteLine($"[App] Legacy AudioCaptureService also failed: {ex2.Message}");
                     VoiceRuntimeLog.Error("Legacy AudioCaptureService start failed.", ex2);
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用");
                     MessageBox.Show(
                         "语音识别初始化失败，系统未检测到可用语音识别引擎或麦克风权限异常。\n" +
                         $"请查看日志：{VoiceRuntimeLog.LogFilePath}",
