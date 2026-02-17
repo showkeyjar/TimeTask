@@ -133,10 +133,10 @@ This application uses Large Language Models (LLMs) to provide features like auto
 
 FunASR 本地子进程模式：
 * `VoiceAsrProvider=funasr` 时，程序会在每段语音结束后调用本地 Python 脚本 `scripts/funasr_asr.py` 进行识别。
-* 推荐使用“预置运行时包”模式：将可用 Python 环境打包为 `funasr-runtime-bundle.zip`，程序启动时自动解压并直接使用。
+* 推荐使用“预置运行时包”模式：将可用 Python 环境打包为 `data/funasr-runtime-bundle.zip`，程序启动时自动解压并直接使用。
 * 推荐最小流程（开发机一次性操作）：
   * `powershell -ExecutionPolicy Bypass -File scripts/build_funasr_runtime_bundle.ps1 -PythonExe "<你的 py311 路径>"`
-  * 将生成的 `funasr-runtime-bundle.zip` 放到程序目录（如 `bin\Release`）。
+  * 默认会生成到 `data/funasr-runtime-bundle.zip`。
 * 默认启用 `FunAsrUsePersistentWorker=true`：使用常驻子进程复用已加载模型，避免每段语音都重复加载模型导致超时。
 * 当 `FunAsrPreferPrebuiltRuntime=true` 且 `FunAsrAllowOnlineInstallFallback=false` 时，未找到预置包将直接提示不可用（不会进入复杂在线安装流程）。
 * 一般无需用户手动执行 `pip install`；仅在网络受限或被安全策略拦截时，才需要手动处理。
@@ -155,7 +155,7 @@ FunASR 本地子进程模式：
 <add key="FunAsrScriptPath" value="scripts\funasr_asr.py" />
 <add key="FunAsrModel" value="iic/SenseVoiceSmall" />
 <add key="FunAsrPreferPrebuiltRuntime" value="true" />
-<add key="FunAsrRuntimeBundlePath" value="funasr-runtime-bundle.zip" />
+<add key="FunAsrRuntimeBundlePath" value="data\funasr-runtime-bundle.zip" />
 <add key="FunAsrAllowOnlineInstallFallback" value="false" />
 <add key="FunAsrDevice" value="cpu" />
 <add key="FunAsrAutoBootstrap" value="true" />

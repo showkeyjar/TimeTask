@@ -37,6 +37,8 @@ bld/
 .cursor/
 .vs/
 .funasr_bundle_build/
+funasr-runtime-bundle.zip
+data/funasr-runtime-bundle.zip
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 

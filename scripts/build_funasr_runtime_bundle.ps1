@@ -1,6 +1,6 @@
 param(
     [string]$PythonExe = "python",
-    [string]$OutputZip = "funasr-runtime-bundle.zip",
+    [string]$OutputZip = "data\funasr-runtime-bundle.zip",
     [string]$WorkDir = ".funasr_bundle_build",
     [string]$RuntimeDeps = "modelscope torch torchaudio numpy scipy librosa soundfile kaldiio torch-complex sentencepiece jieba pytorch-wpe oss2 tqdm umap-learn jaconv hydra-core tensorboardX requests pyyaml jamo"
 )
@@ -34,6 +34,10 @@ Run-Step $venvPython "-m pip install --prefer-binary --no-deps funasr"
 Run-Step $venvPython "-c `"import funasr,modelscope,torch,numpy,scipy;print('ok')`""
 
 $outputPath = Join-Path $root $OutputZip
+$outputDir = Split-Path -Parent $outputPath
+if (-not [string]::IsNullOrWhiteSpace($outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+}
 if (Test-Path $outputPath) {
     Remove-Item $outputPath -Force
 }

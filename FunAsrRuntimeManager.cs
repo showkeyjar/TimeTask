@@ -123,7 +123,7 @@ namespace TimeTask
                 string runtimeRoot = Path.Combine(appData, "TimeTask", "funasr-runtime");
                 bool preferPrebuiltRuntime = ReadBool("FunAsrPreferPrebuiltRuntime", true);
                 bool allowOnlineInstallFallback = ReadBool("FunAsrAllowOnlineInstallFallback", false);
-                string bundlePath = ReadString("FunAsrRuntimeBundlePath", "funasr-runtime-bundle.zip");
+                string bundlePath = ReadString("FunAsrRuntimeBundlePath", @"data\funasr-runtime-bundle.zip");
 
                 Directory.CreateDirectory(runtimeRoot);
                 VoiceRuntimeLog.Info($"FunASR runtime strategy: preferPrebuiltRuntime={preferPrebuiltRuntime}, allowOnlineInstallFallback={allowOnlineInstallFallback}, bundlePath={bundlePath}");

@@ -237,7 +237,7 @@
     <None Include="scripts\funasr_asr.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="funasr-runtime-bundle.zip" Condition="Exists('funasr-runtime-bundle.zip')">
+    <None Include="data\funasr-runtime-bundle.zip" Condition="Exists('data\funasr-runtime-bundle.zip')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Properties\Settings.settings">
