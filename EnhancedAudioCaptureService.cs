@@ -104,11 +104,12 @@ namespace TimeTask
         // 意图识别和草稿管理
         private IntentRecognizer _intentRecognizer;
         private TaskDraftManager _draftManager;
+        private VoiceReminderTimeParser _reminderTimeParser;
 
         // VAD 参数 - 更保守的配置
-        private readonly double _energyThresholdDb = -30.0; // 能量阈值，-30dBFS 表示要有一定音量
-        private readonly int _minStartMs = 500;              // 连续高能量达到 500ms 才开始录音
-        private readonly int _hangoverMs = 1500;             // 录音进行中，连续低能量达到 1.5s 才停止
+        private double _energyThresholdDb = -30.0; // 能量阈值，-30dBFS 表示要有一定音量
+        private int _minStartMs = 260;              // 连续高能量达到 260ms 即可开始，减少首句漏检
+        private int _hangoverMs = 900;              // 连续低能量达到 900ms 即停止，提升响应速度
         private int _consecAboveMs = 0;
         private int _consecBelowMs = 0;
         private DateTime _lastAudioStateSpeech = DateTime.MinValue;
@@ -128,6 +129,7 @@ namespace TimeTask
 
             _intentRecognizer = new IntentRecognizer();
             _draftManager = new TaskDraftManager();
+            _reminderTimeParser = new VoiceReminderTimeParser();
             _speechModelManager = new SpeechModelManager();
             _modelBootstrapTask = _speechModelManager.EnsureReadyAsync();
             _autoAddVoiceTasks = ReadBoolSetting("VoiceAutoAddToQuadrant", false);
@@ -155,6 +157,9 @@ namespace TimeTask
             _funAsrWorkerStartupTimeoutSeconds = ReadIntSetting("FunAsrWorkerStartupTimeoutSeconds", 600);
             _funAsrUsePersistentWorker = ReadBoolSetting("FunAsrUsePersistentWorker", true);
             _funAsrMinSegmentSeconds = ReadDoubleSetting("FunAsrMinSegmentSeconds", 0.5);
+            _energyThresholdDb = ReadDoubleSetting("VoiceEnergyThresholdDb", -30.0);
+            _minStartMs = ReadIntSetting("VoiceVadMinStartMs", 260);
+            _hangoverMs = ReadIntSetting("VoiceVadHangoverMs", 900);
             if (_funAsrEnabled)
             {
                 VoiceRuntimeLog.Info($"EnhancedAudioCaptureService ctor: requesting FunASR bootstrap task. provider={_asrProvider}");
@@ -437,6 +442,12 @@ namespace TimeTask
                 if (string.IsNullOrWhiteSpace(cleanedText))
                     return null;
 
+                DateTime? reminderTime = null;
+                if (_reminderTimeParser != null && _reminderTimeParser.TryParse(text, DateTime.Now, out DateTime parsedTime))
+                {
+                    reminderTime = parsedTime;
+                }
+
                 // 估计优先级
                 var (importance, urgency) = _intentRecognizer.EstimatePriority(cleanedText);
 
@@ -448,6 +459,8 @@ namespace TimeTask
                 {
                     RawText = text,
                     CleanedText = cleanedText,
+                    ReminderTime = reminderTime,
+                    ReminderHintText = reminderTime.HasValue ? reminderTime.Value.ToString("yyyy-MM-dd HH:mm") : null,
                     Importance = importance,
                     Urgency = urgency,
                     EstimatedQuadrant = quadrant,
@@ -456,8 +469,8 @@ namespace TimeTask
 
                 _draftManager.AddDraft(draft);
 
-                Console.WriteLine($"[EnhancedAudioCaptureService] Task draft created: \"{cleanedText}\" (Quadrant: {quadrant}, Conf: {confidence:P0})");
-                VoiceRuntimeLog.Info($"Task draft created from voice. text={cleanedText}, quadrant={quadrant}, conf={confidence:F2}");
+                Console.WriteLine($"[EnhancedAudioCaptureService] Task draft created: \"{cleanedText}\" (Quadrant: {quadrant}, Conf: {confidence:P0}, Reminder: {reminderTime?.ToString("yyyy-MM-dd HH:mm") ?? "none"})");
+                VoiceRuntimeLog.Info($"Task draft created from voice. text={cleanedText}, quadrant={quadrant}, conf={confidence:F2}, reminder={reminderTime?.ToString("o") ?? "none"}");
                 return draft;
             }
             catch (Exception ex)
@@ -1008,14 +1021,20 @@ namespace TimeTask
 
             bool isSystemFallback = _classicFallbackEnabled && string.Equals(source, "system-speech", StringComparison.OrdinalIgnoreCase);
             double taskLikelihood = _intentRecognizer.ScoreTaskLikelihood(text);
+            bool reminderLike = _intentRecognizer.IsReminderLike(text);
             float minConfidence = isSystemFallback
                 ? Math.Max(0.05f, _confidenceThreshold * 0.12f)
-                : _confidenceThreshold * 0.55f;
+                : _confidenceThreshold * 0.45f;
 
-            if (confidence < minConfidence && taskLikelihood < 0.55 && !_intentRecognizer.IsReminderLike(text))
+            if (reminderLike)
+            {
+                minConfidence = Math.Max(0.15f, minConfidence * 0.6f);
+            }
+
+            if (confidence < minConfidence && taskLikelihood < 0.45 && !reminderLike)
                 return;
 
-            if (_intentRecognizer.IsPotentialTask(text) || _intentRecognizer.IsReminderLike(text))
+            if (_intentRecognizer.IsPotentialTask(text) || reminderLike)
             {
                 TotalPotentialTasks++;
                 var draft = ProcessPotentialTask(text, confidence);
@@ -1114,6 +1133,7 @@ namespace TimeTask
                     IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
+                    ReminderTime = draft.ReminderTime,
                     IsActiveInQuadrant = true,
                     InactiveWarningCount = 0,
                     Result = string.Empty

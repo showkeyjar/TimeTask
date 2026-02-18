@@ -82,6 +82,9 @@
     <Compile Include="SmartQuadrantSelectorWindow.xaml.cs">
       <DependentUpon>SmartQuadrantSelectorWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="SkillManagementWindow.xaml.cs">
+      <DependentUpon>SkillManagementWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TaskReminderWindow.xaml.cs">
       <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
     </Compile>
@@ -123,6 +126,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="SetLearningPlanWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="SkillManagementWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -178,6 +185,8 @@
     <Compile Include="IntentRecognizer.cs" />
     <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
+    <Compile Include="SkillManagementService.cs" />
+    <Compile Include="VoiceReminderTimeParser.cs" />
     <Compile Include="NotificationManager.cs" />
     <Compile Include="FunAsrRuntimeManager.cs" />
     <Compile Include="VoiceListenerStatusCenter.cs" />

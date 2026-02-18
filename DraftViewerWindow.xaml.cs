@@ -89,6 +89,7 @@ namespace TimeTask
                     IsActive = true,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
+                    ReminderTime = draft.ReminderTime,
                     IsActiveInQuadrant = true,
                     InactiveWarningCount = 0,
                     Result = string.Empty

@@ -1115,6 +1115,7 @@ namespace TimeTask
                             inactiveDuration,
                             reminderContext,
                             2);
+                        skillRecs = SkillManagementService.FilterEnabled(skillRecs);
                         var shownSkillIds = new List<string>();
                         mergedSuggestions = MergeSkillSuggestions(mergedSuggestions, skillRecs, shownSkillIds);
                         RememberPendingReminderSkills(task, shownSkillIds);
@@ -2809,6 +2810,11 @@ namespace TimeTask
             UpdateDraftBadge();
         }
 
+        private void SkillCenterButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenSkillManagement();
+        }
+
         private void ShowSettingsMenu()
         {
             var contextMenu = new ContextMenu();
@@ -2830,6 +2836,14 @@ namespace TimeTask
             };
             reminderSettingsItem.Click += (s, e) => OpenReminderSettings();
             contextMenu.Items.Add(reminderSettingsItem);
+
+            var skillManagementItem = new MenuItem
+            {
+                Header = "🧠 Skill 管理",
+                ToolTip = "启用/停用技能并查看反馈效果"
+            };
+            skillManagementItem.Click += (s, e) => OpenSkillManagement();
+            contextMenu.Items.Add(skillManagementItem);
             
             contextMenu.Items.Add(new Separator());
             
@@ -3238,6 +3252,15 @@ namespace TimeTask
             ReminderSettingsWindow settingsWindow = new ReminderSettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.ShowDialog();
+        }
+
+        private void OpenSkillManagement()
+        {
+            var window = new SkillManagementWindow
+            {
+                Owner = this
+            };
+            window.ShowDialog();
         }
 
         private void ShowAbout()

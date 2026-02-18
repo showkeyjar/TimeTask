@@ -26,6 +26,15 @@ namespace TimeTask
         public string TopEffectiveActionId { get; set; }
     }
 
+    public class ActionPerformance
+    {
+        public string ActionId { get; set; }
+        public int Shown { get; set; }
+        public int Accepted { get; set; }
+        public int Deferred { get; set; }
+        public int Rejected { get; set; }
+    }
+
     public class AdaptiveNudgeRecommendation
     {
         public int RecommendedStuckThresholdMinutes { get; set; }
@@ -190,6 +199,31 @@ namespace TimeTask
                 RecommendedStuckThresholdMinutes = thresholdMinutes,
                 RecommendedDailyNudgeLimit = dailyLimit
             };
+        }
+
+        public List<ActionPerformance> GetActionPerformance(int windowDays = 30)
+        {
+            lock (_sync)
+            {
+                DateTime cutoff = DateTime.Now.AddDays(-Math.Max(1, windowDays));
+                var events = (_profile.SuggestionEvents ?? new List<SuggestionEventRecord>())
+                    .Where(e => e != null && e.CreatedAt >= cutoff && !string.IsNullOrWhiteSpace(e.ActionId))
+                    .ToList();
+
+                return events
+                    .GroupBy(e => e.ActionId.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => new ActionPerformance
+                    {
+                        ActionId = g.Key,
+                        Shown = g.Count(x => string.Equals(x.EventType, "shown", StringComparison.OrdinalIgnoreCase)),
+                        Accepted = g.Count(x => string.Equals(x.EventType, "accepted", StringComparison.OrdinalIgnoreCase)),
+                        Deferred = g.Count(x => string.Equals(x.EventType, "deferred", StringComparison.OrdinalIgnoreCase)),
+                        Rejected = g.Count(x => string.Equals(x.EventType, "rejected", StringComparison.OrdinalIgnoreCase))
+                    })
+                    .OrderByDescending(x => x.Shown)
+                    .ThenBy(x => x.ActionId, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
         }
 
         public UserProfileManager()

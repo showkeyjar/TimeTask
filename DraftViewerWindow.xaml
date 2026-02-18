@@ -25,7 +25,7 @@
 
         <!-- 说明文字 -->
         <TextBlock Grid.Row="1" Margin="15,10" TextWrapping="Wrap" Foreground="Gray">
-            这些是系统通过监听您的语音自动识别的潜在任务。点击"添加到任务"将任务添加到对应的四象限，或点击"忽略"删除草稿。
+            这些是系统通过监听您的语音自动识别的潜在任务。若识别到时间，系统会显示“提醒时间”并在加入任务后自动带入提醒。
         </TextBlock>
 
         <!-- 草稿列表 -->
@@ -41,6 +41,7 @@
                 <DataGridTextColumn Header="任务描述" Width="*" Binding="{Binding CleanedText}"/>
                 <DataGridTextColumn Header="象限" Width="100" Binding="{Binding EstimatedQuadrant}"/>
                 <DataGridTextColumn Header="优先级" Width="80" Binding="{Binding Importance}"/>
+                <DataGridTextColumn Header="提醒时间" Width="140" Binding="{Binding ReminderTime, StringFormat='yyyy-MM-dd HH:mm'}"/>
                 <DataGridTextColumn Header="检测次数" Width="80" Binding="{Binding DetectionCount}"/>
             </DataGrid.Columns>
         </DataGrid>
