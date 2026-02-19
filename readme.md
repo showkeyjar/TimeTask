@@ -185,6 +185,7 @@ FunASR 本地子进程模式：
 <add key="BehaviorLearningEnabled" value="true" />
 <add key="StuckNudgesEnabled" value="true" />
 <add key="LlmSkillAssistEnabled" value="true" />
+<add key="NonBlockingInteractionEnabled" value="true" />
 <add key="QuietHoursStart" value="22" />
 <add key="QuietHoursEnd" value="8" />
 ```
@@ -209,7 +210,17 @@ FunASR 本地子进程模式：
 * 主动协同能力（提醒、卡点建议）可通过 `ProactiveAssistEnabled` 总开关控制。
 * 若只想保留提醒但不做用户画像学习，可将 `BehaviorLearningEnabled=false`。
 * 可通过 `LlmSkillAssistEnabled` 启用/停用“LLM Skill 推荐”（分解、冲刺、优先级重排、风险检查等）。
+* `NonBlockingInteractionEnabled=true` 时，系统尽量使用轻提示替代确认弹窗，减少打断与压迫感。
 * 可通过 `QuietHoursStart/QuietHoursEnd` 配置安静时段（例如 22 到 8）。
+
+## 自我进化能力（新增）
+当前版本在本地新增了可控的“自我进化”机制（不依赖云端训练）：
+* 基于建议反馈（shown/accepted/deferred/rejected）自动更新策略质量分。
+* 卡点建议采用“利用+探索”混合排序：优先推荐历史有效动作，同时保留少量探索避免策略固化。
+* 当策略质量持续下降时，系统会自动变得更保守（提高触发阈值、降低每日打断上限）。
+* 当策略效果恢复时，系统会逐步恢复主动性。
+* 加入安全回滚：检测到明显退化时，自动提升探索率，避免持续错误策略。
+* 所有学习数据仅存于本地 `%AppData%/TimeTask/user-profile.json`。
 
 ## 注意事项
 

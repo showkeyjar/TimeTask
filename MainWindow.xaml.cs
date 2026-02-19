@@ -334,6 +334,7 @@ namespace TimeTask
         private bool _behaviorLearningEnabled = true;
         private bool _stuckNudgesEnabled = true;
         private bool _llmSkillAssistEnabled = true;
+        private bool _nonBlockingInteractionEnabled = true;
         private int _quietHoursStart = 22;
         private int _quietHoursEnd = 8;
         private const int DailyReminderLimit = 3;
@@ -905,6 +906,7 @@ namespace TimeTask
             _behaviorLearningEnabled = GetAppSettingBool("BehaviorLearningEnabled", true);
             _stuckNudgesEnabled = GetAppSettingBool("StuckNudgesEnabled", true);
             _llmSkillAssistEnabled = GetAppSettingBool("LlmSkillAssistEnabled", true);
+            _nonBlockingInteractionEnabled = GetAppSettingBool("NonBlockingInteractionEnabled", true);
             _quietHoursStart = GetAppSettingInt("QuietHoursStart", 22, 0, 23);
             _quietHoursEnd = GetAppSettingInt("QuietHoursEnd", 8, 0, 23);
         }
@@ -1092,6 +1094,16 @@ namespace TimeTask
                 return;
             }
 
+            if (_nonBlockingInteractionEnabled)
+            {
+                ShowPassiveNotification(
+                    scenario?.Title ?? "功能引导",
+                    $"{scenario?.Description}\n已记录本次引导，你可在合适的时候再操作。",
+                    System.Windows.Forms.ToolTipIcon.Info);
+                _smartGuidanceManager.CompleteScenario(scenario.ScenarioId);
+                return;
+            }
+
             var result = MessageBox.Show(
                 $"{scenario.Description}\n\n是否现在操作？",
                 scenario.Title,
@@ -1142,11 +1154,21 @@ namespace TimeTask
 
             if (autoActivated)
             {
-                MessageBox.Show(
-                    "已自动触发一次引导动作，帮助你快速开始使用该功能。你仍可在管理界面中继续调整。",
-                    scenario.Title,
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                if (_nonBlockingInteractionEnabled)
+                {
+                    ShowPassiveNotification(
+                        scenario?.Title ?? "功能引导",
+                        "已自动触发一次引导动作，你可随时继续调整。",
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "已自动触发一次引导动作，帮助你快速开始使用该功能。你仍可在管理界面中继续调整。",
+                        scenario.Title,
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
             }
 
             _smartGuidanceManager.CompleteScenario(scenario.ScenarioId);
@@ -1285,7 +1307,27 @@ namespace TimeTask
         private void ShowConversationTasksNotification(ConversationSession session)
         {
             var taskList = string.Join("\n", session.ExtractedTasks.Take(5).Select((t, i) => $"{i + 1}. {t}"));
-            
+
+            if (_nonBlockingInteractionEnabled)
+            {
+                var selectedTasks = session.ExtractedTasks
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(3)
+                    .ToList();
+
+                if (selectedTasks.Count > 0)
+                {
+                    AddConversationTasks(selectedTasks);
+                    ShowPassiveNotification(
+                        "对话任务识别",
+                        $"已自动添加 {selectedTasks.Count} 条任务，你可在四象限中随时修改或删除。",
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+                _conversationRecorder.MarkSessionAsProcessed(session.SessionId);
+                return;
+            }
+
             var result = MessageBox.Show(
                 $"从对话中识别到以下任务：\n\n{taskList}\n\n是否添加到任务列表？",
                 "对话任务识别",
@@ -1343,6 +1385,16 @@ namespace TimeTask
 
         private void ShowInsightNotification(WorkHabitInsight insight)
         {
+            if (_nonBlockingInteractionEnabled)
+            {
+                _behaviorObserver.AcknowledgeInsight(insight.InsightId);
+                ShowPassiveNotification(
+                    insight?.Title ?? "习惯洞察",
+                    $"{insight?.Description}\n建议：{insight?.Recommendation}",
+                    System.Windows.Forms.ToolTipIcon.Info);
+                return;
+            }
+
             var result = MessageBox.Show(
                 $"{insight.Description}\n\n建议：{insight.Recommendation}\n\n是否标记为已读？",
                 insight.Title,
@@ -1372,6 +1424,16 @@ namespace TimeTask
 
         private void ShowAdjustmentSuggestionNotification(GoalAdjustmentSuggestion suggestion)
         {
+            if (_nonBlockingInteractionEnabled)
+            {
+                ShowPassiveNotification(
+                    "目标调整建议",
+                    $"目标：{suggestion?.GoalDescription}\n建议：{suggestion?.Suggestion}\n已保存建议，可稍后在目标管理中处理。",
+                    System.Windows.Forms.ToolTipIcon.Warning);
+                _behaviorObserver?.RecordSystemEvent("goal_adjustment_notified_passive", $"Goal: {suggestion?.GoalDescription}, Type: {suggestion?.AdjustmentType}");
+                return;
+            }
+
             var result = MessageBox.Show(
                 $"目标：{suggestion.GoalDescription}\n\n原因：{suggestion.Reason}\n\n建议：{suggestion.Suggestion}\n\n是否接受此建议？",
                 "目标调整建议",
@@ -1893,8 +1955,14 @@ namespace TimeTask
                     return;
                 }
 
-                _adaptiveStuckNoProgressThreshold = ClampThreshold(TimeSpan.FromMinutes(recommendation.RecommendedStuckThresholdMinutes));
-                _adaptiveDailyStuckNudgeLimit = Math.Max(MinDailyStuckNudgeLimit, Math.Min(MaxDailyStuckNudgeLimit, recommendation.RecommendedDailyNudgeLimit));
+                double confidence = Math.Max(0.0, Math.Min(1.0, recommendation.RecommendationConfidence));
+                int blendedThresholdMinutes = (int)Math.Round(DefaultStuckNoProgressThreshold.TotalMinutes +
+                    (recommendation.RecommendedStuckThresholdMinutes - DefaultStuckNoProgressThreshold.TotalMinutes) * confidence);
+                int blendedDailyLimit = (int)Math.Round(DefaultDailyStuckNudgeLimit +
+                    (recommendation.RecommendedDailyNudgeLimit - DefaultDailyStuckNudgeLimit) * confidence);
+
+                _adaptiveStuckNoProgressThreshold = ClampThreshold(TimeSpan.FromMinutes(blendedThresholdMinutes));
+                _adaptiveDailyStuckNudgeLimit = Math.Max(MinDailyStuckNudgeLimit, Math.Min(MaxDailyStuckNudgeLimit, blendedDailyLimit));
                 _lastAdaptiveTuneAt = now;
             }
             catch (Exception ex)
@@ -2667,12 +2735,15 @@ namespace TimeTask
             }
 
             DateTime? selected = editor.SelectedReminderTime;
-            string confirmText = selected.HasValue
-                ? $"将“{task.Task}”的提醒时间设为 {selected.Value:yyyy-MM-dd HH:mm}，确认吗？"
-                : $"将“{task.Task}”的提醒时间清空，确认吗？";
-            if (MessageBox.Show(confirmText, "确认提醒时间", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!_nonBlockingInteractionEnabled)
             {
-                return false;
+                string confirmText = selected.HasValue
+                    ? $"将“{task.Task}”的提醒时间设为 {selected.Value:yyyy-MM-dd HH:mm}，确认吗？"
+                    : $"将“{task.Task}”的提醒时间清空，确认吗？";
+                if (MessageBox.Show(confirmText, "确认提醒时间", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                {
+                    return false;
+                }
             }
 
             task.ReminderTime = selected;
@@ -2681,7 +2752,33 @@ namespace TimeTask
             task.LastInteractionDate = DateTime.Now;
             TrackTaskInteraction(task, "edit");
             _behaviorObserver?.RecordTaskOperation("update_reminder_time", task.Task, GetTaskTrackingKey(task));
+            if (_nonBlockingInteractionEnabled)
+            {
+                string msg = selected.HasValue
+                    ? $"已更新提醒时间：{selected.Value:yyyy-MM-dd HH:mm}"
+                    : "已清空提醒时间";
+                ShowPassiveNotification("提醒时间已更新", msg, System.Windows.Forms.ToolTipIcon.Info);
+            }
             return true;
+        }
+
+        private static void ShowPassiveNotification(string title, string message, System.Windows.Forms.ToolTipIcon icon = System.Windows.Forms.ToolTipIcon.Info, int durationMs = 5000)
+        {
+            var notification = new System.Windows.Forms.NotifyIcon
+            {
+                Visible = true,
+                Icon = System.Drawing.SystemIcons.Information,
+                BalloonTipTitle = string.IsNullOrWhiteSpace(title) ? "TimeTask" : title,
+                BalloonTipText = string.IsNullOrWhiteSpace(message) ? "已完成操作" : message,
+                BalloonTipIcon = icon
+            };
+
+            notification.ShowBalloonTip(durationMs);
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                System.Threading.Thread.Sleep(durationMs);
+                notification.Dispose();
+            });
         }
 
         private DataGrid FindSourceGridForTask(ItemGrid task)

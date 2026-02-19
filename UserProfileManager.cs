@@ -39,6 +39,15 @@ namespace TimeTask
     {
         public int RecommendedStuckThresholdMinutes { get; set; }
         public int RecommendedDailyNudgeLimit { get; set; }
+        public double RecommendationConfidence { get; set; }
+    }
+
+    public class SelfEvolutionPolicyState
+    {
+        public double ExplorationRate { get; set; } = 0.22;
+        public double LastQualityScore { get; set; } = 0.0;
+        public int RollbackCount { get; set; } = 0;
+        public DateTime LastTunedAt { get; set; } = DateTime.MinValue;
     }
 
     public class UserProfileSnapshot
@@ -57,6 +66,7 @@ namespace TimeTask
         public Dictionary<string, int> SuggestionDeferredHistogram { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, int> SuggestionRejectedHistogram { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public List<SuggestionEventRecord> SuggestionEvents { get; set; } = new List<SuggestionEventRecord>();
+        public SelfEvolutionPolicyState EvolutionPolicy { get; set; } = new SelfEvolutionPolicyState();
     }
 
     public class UserProfileManager
@@ -161,44 +171,71 @@ namespace TimeTask
 
         public AdaptiveNudgeRecommendation GetAdaptiveNudgeRecommendation(int windowDays = 7)
         {
-            var metrics = GetDashboardMetrics(windowDays);
-            int thresholdMinutes = 90;
-            int dailyLimit = 2;
+            lock (_sync)
+            {
+                var metrics = GetDashboardMetrics(windowDays);
+                var policy = EnsureEvolutionPolicy();
+                TuneEvolutionPolicy(metrics, policy);
 
-            if (metrics.SuggestionsShown < 5)
-            {
-                thresholdMinutes = 90;
-                dailyLimit = 2;
-            }
-            else if (metrics.InterruptionIndex >= 0.65)
-            {
-                thresholdMinutes = 120;
-                dailyLimit = 1;
-            }
-            else if (metrics.InterruptionIndex >= 0.50)
-            {
-                thresholdMinutes = 105;
-                dailyLimit = 1;
-            }
-            else if (metrics.HitRate >= 0.45 && metrics.InterruptionIndex <= 0.35)
-            {
-                thresholdMinutes = 75;
-                dailyLimit = 3;
-            }
-            else if (metrics.HitRate >= 0.30 && metrics.InterruptionIndex <= 0.40)
-            {
-                thresholdMinutes = 80;
-                dailyLimit = 2;
-            }
+                int thresholdMinutes = 90;
+                int dailyLimit = 2;
 
-            thresholdMinutes = Math.Max(60, Math.Min(180, thresholdMinutes));
-            dailyLimit = Math.Max(1, Math.Min(3, dailyLimit));
+                if (metrics.SuggestionsShown < 5)
+                {
+                    thresholdMinutes = 90;
+                    dailyLimit = 2;
+                }
+                else if (metrics.InterruptionIndex >= 0.65)
+                {
+                    thresholdMinutes = 120;
+                    dailyLimit = 1;
+                }
+                else if (metrics.InterruptionIndex >= 0.50)
+                {
+                    thresholdMinutes = 105;
+                    dailyLimit = 1;
+                }
+                else if (metrics.HitRate >= 0.45 && metrics.InterruptionIndex <= 0.35)
+                {
+                    thresholdMinutes = 75;
+                    dailyLimit = 3;
+                }
+                else if (metrics.HitRate >= 0.30 && metrics.InterruptionIndex <= 0.40)
+                {
+                    thresholdMinutes = 80;
+                    dailyLimit = 2;
+                }
 
-            return new AdaptiveNudgeRecommendation
-            {
-                RecommendedStuckThresholdMinutes = thresholdMinutes,
-                RecommendedDailyNudgeLimit = dailyLimit
-            };
+                // Policy-guided self evolution: quality drops -> less interruption, quality rises -> more proactive.
+                if (metrics.SuggestionsShown >= 8)
+                {
+                    if (policy.LastQualityScore <= -0.05)
+                    {
+                        thresholdMinutes += 10;
+                        dailyLimit -= 1;
+                    }
+                    else if (policy.LastQualityScore >= 0.20)
+                    {
+                        thresholdMinutes -= 10;
+                        dailyLimit += 1;
+                    }
+                }
+
+                if (policy.ExplorationRate >= 0.30)
+                {
+                    thresholdMinutes += 5;
+                }
+
+                thresholdMinutes = Math.Max(60, Math.Min(180, thresholdMinutes));
+                dailyLimit = Math.Max(1, Math.Min(3, dailyLimit));
+
+                return new AdaptiveNudgeRecommendation
+                {
+                    RecommendedStuckThresholdMinutes = thresholdMinutes,
+                    RecommendedDailyNudgeLimit = dailyLimit,
+                    RecommendationConfidence = Math.Min(1.0, metrics.SuggestionsShown / 20.0)
+                };
+            }
         }
 
         public List<ActionPerformance> GetActionPerformance(int windowDays = 30)
@@ -227,8 +264,12 @@ namespace TimeTask
         }
 
         public UserProfileManager()
+            : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TimeTask"))
         {
-            string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TimeTask");
+        }
+
+        public UserProfileManager(string appDataPath)
+        {
             Directory.CreateDirectory(appDataPath);
             _profilePath = Path.Combine(appDataPath, "user-profile.json");
             _profile = LoadOrCreate();
@@ -346,9 +387,12 @@ namespace TimeTask
         {
             lock (_sync)
             {
+                var policy = EnsureEvolutionPolicy();
                 int hours = Math.Max(1, (int)Math.Round(noProgressDuration.TotalHours));
                 bool highImportance = string.Equals(task?.Importance, "High", StringComparison.OrdinalIgnoreCase);
                 bool highUrgency = string.Equals(task?.Urgency, "High", StringComparison.OrdinalIgnoreCase);
+                var perfByAction = GetActionPerformanceMap(30);
+                int totalShown = Math.Max(1, perfByAction.Values.Sum(v => v.Shown));
 
                 bool avoidanceHeavy = _profile.ReminderSnoozedCount + _profile.ReminderDismissedCount >
                                      _profile.ReminderCompletedCount + _profile.ReminderUpdatedCount;
@@ -406,6 +450,16 @@ namespace TimeTask
                     int deferred = GetHistogramValue(_profile.SuggestionDeferredHistogram, s.Id);
                     int rejected = GetHistogramValue(_profile.SuggestionRejectedHistogram, s.Id);
                     s.Score += (accepted * 2) - deferred - (rejected * 2);
+
+                    perfByAction.TryGetValue(s.Id, out var perf);
+                    int shown = perf?.Shown ?? 0;
+                    // Bayesian mean with weak prior; deferred contributes partial utility.
+                    double expectedReward = (accepted + deferred * 0.35 + 1.0) / (shown + 2.0);
+                    double explorationBonus = policy.ExplorationRate * Math.Sqrt(Math.Log(totalShown + 2.0) / (shown + 1.0));
+                    bool hasStrongNegative = rejected >= Math.Max(3, accepted + 2);
+                    double rollbackPenalty = hasStrongNegative ? 0.25 : 0.0;
+                    int banditScore = (int)Math.Round((expectedReward + explorationBonus - rollbackPenalty) * 10.0);
+                    s.Score += banditScore;
                 }
 
                 return suggestions
@@ -513,6 +567,7 @@ namespace TimeTask
                         loaded.SuggestionDeferredHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         loaded.SuggestionRejectedHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         loaded.SuggestionEvents ??= new List<SuggestionEventRecord>();
+                        loaded.EvolutionPolicy ??= new SelfEvolutionPolicyState();
                         return loaded;
                     }
                 }
@@ -547,6 +602,70 @@ namespace TimeTask
             }
 
             return histogram.TryGetValue(key, out int value) ? value : 0;
+        }
+
+        private Dictionary<string, ActionPerformance> GetActionPerformanceMap(int windowDays)
+        {
+            DateTime cutoff = DateTime.Now.AddDays(-Math.Max(1, windowDays));
+            var events = (_profile.SuggestionEvents ?? new List<SuggestionEventRecord>())
+                .Where(e => e != null && e.CreatedAt >= cutoff && !string.IsNullOrWhiteSpace(e.ActionId))
+                .ToList();
+
+            return events
+                .GroupBy(e => e.ActionId.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => new ActionPerformance
+                    {
+                        ActionId = g.Key,
+                        Shown = g.Count(x => string.Equals(x.EventType, "shown", StringComparison.OrdinalIgnoreCase)),
+                        Accepted = g.Count(x => string.Equals(x.EventType, "accepted", StringComparison.OrdinalIgnoreCase)),
+                        Deferred = g.Count(x => string.Equals(x.EventType, "deferred", StringComparison.OrdinalIgnoreCase)),
+                        Rejected = g.Count(x => string.Equals(x.EventType, "rejected", StringComparison.OrdinalIgnoreCase))
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        private SelfEvolutionPolicyState EnsureEvolutionPolicy()
+        {
+            _profile.EvolutionPolicy ??= new SelfEvolutionPolicyState();
+            return _profile.EvolutionPolicy;
+        }
+
+        private void TuneEvolutionPolicy(UserProfileMetrics metrics, SelfEvolutionPolicyState policy)
+        {
+            if (policy == null || metrics == null || metrics.SuggestionsShown < 6)
+            {
+                return;
+            }
+            if ((DateTime.Now - policy.LastTunedAt) < TimeSpan.FromMinutes(30))
+            {
+                return;
+            }
+
+            double quality = metrics.HitRate - (metrics.InterruptionIndex * 0.75);
+            double previous = policy.LastQualityScore;
+
+            if (quality <= -0.15)
+            {
+                policy.ExplorationRate = Math.Min(0.40, policy.ExplorationRate + 0.05);
+            }
+            else if (quality >= 0.20)
+            {
+                policy.ExplorationRate = Math.Max(0.10, policy.ExplorationRate - 0.03);
+            }
+
+            // Safety rollback: quality deteriorates sharply while already in exploitation mode.
+            if (quality < previous - 0.12 && policy.ExplorationRate < 0.18)
+            {
+                policy.ExplorationRate = 0.25;
+                policy.RollbackCount++;
+            }
+
+            policy.LastQualityScore = quality;
+            policy.LastTunedAt = DateTime.Now;
+            _profile.LastUpdatedAt = DateTime.Now;
+            Save();
         }
 
         private void AddSuggestionEvent(string actionId, string eventType)
