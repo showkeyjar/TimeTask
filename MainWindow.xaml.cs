@@ -361,6 +361,16 @@ namespace TimeTask
         private HashSet<string> _syncedTaskSourceIDs = new HashSet<string>();
         private bool _isFirstSyncAttempted = false; // To control initial sync message
 
+        // 新增智能系统
+        private SmartGuidanceManager _smartGuidanceManager;
+        private ConversationRecorder _conversationRecorder;
+        private UserBehaviorObserver _behaviorObserver;
+        private AdaptiveGoalManager _adaptiveGoalManager;
+        private System.Windows.Threading.DispatcherTimer _smartSystemTimer;
+        private System.Windows.Threading.DispatcherTimer _conversationIdleTimer;
+        private DateTime _lastVoiceConversationSegmentAtUtc = DateTime.MinValue;
+        private static readonly TimeSpan ConversationIdleTimeout = TimeSpan.FromSeconds(75);
+
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
         private Point? _dragStartPoint; // To store the starting point of a potential drag
@@ -637,6 +647,9 @@ namespace TimeTask
             ApplyQuickImprovements();
 
             InitializeDraftBadgeMonitor();
+
+            // 初始化智能系统
+            InitializeSmartSystems();
         }
 
         private void InitializeVoiceStatusIndicator()
@@ -847,6 +860,7 @@ namespace TimeTask
             try
             {
                 VoiceListenerStatusCenter.StatusChanged -= VoiceListenerStatusCenter_StatusChanged;
+                VoiceListenerStatusCenter.RecognitionCaptured -= VoiceListenerStatusCenter_RecognitionCaptured;
                 TaskDraftManager.DraftsChanged -= TaskDraftManager_DraftsChanged;
                 if (_voiceStatusAnimTimer != null)
                 {
@@ -854,6 +868,15 @@ namespace TimeTask
                     _voiceStatusAnimTimer.Tick -= VoiceStatusAnimTimer_Tick;
                     _voiceStatusAnimTimer = null;
                 }
+
+                if (_conversationIdleTimer != null)
+                {
+                    _conversationIdleTimer.Stop();
+                    _conversationIdleTimer.Tick -= ConversationIdleTimer_Tick;
+                    _conversationIdleTimer = null;
+                }
+
+                _conversationRecorder?.EndSession();
             }
             catch { }
         }
@@ -990,6 +1013,476 @@ namespace TimeTask
             catch (Exception ex)
             {
                 Console.WriteLine($"Draft badge init failed: {ex.Message}");
+            }
+        }
+
+        private void InitializeSmartSystems()
+        {
+            try
+            {
+                string dataPath = Path.Combine(currentPath, "data");
+                Directory.CreateDirectory(dataPath);
+
+                _behaviorObserver = new UserBehaviorObserver(dataPath);
+                _smartGuidanceManager = new SmartGuidanceManager(dataPath);
+                _conversationRecorder = new ConversationRecorder(dataPath);
+                _adaptiveGoalManager = new AdaptiveGoalManager(dataPath, _userProfileManager, _behaviorObserver);
+
+                _smartGuidanceManager.ScenarioTriggered += SmartGuidanceManager_ScenarioTriggered;
+                _conversationRecorder.ConversationEnded += ConversationRecorder_ConversationEnded;
+                _behaviorObserver.NewInsightGenerated += BehaviorObserver_NewInsightGenerated;
+                _adaptiveGoalManager.AdjustmentSuggested += AdaptiveGoalManager_AdjustmentSuggested;
+                _adaptiveGoalManager.GoalAtRisk += AdaptiveGoalManager_GoalAtRisk;
+
+                _smartGuidanceManager.Initialize();
+
+                _smartSystemTimer = new System.Windows.Threading.DispatcherTimer();
+                _smartSystemTimer.Interval = TimeSpan.FromMinutes(5);
+                _smartSystemTimer.Tick += SmartSystemTimer_Tick;
+                _smartSystemTimer.Start();
+
+                VoiceListenerStatusCenter.RecognitionCaptured -= VoiceListenerStatusCenter_RecognitionCaptured;
+                VoiceListenerStatusCenter.RecognitionCaptured += VoiceListenerStatusCenter_RecognitionCaptured;
+                _conversationIdleTimer = new System.Windows.Threading.DispatcherTimer();
+                _conversationIdleTimer.Interval = TimeSpan.FromSeconds(15);
+                _conversationIdleTimer.Tick += ConversationIdleTimer_Tick;
+                _conversationIdleTimer.Start();
+
+                Console.WriteLine("[SmartSystems] Initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SmartSystems] Initialization failed: {ex.Message}");
+            }
+        }
+
+        private void SmartSystemTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                _smartGuidanceManager.CheckAndTriggerScenarios();
+                _adaptiveGoalManager.CheckAndAdjustGoals();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SmartSystems] Timer tick failed: {ex.Message}");
+            }
+        }
+
+        private void SmartGuidanceManager_ScenarioTriggered(OnboardingScenario scenario)
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowGuidanceNotification(scenario);
+                }));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SmartGuidance] Failed to show scenario: {ex.Message}");
+            }
+        }
+
+        private void ShowGuidanceNotification(OnboardingScenario scenario)
+        {
+            if (scenario != null && scenario.AutoActivate)
+            {
+                _ = HandleScenarioActionAsync(scenario, true);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"{scenario.Description}\n\n是否现在操作？",
+                scenario.Title,
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _ = HandleScenarioActionAsync(scenario, false);
+            }
+            else
+            {
+                _smartGuidanceManager.CompleteScenario(scenario.ScenarioId);
+            }
+        }
+
+        private async Task HandleScenarioActionAsync(OnboardingScenario scenario, bool autoActivated)
+        {
+            switch (scenario.ScenarioId)
+            {
+                case "first_task":
+                    AddQuickTask_Click(null, null);
+                    break;
+                case "long_term_goal_intro":
+                    LongTermGoalButton_Click(null, null);
+                    break;
+                case "skill_decompose_intro":
+                    AutoEnableSkill("decompose");
+                    if (!await TryAutoActivateDecomposeSkillAsync())
+                    {
+                        ShowSkillRecommendation("decompose");
+                    }
+                    break;
+                case "skill_focus_sprint_intro":
+                    AutoEnableSkill("focus_sprint");
+                    if (!TryAutoActivateFocusSprintSkill())
+                    {
+                        ShowSkillRecommendation("focus_sprint");
+                    }
+                    break;
+                case "voice_task_intro":
+                    ShowVoiceSettings();
+                    break;
+                case "goal_progress_check":
+                    OpenLongTermGoalManager();
+                    break;
+            }
+
+            if (autoActivated)
+            {
+                MessageBox.Show(
+                    "已自动触发一次引导动作，帮助你快速开始使用该功能。你仍可在管理界面中继续调整。",
+                    scenario.Title,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            _smartGuidanceManager.CompleteScenario(scenario.ScenarioId);
+        }
+
+        private void AutoEnableSkill(string skillId)
+        {
+            if (string.IsNullOrWhiteSpace(skillId))
+            {
+                return;
+            }
+
+            var enabled = SkillManagementService.LoadEnabledSkillIds();
+            if (enabled.Contains(skillId))
+            {
+                return;
+            }
+
+            enabled.Add(skillId);
+            SkillManagementService.SaveEnabledSkillIds(enabled);
+        }
+
+        private async Task<bool> TryAutoActivateDecomposeSkillAsync()
+        {
+            var target = GetActiveTasks()
+                .Where(t => !string.IsNullOrWhiteSpace(t.Task))
+                .OrderByDescending(t => t.Task.Length)
+                .FirstOrDefault(t => t.Task.Length >= 12);
+
+            if (target == null)
+            {
+                return false;
+            }
+
+            await HandleTaskDecomposition(target);
+            return true;
+        }
+
+        private bool TryAutoActivateFocusSprintSkill()
+        {
+            DateTime now = DateTime.Now;
+            var target = GetActiveTasks()
+                .Where(t => (now - t.LastProgressDate) > TimeSpan.FromHours(2))
+                .OrderByDescending(t => now - t.LastProgressDate)
+                .FirstOrDefault();
+            if (target == null)
+            {
+                return false;
+            }
+
+            ShowFriendlyReminder(target, "建议开启一次 25 分钟专注冲刺，只完成一个最小可交付动作。");
+            return true;
+        }
+
+        private List<ItemGrid> GetActiveTasks()
+        {
+            var tasks = new List<ItemGrid>();
+            var grids = new[] { task1, task2, task3, task4 };
+            foreach (var grid in grids)
+            {
+                if (grid?.ItemsSource is List<ItemGrid> items)
+                {
+                    tasks.AddRange(items.Where(t => t.IsActive));
+                }
+            }
+
+            return tasks;
+        }
+
+        private void VoiceListenerStatusCenter_RecognitionCaptured(object sender, VoiceRecognitionRecord record)
+        {
+            try
+            {
+                if (_conversationRecorder == null || record == null || string.IsNullOrWhiteSpace(record.Text))
+                {
+                    return;
+                }
+
+                _conversationRecorder.StartSession();
+                _conversationRecorder.AddAudioSegment(record.AudioPcm16Mono, record.Text, record.Confidence, record.Source);
+                _lastVoiceConversationSegmentAtUtc = DateTime.UtcNow;
+
+                if (_behaviorObserver != null)
+                {
+                    _behaviorObserver.RecordVoiceInteraction(record.Text, record.Confidence, record.Source);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[VoiceBridge] Failed to ingest recognition: {ex.Message}");
+            }
+        }
+
+        private void ConversationIdleTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_conversationRecorder == null || _lastVoiceConversationSegmentAtUtc == DateTime.MinValue)
+                {
+                    return;
+                }
+
+                if ((DateTime.UtcNow - _lastVoiceConversationSegmentAtUtc) >= ConversationIdleTimeout)
+                {
+                    _conversationRecorder.EndSession();
+                    _lastVoiceConversationSegmentAtUtc = DateTime.MinValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[VoiceBridge] Idle session finalize failed: {ex.Message}");
+            }
+        }
+
+        private void ConversationRecorder_ConversationEnded(ConversationSession session)
+        {
+            try
+            {
+                _behaviorObserver.RecordSystemEvent("conversation_ended", 
+                    $"Type: {session.Type}, Duration: {(session.EndTime - session.StartTime)?.TotalMinutes:F1}min, Tasks: {session.ExtractedTasks.Count}");
+
+                if (session.ExtractedTasks.Any())
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        ShowConversationTasksNotification(session);
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ConversationRecorder] Failed to handle session end: {ex.Message}");
+            }
+        }
+
+        private void ShowConversationTasksNotification(ConversationSession session)
+        {
+            var taskList = string.Join("\n", session.ExtractedTasks.Take(5).Select((t, i) => $"{i + 1}. {t}"));
+            
+            var result = MessageBox.Show(
+                $"从对话中识别到以下任务：\n\n{taskList}\n\n是否添加到任务列表？",
+                "对话任务识别",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                AddConversationTasks(session.ExtractedTasks);
+            }
+
+            _conversationRecorder.MarkSessionAsProcessed(session.SessionId);
+        }
+
+        private void AddConversationTasks(List<string> tasks)
+        {
+            foreach (var taskText in tasks.Take(5))
+            {
+                var intentRecognizer = new IntentRecognizer();
+                var (importance, urgency) = intentRecognizer.EstimatePriority(taskText);
+                var quadrant = intentRecognizer.EstimateQuadrant(importance, urgency);
+
+                var newTask = new ItemGrid
+                {
+                    Task = taskText,
+                    Score = 1,
+                    Result = "",
+                    IsActive = true,
+                    Importance = importance,
+                    Urgency = urgency,
+                    CreatedDate = DateTime.Now,
+                    LastModifiedDate = DateTime.Now,
+                    IsActiveInQuadrant = true
+                };
+
+                AddTaskToQuadrant(newTask, quadrant);
+                _behaviorObserver?.RecordTaskOperation("conversation_extract_add", taskText, GetTaskTrackingKey(newTask));
+            }
+        }
+
+        private void BehaviorObserver_NewInsightGenerated(WorkHabitInsight insight)
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowInsightNotification(insight);
+                }));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BehaviorObserver] Failed to show insight: {ex.Message}");
+            }
+        }
+
+        private void ShowInsightNotification(WorkHabitInsight insight)
+        {
+            var result = MessageBox.Show(
+                $"{insight.Description}\n\n建议：{insight.Recommendation}\n\n是否标记为已读？",
+                insight.Title,
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _behaviorObserver.AcknowledgeInsight(insight.InsightId);
+            }
+        }
+
+        private void AdaptiveGoalManager_AdjustmentSuggested(GoalAdjustmentSuggestion suggestion)
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowAdjustmentSuggestionNotification(suggestion);
+                }));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AdaptiveGoalManager] Failed to show suggestion: {ex.Message}");
+            }
+        }
+
+        private void ShowAdjustmentSuggestionNotification(GoalAdjustmentSuggestion suggestion)
+        {
+            var result = MessageBox.Show(
+                $"目标：{suggestion.GoalDescription}\n\n原因：{suggestion.Reason}\n\n建议：{suggestion.Suggestion}\n\n是否接受此建议？",
+                "目标调整建议",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _adaptiveGoalManager.AcceptSuggestion(suggestion.SuggestionId);
+            }
+            else if (result == MessageBoxResult.No)
+            {
+                _adaptiveGoalManager.DismissSuggestion(suggestion.SuggestionId);
+            }
+        }
+
+        private void AdaptiveGoalManager_GoalAtRisk(GoalProgressTracker tracker)
+        {
+            try
+            {
+                _behaviorObserver.RecordSystemEvent("goal_at_risk", 
+                    $"GoalId: {tracker.GoalId}, Behind: {tracker.IsBehindSchedule}, Stuck: {tracker.StuckTasks}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AdaptiveGoalManager] Failed to handle goal at risk: {ex.Message}");
+            }
+        }
+
+        private void AddTaskToQuadrant(ItemGrid task, string quadrantName)
+        {
+            DataGrid targetDataGrid = null;
+            string csvFileNumber = "";
+
+            switch (quadrantName)
+            {
+                case "重要且紧急":
+                    targetDataGrid = task1;
+                    csvFileNumber = "1";
+                    break;
+                case "重要不紧急":
+                    targetDataGrid = task2;
+                    csvFileNumber = "2";
+                    break;
+                case "不重要紧急":
+                    targetDataGrid = task3;
+                    csvFileNumber = "3";
+                    break;
+                case "不重要不紧急":
+                    targetDataGrid = task4;
+                    csvFileNumber = "4";
+                    break;
+                default:
+                    targetDataGrid = task1;
+                    csvFileNumber = "1";
+                    break;
+            }
+
+            if (targetDataGrid != null)
+            {
+                var items = targetDataGrid.ItemsSource as List<ItemGrid> ?? new List<ItemGrid>();
+                items.Add(task);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    items[i].Score = items.Count - i;
+                }
+                targetDataGrid.ItemsSource = items;
+                RefreshDataGrid(targetDataGrid);
+                update_csv(targetDataGrid, csvFileNumber);
+            }
+        }
+
+        private void ShowSkillRecommendation(string skillId)
+        {
+            var skillDefinitions = SkillManagementService.GetSkillDefinitions();
+            var skill = skillDefinitions.FirstOrDefault(s => s.SkillId == skillId);
+            
+            if (skill != null)
+            {
+                MessageBox.Show(
+                    $"{skill.Description}\n\n建议使用此功能来优化任务管理。",
+                    skill.Title,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+
+        private void ShowVoiceSettings()
+        {
+            MessageBox.Show(
+                "语音功能可以帮助你快速记录任务。\n\n在设置中开启语音监听，然后通过说话来添加任务。",
+                "语音功能介绍",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        private void OpenLongTermGoalManager()
+        {
+            var goalsPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            var goals = File.Exists(goalsPath) ? HelperClass.ReadLongTermGoalsCsv(goalsPath) : new List<LongTermGoal>();
+            var activeGoal = goals.FirstOrDefault(g => g.IsActive);
+            
+            if (activeGoal != null)
+            {
+                var managerWindow = new LongTermGoalManagerWindow(activeGoal, Path.Combine(currentPath, "data"));
+                managerWindow.ShowDialog();
+                _behaviorObserver?.RecordGoalOperation("review", activeGoal.Description, activeGoal.Id);
+            }
+            else
+            {
+                MessageBox.Show("当前没有活跃的长期目标，请先创建一个长期目标。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -1676,6 +2169,8 @@ namespace TimeTask
                     state.WindowStart = now;
                     break;
             }
+
+            _behaviorObserver?.RecordTaskOperation(interactionType, task.Task, GetTaskTrackingKey(task));
         }
 
         private void TryResolvePendingSuggestionFeedback(TaskInteractionState state, DateTime now, string feedbackType)
@@ -2051,7 +2546,6 @@ namespace TimeTask
         private void ReminderTimer_Tick(object sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-            // bool changesMadeOverall = false; // To track if any CSV needs update across all grids
 
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" }; // To identify which CSV to update
@@ -2063,39 +2557,145 @@ namespace TimeTask
 
                 if (currentGrid.ItemsSource is List<ItemGrid> tasks)
                 {
-                    // Iterating on a copy for safe modification is complex with shared ItemGrid objects.
-                    // Direct modification and then saving is simpler if UI updates are handled carefully.
                     foreach (ItemGrid task in tasks)
                     {
                         if (task.IsActive && task.ReminderTime.HasValue && task.ReminderTime.Value <= now)
                         {
-                            // Display reminder
-                            // Ensure MessageBox is shown on the UI thread if timer runs on a different thread.
-                            // DispatcherTimer's Tick event runs on the Dispatcher's thread, so direct UI access is safe.
-                            MessageBox.Show(this, $"Reminder: {task.Task}", "Task Reminder", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                            // Mark reminder as shown by clearing it
-                            task.ReminderTime = null;
-                            task.LastInteractionDate = now;
-                            task.LastReminderDate = now;
-                            changesMadeInCurrentGrid = true;
-                            // changesMadeOverall = true;
+                            var dueTime = task.ReminderTime.Value;
+                            var dueReminderWindow = new TaskReminderWindow(task, dueTime)
+                            {
+                                Owner = this
+                            };
+                            dueReminderWindow.ShowDialog();
+                            changesMadeInCurrentGrid = HandleDueReminderDecision(task, dueReminderWindow.Result, now) || changesMadeInCurrentGrid;
                         }
                     }
 
                     if (changesMadeInCurrentGrid)
                     {
-                        // update_csv uses the ItemsSource of the DataGrid, which is the 'tasks' list.
-                        // So, modifications to 'task' objects within 'tasks' list are directly saved.
                         update_csv(currentGrid, csvFiles[i].Replace(".csv", ""));
-
-                        // Optional: Refresh the specific DataGrid if clearing ReminderTime should reflect visually.
-                        // This is important if there's a column bound to ReminderTime or its existence.
                         RefreshDataGrid(currentGrid);
                     }
                 }
             }
-            // No overall 'changesMadeOverall' check needed here for saving, as each grid is saved individually if changed.
+        }
+
+        public void EditReminderTime_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn) || !(btn.DataContext is ItemGrid task))
+            {
+                return;
+            }
+
+            var sourceGrid = FindSourceGridForTask(task);
+            if (sourceGrid == null)
+            {
+                MessageBox.Show("未找到任务所在象限，无法更新提醒时间。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (TryEditReminderTime(task))
+            {
+                update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
+                RefreshDataGrid(sourceGrid);
+            }
+        }
+
+        private bool HandleDueReminderDecision(ItemGrid task, TaskReminderResult result, DateTime now)
+        {
+            if (task == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            switch (result)
+            {
+                case TaskReminderResult.ReminderConfirmed:
+                    task.ReminderTime = null;
+                    task.LastReminderDate = now;
+                    changed = true;
+                    break;
+                case TaskReminderResult.ReminderPostponed:
+                    task.ReminderTime = now.AddMinutes(30);
+                    task.LastReminderDate = now;
+                    changed = true;
+                    break;
+                case TaskReminderResult.ReminderEditTime:
+                    changed = TryEditReminderTime(task);
+                    if (!changed)
+                    {
+                        // 用户取消编辑时给一个小缓冲，避免重复打扰。
+                        task.ReminderTime = now.AddMinutes(10);
+                        changed = true;
+                    }
+                    task.LastReminderDate = now;
+                    break;
+                case TaskReminderResult.Dismissed:
+                default:
+                    task.ReminderTime = now.AddMinutes(10);
+                    changed = true;
+                    break;
+            }
+
+            if (changed)
+            {
+                task.LastModifiedDate = now;
+                task.LastInteractionDate = now;
+                TrackTaskInteraction(task, "edit");
+                _behaviorObserver?.RecordTaskOperation("reminder_time_confirm", task.Task, GetTaskTrackingKey(task));
+            }
+
+            return changed;
+        }
+
+        private bool TryEditReminderTime(ItemGrid task)
+        {
+            if (task == null)
+            {
+                return false;
+            }
+
+            var editor = new ReminderTimeEditorWindow(task.ReminderTime)
+            {
+                Owner = this
+            };
+            bool? dialog = editor.ShowDialog();
+            if (dialog != true)
+            {
+                return false;
+            }
+
+            DateTime? selected = editor.SelectedReminderTime;
+            string confirmText = selected.HasValue
+                ? $"将“{task.Task}”的提醒时间设为 {selected.Value:yyyy-MM-dd HH:mm}，确认吗？"
+                : $"将“{task.Task}”的提醒时间清空，确认吗？";
+            if (MessageBox.Show(confirmText, "确认提醒时间", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            {
+                return false;
+            }
+
+            task.ReminderTime = selected;
+            task.ReminderSnoozeUntil = null;
+            task.LastModifiedDate = DateTime.Now;
+            task.LastInteractionDate = DateTime.Now;
+            TrackTaskInteraction(task, "edit");
+            _behaviorObserver?.RecordTaskOperation("update_reminder_time", task.Task, GetTaskTrackingKey(task));
+            return true;
+        }
+
+        private DataGrid FindSourceGridForTask(ItemGrid task)
+        {
+            if (task == null)
+            {
+                return null;
+            }
+
+            if (task1.ItemsSource is List<ItemGrid> q1 && q1.Contains(task)) return task1;
+            if (task2.ItemsSource is List<ItemGrid> q2 && q2.Contains(task)) return task2;
+            if (task3.ItemsSource is List<ItemGrid> q3 && q3.Contains(task)) return task3;
+            if (task4.ItemsSource is List<ItemGrid> q4 && q4.Contains(task)) return task4;
+            return null;
         }
 
         private void DataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -2325,6 +2925,7 @@ namespace TimeTask
             {
                 RefreshDataGrid(sourceGrid); // Refresh the specific grid
                 update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
+                _behaviorObserver?.RecordTaskOperation("delete", taskToDelete.Task, GetTaskTrackingKey(taskToDelete));
                 if (taskToDelete.LongTermGoalId == _activeLongTermGoal?.Id) // Check if deleted task was part of the active goal
                 {
                     UpdateLongTermGoalBadge();
@@ -2341,6 +2942,112 @@ namespace TimeTask
                 return parent;
             else
                 return FindParent<T>(parentObject);
+        }
+
+        private sealed class ReminderTimeEditorWindow : Window
+        {
+            private readonly CheckBox _enableCheckBox;
+            private readonly DatePicker _datePicker;
+            private readonly ComboBox _hourCombo;
+            private readonly ComboBox _minuteCombo;
+
+            public DateTime? SelectedReminderTime { get; private set; }
+
+            public ReminderTimeEditorWindow(DateTime? currentReminder)
+            {
+                Title = "编辑提醒时间";
+                Width = 320;
+                Height = 240;
+                WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                ResizeMode = ResizeMode.NoResize;
+                WindowStyle = WindowStyle.SingleBorderWindow;
+
+                var panel = new StackPanel { Margin = new Thickness(16) };
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "请设置提醒日期与时间",
+                    Margin = new Thickness(0, 0, 0, 10),
+                    FontWeight = FontWeights.SemiBold
+                });
+
+                _enableCheckBox = new CheckBox
+                {
+                    Content = "启用提醒",
+                    IsChecked = currentReminder.HasValue,
+                    Margin = new Thickness(0, 0, 0, 8)
+                };
+                panel.Children.Add(_enableCheckBox);
+
+                _datePicker = new DatePicker
+                {
+                    SelectedDate = currentReminder?.Date ?? DateTime.Today,
+                    Margin = new Thickness(0, 0, 0, 8)
+                };
+                panel.Children.Add(_datePicker);
+
+                var timePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+                _hourCombo = new ComboBox { Width = 70 };
+                _minuteCombo = new ComboBox { Width = 70, Margin = new Thickness(8, 0, 0, 0) };
+                for (int i = 0; i < 24; i++) _hourCombo.Items.Add(i.ToString("D2"));
+                for (int i = 0; i < 60; i++) _minuteCombo.Items.Add(i.ToString("D2"));
+                _hourCombo.SelectedItem = (currentReminder?.Hour ?? 9).ToString("D2");
+                _minuteCombo.SelectedItem = (currentReminder?.Minute ?? 0).ToString("D2");
+                timePanel.Children.Add(_hourCombo);
+                timePanel.Children.Add(new TextBlock { Text = ":", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+                timePanel.Children.Add(_minuteCombo);
+                panel.Children.Add(timePanel);
+
+                var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+                var ok = new Button { Content = "保存", Width = 70, Margin = new Thickness(0, 0, 8, 0) };
+                var cancel = new Button { Content = "取消", Width = 70 };
+                ok.Click += Ok_Click;
+                cancel.Click += (s, e) => { DialogResult = false; Close(); };
+                buttonPanel.Children.Add(ok);
+                buttonPanel.Children.Add(cancel);
+                panel.Children.Add(buttonPanel);
+
+                _enableCheckBox.Checked += (s, e) => ToggleInputs(true);
+                _enableCheckBox.Unchecked += (s, e) => ToggleInputs(false);
+                ToggleInputs(_enableCheckBox.IsChecked == true);
+
+                Content = panel;
+            }
+
+            private void ToggleInputs(bool enabled)
+            {
+                _datePicker.IsEnabled = enabled;
+                _hourCombo.IsEnabled = enabled;
+                _minuteCombo.IsEnabled = enabled;
+            }
+
+            private void Ok_Click(object sender, RoutedEventArgs e)
+            {
+                if (_enableCheckBox.IsChecked != true)
+                {
+                    SelectedReminderTime = null;
+                    DialogResult = true;
+                    Close();
+                    return;
+                }
+
+                if (!_datePicker.SelectedDate.HasValue)
+                {
+                    MessageBox.Show("请选择提醒日期。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!int.TryParse(_hourCombo.SelectedItem?.ToString(), out int hour) ||
+                    !int.TryParse(_minuteCombo.SelectedItem?.ToString(), out int minute))
+                {
+                    MessageBox.Show("请选择有效的提醒时间。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                DateTime date = _datePicker.SelectedDate.Value;
+                SelectedReminderTime = new DateTime(date.Year, date.Month, date.Day, hour, minute, 0);
+                DialogResult = true;
+                Close();
+            }
         }
 
         internal static string GetQuadrantNumber(string dataGridName) // Made internal static for testing. Returns "1", "2", "3", "4"
@@ -2409,11 +3116,12 @@ namespace TimeTask
 
         private void DataGridRow_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Check if the click originated from the delete button first
-            if (e.OriginalSource is Button button && button.Name == "PART_DeleteButton")
+            // Check if the click originated from utility buttons first.
+            Button sourceButton = e.OriginalSource as Button ?? FindParent<Button>(e.OriginalSource as DependencyObject);
+            if (sourceButton != null &&
+                (sourceButton.Name == "PART_DeleteButton" || sourceButton.Name == "PART_ReminderButton"))
             {
-                // If it's the delete button, let it handle its click, don't interfere.
-                // And don't treat it as a drag initiation.
+                // Let utility button handle its click, don't start drag.
                 _dragStartPoint = null; // Ensure no drag starts
                 _draggedItem = null;
                 _sourceDataGrid = null;
@@ -3032,6 +3740,7 @@ namespace TimeTask
                 }
                 allLongTermGoals.Add(newLongTermGoal);
                 HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
+                _behaviorObserver?.RecordGoalOperation("create_long_term_goal", newLongTermGoal.Description, newLongTermGoal.Id);
 
                 int tasksProcessedCount = 0;
                 var tasksByQuadrant = confirmDialog.SelectedTasks.GroupBy(taskToAdd =>
@@ -3196,6 +3905,7 @@ namespace TimeTask
             }
             allLongTermGoals.Add(newLearningPlan);
             HelperClass.WriteLongTermGoalsCsv(allLongTermGoals, longTermGoalsCsvPath);
+            _behaviorObserver?.RecordGoalOperation("create_learning_plan", newLearningPlan.Description, newLearningPlan.Id);
 
             var convertedMilestones = new List<LearningMilestone>();
             foreach (var llmMilestone in proposedMilestones)
@@ -3315,6 +4025,8 @@ namespace TimeTask // Ensure it's within the same namespace or accessible
         public bool IsLearningPlan { get; set; }
         public string Subject { get; set; }
         public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public DateTime LastReviewDate { get; set; }
         public int TotalStages { get; set; }
         public int CompletedStages { get; set; }
 
@@ -3322,6 +4034,7 @@ namespace TimeTask // Ensure it's within the same namespace or accessible
         {
             Id = Guid.NewGuid().ToString();
             CreationDate = DateTime.Now;
+            LastReviewDate = DateTime.Now;
             IsActive = false;
             IsLearningPlan = false;
             TotalStages = 0;

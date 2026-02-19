@@ -1018,6 +1018,14 @@ namespace TimeTask
             MarkRecognizingState();
 
             VoiceRuntimeLog.Info($"Recognized({source}) conf={confidence:F2} text={text}");
+            VoiceListenerStatusCenter.PublishRecognition(new VoiceRecognitionRecord
+            {
+                Text = text,
+                Confidence = ClampConfidence(confidence),
+                Source = source,
+                CapturedAtUtc = DateTime.UtcNow,
+                AudioPcm16Mono = SnapshotSpeechPcm()
+            });
 
             bool isSystemFallback = _classicFallbackEnabled && string.Equals(source, "system-speech", StringComparison.OrdinalIgnoreCase);
             double taskLikelihood = _intentRecognizer.ScoreTaskLikelihood(text);
@@ -1057,6 +1065,17 @@ namespace TimeTask
 
             BufferConversation(text);
             TryExtractConversationTasksAsync();
+        }
+
+        private byte[] SnapshotSpeechPcm()
+        {
+            lock (_speechBuffer)
+            {
+                if (_speechBuffer.Count == 0)
+                    return null;
+
+                return _speechBuffer.ToArray();
+            }
         }
 
         private bool IsDuplicateRecognition(string text)
@@ -1250,16 +1269,13 @@ namespace TimeTask
             if (!_isRecording || buffer == null || bytesRecorded <= 0)
                 return;
 
-            if (_speakerVerifyEnabled)
+            lock (_speechBuffer)
             {
-                lock (_speechBuffer)
+                int maxBytes = (int)(16000 * 2 * 20); // ~20s
+                int copy = Math.Min(bytesRecorded, maxBytes - _speechBuffer.Count);
+                if (copy > 0)
                 {
-                    int maxBytes = (int)(16000 * 2 * 6); // ~6s
-                    int copy = Math.Min(bytesRecorded, maxBytes - _speechBuffer.Count);
-                    if (copy > 0)
-                    {
-                        for (int i = 0; i < copy; i++) _speechBuffer.Add(buffer[i]);
-                    }
+                    for (int i = 0; i < copy; i++) _speechBuffer.Add(buffer[i]);
                 }
             }
 
@@ -1280,6 +1296,13 @@ namespace TimeTask
         private void EvaluateCompletedSegment(WaveFormat format)
         {
             EvaluateSpeakerSegment(format);
+            if (!_speakerVerifyEnabled)
+            {
+                lock (_speechBuffer)
+                {
+                    _speechBuffer.Clear();
+                }
+            }
             if (_funAsrEnabled)
             {
                 TryRecognizeSegmentWithFunAsr(format);

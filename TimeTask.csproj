@@ -50,6 +50,7 @@
     <Reference Include="System.Speech" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xaml">
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
@@ -73,12 +74,19 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="AdaptiveGoalManager.cs" />
     <Compile Include="ConfirmGoalTasksWindow.xaml.cs">
       <DependentUpon>ConfirmGoalTasksWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ConversationRecorder.cs" />
+    <Compile Include="MainWindow.xaml.cs">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
     </Compile>
     <Compile Include="ReminderSettingsWindow.xaml.cs">
       <DependentUpon>ReminderSettingsWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="SmartGuidanceManager.cs" />
     <Compile Include="SmartQuadrantSelectorWindow.xaml.cs">
       <DependentUpon>SmartQuadrantSelectorWindow.xaml</DependentUpon>
     </Compile>
@@ -92,6 +100,7 @@
       <DependentUpon>TaskStatisticsWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="TestReminderSystem.cs" />
+    <Compile Include="UserBehaviorObserver.cs" />
     <Compile Include="UXImprovements.cs" />
     <Page Include="AddTaskWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -100,10 +109,6 @@
     <Page Include="ConfirmGoalTasksWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>XamlIntelliSenseFileGenerator</Generator>
-    </Page>
-    <Page Include="MainWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </Page>
     <Page Include="DecompositionResultWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -116,6 +121,10 @@
     <Page Include="LongTermGoalManagerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="MainWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>XamlIntelliSenseFileGenerator</Generator>
     </Page>
     <Page Include="ReminderSettingsWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -151,10 +160,6 @@
     </Compile>
     <Compile Include="LongTermGoalManagerWindow.xaml.cs">
       <DependentUpon>LongTermGoalManagerWindow.xaml</DependentUpon>
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MainWindow.xaml.cs">
-      <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="LlmSettingsWindow.xaml.cs">

@@ -2,6 +2,15 @@ using System;
 
 namespace TimeTask
 {
+    internal sealed class VoiceRecognitionRecord
+    {
+        public string Text { get; set; }
+        public float Confidence { get; set; }
+        public string Source { get; set; }
+        public DateTime CapturedAtUtc { get; set; }
+        public byte[] AudioPcm16Mono { get; set; }
+    }
+
     internal enum VoiceListenerState
     {
         Unknown = 0,
@@ -30,6 +39,7 @@ namespace TimeTask
         };
 
         public static event EventHandler<VoiceListenerStatus> StatusChanged;
+        public static event EventHandler<VoiceRecognitionRecord> RecognitionCaptured;
 
         public static VoiceListenerStatus Current
         {
@@ -74,6 +84,23 @@ namespace TimeTask
             catch
             {
                 // Keep status center fire-and-forget to avoid breaking runtime logic.
+            }
+        }
+
+        public static void PublishRecognition(VoiceRecognitionRecord record)
+        {
+            if (record == null || string.IsNullOrWhiteSpace(record.Text))
+            {
+                return;
+            }
+
+            try
+            {
+                RecognitionCaptured?.Invoke(null, record);
+            }
+            catch
+            {
+                // Keep fire-and-forget to avoid impacting recognition loop.
             }
         }
     }

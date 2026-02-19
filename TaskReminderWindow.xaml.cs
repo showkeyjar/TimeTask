@@ -10,6 +10,7 @@ namespace TimeTask
     {
         public event PropertyChangedEventHandler PropertyChanged;
         
+        private readonly bool _isDueReminderMode;
         private ItemGrid _task;
         private string _taskDescription;
         private string _inactiveTime;
@@ -100,6 +101,21 @@ namespace TimeTask
             CanDecompose = Suggestions.Any(s => decompositionKeywords.Any(keyword => 
                 s.ToLowerInvariant().Contains(keyword.ToLowerInvariant())));
         }
+
+        public TaskReminderWindow(ItemGrid task, DateTime dueTime) : this()
+        {
+            _isDueReminderMode = true;
+            Task = task;
+            ReminderMessage = $"任务已到提醒时间（{dueTime:yyyy-MM-dd HH:mm}）。请选择下一步操作。";
+            Suggestions = new List<string>
+            {
+                "确认提醒：本次提醒完成并清除提醒时间",
+                "延后30分钟：保持任务提醒并自动顺延",
+                "编辑时间：重新设置提醒时间，避免误触发"
+            };
+            CanDecompose = false;
+            ApplyDueReminderMode(dueTime);
+        }
         
         private void UpdateTaskInfo()
         {
@@ -126,17 +142,30 @@ namespace TimeTask
                 InactiveTime = "不到1小时未更新";
             }
         }
+
+        private void ApplyDueReminderMode(DateTime dueTime)
+        {
+            WindowTitleText.Text = "⏰ 定时提醒确认";
+            TaskMetaLabelText.Text = "原定提醒时间:";
+            InactiveTime = dueTime.ToString("yyyy-MM-dd HH:mm");
+
+            CompleteTaskButton.Content = "✓ 确认提醒";
+            UpdateTaskButton.Content = "⏱ 延后30分钟";
+            DecomposeTaskButton.Visibility = Visibility.Collapsed;
+            SnoozeButton.Content = "🗓 编辑时间";
+            CloseButton.Content = "关闭";
+        }
         
         private void CompleteTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            Result = TaskReminderResult.Completed;
+            Result = _isDueReminderMode ? TaskReminderResult.ReminderConfirmed : TaskReminderResult.Completed;
             DialogResult = true;
             Close();
         }
         
         private void UpdateTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            Result = TaskReminderResult.Updated;
+            Result = _isDueReminderMode ? TaskReminderResult.ReminderPostponed : TaskReminderResult.Updated;
             DialogResult = true;
             Close();
         }
@@ -150,7 +179,7 @@ namespace TimeTask
         
         private void SnoozeButton_Click(object sender, RoutedEventArgs e)
         {
-            Result = TaskReminderResult.Snoozed;
+            Result = _isDueReminderMode ? TaskReminderResult.ReminderEditTime : TaskReminderResult.Snoozed;
             DialogResult = true;
             Close();
         }
@@ -174,6 +203,9 @@ namespace TimeTask
         Completed,
         Updated,
         Decompose,
-        Snoozed
+        Snoozed,
+        ReminderConfirmed,
+        ReminderPostponed,
+        ReminderEditTime
     }
 }
