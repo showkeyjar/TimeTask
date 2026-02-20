@@ -58,7 +58,8 @@ namespace TimeTask
                     LastProgressDate = temparry.Length > 13 && DateTime.TryParse(temparry[13], out DateTime lpd) ? lpd : parsedLastModifiedDate,
                     LastInteractionDate = temparry.Length > 14 && DateTime.TryParse(temparry[14], out DateTime lid) ? lid : parsedLastModifiedDate,
                     ReminderSnoozeUntil = temparry.Length > 15 && DateTime.TryParse(temparry[15], out DateTime rsu) ? rsu : (DateTime?)null,
-                    LastReminderDate = temparry.Length > 16 && DateTime.TryParse(temparry[16], out DateTime lrd) ? lrd : (DateTime?)null
+                    LastReminderDate = temparry.Length > 16 && DateTime.TryParse(temparry[16], out DateTime lrd) ? lrd : (DateTime?)null,
+                    SourceTaskID = temparry.Length > 17 && !string.IsNullOrWhiteSpace(temparry[17]) ? temparry[17] : null
                 };
             var result_list = new List<ItemGrid>();
             try
@@ -76,12 +77,12 @@ namespace TimeTask
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount},{item.LastProgressDate:o},{item.LastInteractionDate:o},{item.ReminderSnoozeUntil?.ToString("o") ?? ""},{item.LastReminderDate?.ToString("o") ?? ""}"
+                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount},{item.LastProgressDate:o},{item.LastInteractionDate:o},{item.ReminderSnoozeUntil?.ToString("o") ?? ""},{item.LastReminderDate?.ToString("o") ?? ""},{item.SourceTaskID ?? ""}"
             ).ToArray();
             var contents = new string[temparray.Length + 2];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
             // Updated header
-            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount,lastProgressDate,lastInteractionDate,reminderSnoozeUntil,lastReminderDate";
+            contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount,lastProgressDate,lastInteractionDate,reminderSnoozeUntil,lastReminderDate,sourceTaskId";
             File.WriteAllLines(filepath, contents);
         }
 
@@ -359,6 +360,12 @@ namespace TimeTask
 
         private DatabaseService _databaseService;
         private System.Windows.Threading.DispatcherTimer _syncTimer;
+        private KnowledgeSyncService _knowledgeSyncService;
+        private KnowledgeArtifactService _knowledgeArtifactService;
+        private System.Windows.Threading.DispatcherTimer _knowledgeSyncTimer;
+        private System.Windows.Threading.DispatcherTimer _knowledgeSyncDebounceTimer;
+        private FileSystemWatcher _obsidianWatcher;
+        private bool _knowledgeSyncRunning = false;
         private HashSet<string> _syncedTaskSourceIDs = new HashSet<string>();
         private bool _isFirstSyncAttempted = false; // To control initial sync message
 
@@ -653,11 +660,13 @@ namespace TimeTask
             StartPeriodicTaskReminderChecks();
 
             InitializeSyncService();
+            _knowledgeArtifactService = KnowledgeArtifactService.CreateFromAppSettings(currentPath);
 
             // 应用快速改进功能
             ApplyQuickImprovements();
 
             InitializeDraftBadgeMonitor();
+            InitializeKnowledgeSyncService();
 
             // 初始化智能系统
             InitializeSmartSystems();
@@ -887,7 +896,27 @@ namespace TimeTask
                     _conversationIdleTimer = null;
                 }
 
+                if (_knowledgeSyncTimer != null)
+                {
+                    _knowledgeSyncTimer.Stop();
+                    _knowledgeSyncTimer = null;
+                }
+
+                if (_knowledgeSyncDebounceTimer != null)
+                {
+                    _knowledgeSyncDebounceTimer.Stop();
+                    _knowledgeSyncDebounceTimer = null;
+                }
+
+                if (_obsidianWatcher != null)
+                {
+                    _obsidianWatcher.EnableRaisingEvents = false;
+                    _obsidianWatcher.Dispose();
+                    _obsidianWatcher = null;
+                }
+
                 _conversationRecorder?.EndSession();
+                _draftBadgeManager?.Dispose();
             }
             catch { }
         }
@@ -1884,6 +1913,7 @@ namespace TimeTask
                     task.InactiveWarningCount = 0;
                     task.ReminderSnoozeUntil = null;
                     TrackTaskInteraction(task, "progress");
+                    PersistKnowledgeArtifact(task);
                     break;
                     
                 case TaskReminderResult.Updated:
@@ -2384,6 +2414,18 @@ namespace TimeTask
             _behaviorObserver?.RecordTaskOperation(interactionType, task.Task, GetTaskTrackingKey(task));
         }
 
+        private void PersistKnowledgeArtifact(ItemGrid task)
+        {
+            try
+            {
+                _knowledgeArtifactService?.CaptureCompletion(task);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PersistKnowledgeArtifact failed: {ex.Message}");
+            }
+        }
+
         private void TryResolvePendingSuggestionFeedback(TaskInteractionState state, DateTime now, string feedbackType)
         {
             if (state == null || string.IsNullOrWhiteSpace(state.PendingSuggestedActionId) || !state.PendingSuggestedAt.HasValue)
@@ -2637,6 +2679,326 @@ namespace TimeTask
                 Console.WriteLine($"Error initializing sync service: {ex.Message}");
                 MessageBox.Show(this, $"Error initializing synchronization service: {ex.Message}", "Sync Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void InitializeKnowledgeSyncService()
+        {
+            try
+            {
+                _knowledgeSyncService = KnowledgeSyncService.CreateFromAppSettings(currentPath);
+                if (_knowledgeSyncService == null || !_knowledgeSyncService.IsEnabled)
+                {
+                    Console.WriteLine("Knowledge sync is disabled.");
+                    return;
+                }
+
+                if (!_knowledgeSyncService.IsConnectorReady)
+                {
+                    Console.WriteLine("Knowledge sync is enabled but Obsidian vault path is invalid or not discovered.");
+                    return;
+                }
+
+                if (_knowledgeSyncTimer == null)
+                {
+                    _knowledgeSyncTimer = new System.Windows.Threading.DispatcherTimer();
+                    _knowledgeSyncTimer.Tick += async (s, e) => await RunKnowledgeSyncAsync(false);
+                }
+
+                _knowledgeSyncTimer.Interval = TimeSpan.FromMinutes(_knowledgeSyncService.Options.SyncIntervalMinutes);
+                _knowledgeSyncTimer.Start();
+                Console.WriteLine($"Knowledge sync timer started. Interval: {_knowledgeSyncService.Options.SyncIntervalMinutes} minutes.");
+                if (_knowledgeSyncService.Options.ObsidianVaultAutoDiscovered &&
+                    _knowledgeSyncService.Options.SmartNotifyEnabled &&
+                    _nonBlockingInteractionEnabled)
+                {
+                    ShowPassiveNotification("已自动连接 Obsidian", _knowledgeSyncService.Options.ObsidianVaultPath, System.Windows.Forms.ToolTipIcon.Info, 4000);
+                }
+
+                if (_knowledgeSyncDebounceTimer == null)
+                {
+                    _knowledgeSyncDebounceTimer = new System.Windows.Threading.DispatcherTimer();
+                    _knowledgeSyncDebounceTimer.Tick += async (s, e) =>
+                    {
+                        _knowledgeSyncDebounceTimer.Stop();
+                        await RunKnowledgeSyncAsync(false);
+                    };
+                }
+                _knowledgeSyncDebounceTimer.Interval = TimeSpan.FromSeconds(_knowledgeSyncService.Options.SyncDebounceSeconds);
+
+                SetupObsidianRealtimeWatcher();
+                Dispatcher.BeginInvoke(new Action(async () => await RunKnowledgeSyncAsync(false)));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"InitializeKnowledgeSyncService failed: {ex.Message}");
+            }
+        }
+
+        private void SetupObsidianRealtimeWatcher()
+        {
+            try
+            {
+                if (_knowledgeSyncService == null || !_knowledgeSyncService.Options.RealtimeWatchEnabled)
+                {
+                    return;
+                }
+
+                string vaultPath = _knowledgeSyncService.Options.ObsidianVaultPath;
+                if (string.IsNullOrWhiteSpace(vaultPath) || !Directory.Exists(vaultPath))
+                {
+                    return;
+                }
+
+                if (_obsidianWatcher != null)
+                {
+                    _obsidianWatcher.EnableRaisingEvents = false;
+                    _obsidianWatcher.Dispose();
+                    _obsidianWatcher = null;
+                }
+
+                _obsidianWatcher = new FileSystemWatcher(vaultPath, "*.md");
+                _obsidianWatcher.IncludeSubdirectories = _knowledgeSyncService.Options.ObsidianIncludeSubfolders;
+                _obsidianWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime;
+                _obsidianWatcher.Changed += ObsidianWatcher_OnChanged;
+                _obsidianWatcher.Created += ObsidianWatcher_OnChanged;
+                _obsidianWatcher.Renamed += ObsidianWatcher_OnChanged;
+                _obsidianWatcher.Deleted += ObsidianWatcher_OnChanged;
+                _obsidianWatcher.EnableRaisingEvents = true;
+                Console.WriteLine("Obsidian realtime watcher started.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SetupObsidianRealtimeWatcher failed: {ex.Message}");
+            }
+        }
+
+        private void ObsidianWatcher_OnChanged(object sender, FileSystemEventArgs e)
+        {
+            try
+            {
+                if (_knowledgeSyncDebounceTimer == null)
+                {
+                    return;
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _knowledgeSyncDebounceTimer.Stop();
+                    _knowledgeSyncDebounceTimer.Start();
+                }));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ObsidianWatcher_OnChanged failed: {ex.Message}");
+            }
+        }
+
+        private async Task RunKnowledgeSyncAsync(bool showSummary)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(async () => await RunKnowledgeSyncAsync(showSummary)));
+                return;
+            }
+
+            if (_knowledgeSyncService == null)
+            {
+                if (showSummary)
+                {
+                    MessageBox.Show("知识同步尚未初始化，请检查配置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                return;
+            }
+
+            if (_knowledgeSyncRunning)
+            {
+                return;
+            }
+
+            _knowledgeSyncRunning = true;
+            try
+            {
+                TaskDraftManager draftManager = _draftBadgeManager;
+                bool ownsDraftManager = false;
+                if (draftManager == null)
+                {
+                    draftManager = new TaskDraftManager();
+                    ownsDraftManager = true;
+                }
+
+                KnowledgeSyncResult result = await Task.Run(() => _knowledgeSyncService.RunOnce(draftManager));
+                result.AutoImported = AutoImportHighConfidenceDrafts(result, draftManager);
+                if (ownsDraftManager)
+                {
+                    draftManager.Dispose();
+                }
+
+                if (showSummary)
+                {
+                    string summary = result.BuildSummaryText();
+                    if (result.Errors.Count > 0)
+                    {
+                        summary += Environment.NewLine + string.Join(Environment.NewLine, result.Errors.Take(3));
+                    }
+                    MessageBox.Show(summary, "知识同步结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (_knowledgeSyncService.Options.SmartNotifyEnabled &&
+                    result.AutoImported > 0 &&
+                    _nonBlockingInteractionEnabled &&
+                    CanRunProactiveAssist(DateTime.Now))
+                {
+                    ShowPassiveNotification(
+                        "笔记任务已自动同步",
+                        $"新增 {result.AutoImported} 条高置信任务；另有 {Math.Max(0, result.DraftsAdded - result.AutoImported)} 条进入草稿箱。",
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Knowledge sync run failed: {ex.Message}");
+                if (showSummary)
+                {
+                    MessageBox.Show($"知识同步失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            finally
+            {
+                _knowledgeSyncRunning = false;
+            }
+        }
+
+        private int AutoImportHighConfidenceDrafts(KnowledgeSyncResult result, TaskDraftManager draftManager)
+        {
+            if (_knowledgeSyncService == null ||
+                !_knowledgeSyncService.Options.AutoImportEnabled ||
+                result == null ||
+                draftManager == null ||
+                result.NewDrafts == null ||
+                result.NewDrafts.Count == 0)
+            {
+                return 0;
+            }
+
+            int imported = 0;
+            var minConfidence = _knowledgeSyncService.Options.AutoImportMinConfidence;
+            var maxPerRun = _knowledgeSyncService.Options.AutoImportMaxPerRun;
+
+            foreach (var draft in result.NewDrafts
+                .Where(d => d != null && !d.IsProcessed)
+                .OrderByDescending(d => d.Confidence)
+                .ThenByDescending(d => d.ReminderTime.HasValue ? 1 : 0))
+            {
+                if (imported >= maxPerRun)
+                {
+                    break;
+                }
+
+                if (draft.Confidence < minConfidence)
+                {
+                    continue;
+                }
+
+                if (TaskAlreadyExists(draft))
+                {
+                    draftManager.MarkAsProcessed(draft.Id);
+                    continue;
+                }
+
+                var task = CreateTaskFromDraft(draft);
+                AddTaskToQuadrant(task, ResolveQuadrantName(draft));
+                draftManager.MarkAsProcessed(draft.Id);
+                imported++;
+            }
+
+            if (imported > 0)
+            {
+                UpdateDraftBadge();
+            }
+
+            return imported;
+        }
+
+        private bool TaskAlreadyExists(TaskDraft draft)
+        {
+            if (draft == null)
+            {
+                return false;
+            }
+
+            string key = string.IsNullOrWhiteSpace(draft.SourceNotePath) ? null : $"obsidian:{draft.SourceNotePath.Replace('\\', '/')}";
+            var tasks = GetAllQuadrantTasks();
+            return tasks.Any(t =>
+                t != null &&
+                string.Equals(t.Task, draft.CleanedText, StringComparison.OrdinalIgnoreCase) &&
+                (string.IsNullOrWhiteSpace(key) || string.Equals(t.SourceTaskID, key, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private static ItemGrid CreateTaskFromDraft(TaskDraft draft)
+        {
+            return new ItemGrid
+            {
+                Task = draft.CleanedText,
+                Score = 1,
+                Result = string.Empty,
+                IsActive = true,
+                Importance = string.IsNullOrWhiteSpace(draft.Importance) ? "High" : draft.Importance,
+                Urgency = string.IsNullOrWhiteSpace(draft.Urgency) ? "Low" : draft.Urgency,
+                CreatedDate = DateTime.Now,
+                LastModifiedDate = DateTime.Now,
+                LastProgressDate = DateTime.Now,
+                LastInteractionDate = DateTime.Now,
+                ReminderTime = draft.ReminderTime,
+                IsActiveInQuadrant = true,
+                InactiveWarningCount = 0,
+                SourceTaskID = string.IsNullOrWhiteSpace(draft.SourceNotePath)
+                    ? $"draft:{draft.Id}"
+                    : $"obsidian:{draft.SourceNotePath.Replace('\\', '/')}"
+            };
+        }
+
+        private static string ResolveQuadrantName(TaskDraft draft)
+        {
+            if (draft == null)
+            {
+                return "重要不紧急";
+            }
+
+            string normalized = (draft.EstimatedQuadrant ?? string.Empty).Trim();
+            if (string.Equals(normalized, "important_urgent", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "重要且紧急", StringComparison.OrdinalIgnoreCase))
+            {
+                return "重要且紧急";
+            }
+            if (string.Equals(normalized, "important_not_urgent", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "重要不紧急", StringComparison.OrdinalIgnoreCase))
+            {
+                return "重要不紧急";
+            }
+            if (string.Equals(normalized, "not_important_urgent", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "不重要紧急", StringComparison.OrdinalIgnoreCase))
+            {
+                return "不重要紧急";
+            }
+            if (string.Equals(normalized, "not_important_not_urgent", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "不重要不紧急", StringComparison.OrdinalIgnoreCase))
+            {
+                return "不重要不紧急";
+            }
+
+            if (string.Equals(draft.Importance, "High", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(draft.Urgency, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return "重要且紧急";
+            }
+            if (string.Equals(draft.Importance, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return "重要不紧急";
+            }
+            if (string.Equals(draft.Urgency, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return "不重要紧急";
+            }
+            return "不重要不紧急";
         }
 
         private async void SyncTimer_Tick(object sender, EventArgs e)
@@ -3800,6 +4162,22 @@ namespace TimeTask
             };
             strategyDashboardItem.Click += (s, e) => OpenStrategyDashboard();
             contextMenu.Items.Add(strategyDashboardItem);
+
+            var knowledgeSyncItem = new MenuItem
+            {
+                Header = "📚 笔记任务同步",
+                ToolTip = "从 Obsidian 笔记提取待办到草稿箱"
+            };
+            knowledgeSyncItem.Click += async (s, e) => await RunKnowledgeSyncAsync(true);
+            contextMenu.Items.Add(knowledgeSyncItem);
+
+            var captureKnowledgeItem = new MenuItem
+            {
+                Header = "📝 沉淀选中任务",
+                ToolTip = "将当前选中任务沉淀为知识卡"
+            };
+            captureKnowledgeItem.Click += (s, e) => CaptureSelectedTaskKnowledge();
+            contextMenu.Items.Add(captureKnowledgeItem);
             
             contextMenu.Items.Add(new Separator());
             
@@ -3836,6 +4214,33 @@ namespace TimeTask
             contextMenu.PlacementTarget = SettingsButton;
             contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
             contextMenu.IsOpen = true;
+        }
+
+        private void CaptureSelectedTaskKnowledge()
+        {
+            var task = GetSelectedTaskFromAnyQuadrant();
+            if (task == null)
+            {
+                MessageBox.Show("请先在任一象限选中一个任务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!task.CompletionTime.HasValue)
+            {
+                task.CompletionTime = DateTime.Now;
+            }
+
+            PersistKnowledgeArtifact(task);
+            MessageBox.Show("已沉淀知识卡。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private ItemGrid GetSelectedTaskFromAnyQuadrant()
+        {
+            if (task1?.SelectedItem is ItemGrid a) return a;
+            if (task2?.SelectedItem is ItemGrid b) return b;
+            if (task3?.SelectedItem is ItemGrid c) return c;
+            if (task4?.SelectedItem is ItemGrid d) return d;
+            return null;
         }
 
         private void ShowBackupManager()

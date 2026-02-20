@@ -92,7 +92,10 @@ namespace TimeTask
                     ReminderTime = draft.ReminderTime,
                     IsActiveInQuadrant = true,
                     InactiveWarningCount = 0,
-                    Result = string.Empty
+                    Result = string.Empty,
+                    SourceTaskID = string.IsNullOrWhiteSpace(draft.SourceNotePath)
+                        ? $"draft:{draft.Id}"
+                        : $"obsidian:{draft.SourceNotePath.Replace('\\', '/')}"
                 };
 
                 items.Insert(0, newItem);

@@ -184,8 +184,14 @@
       <DependentUpon>LearningPlanManagerWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="KnowledgeRuleSet.cs" />
+    <Compile Include="KnowledgeArtifactService.cs" />
+    <Compile Include="KnowledgeSyncModels.cs" />
+    <Compile Include="KnowledgeSyncService.cs" />
+    <Compile Include="KnowledgeTaskExtractor.cs" />
     <Compile Include="LlmService.cs" />
     <Compile Include="ILlmService.cs" />
+    <Compile Include="ObsidianKnowledgeConnector.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
     <Compile Include="EnhancedAudioCaptureService.cs" />
@@ -261,6 +267,15 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="scripts\funasr_asr.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="configs\knowledge_rules.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="configs\task_extract_prompt.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="data\migrations\knowledge_sync_schema.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="data\funasr-runtime-bundle.zip" Condition="Exists('data\funasr-runtime-bundle.zip')">

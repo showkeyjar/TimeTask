@@ -963,20 +963,14 @@ namespace TimeTask
                     return FunAsrRuntimeBootstrapResult.NotReady(string.Empty, "bundle-not-found");
                 }
 
-                string prebuiltRoot = Path.Combine(runtimeRoot, "prebuilt");
-                string marker = Path.Combine(prebuiltRoot, ".bundle.marker");
                 string currentSignature = $"{bundle}|{new FileInfo(bundle).Length}|{File.GetLastWriteTimeUtc(bundle):o}";
-                string existingSignature = File.Exists(marker) ? File.ReadAllText(marker, Encoding.UTF8).Trim() : string.Empty;
+                string signatureFolder = ComputeStableFolderName(currentSignature);
+                string prebuiltRoot = Path.Combine(runtimeRoot, "prebuilt", signatureFolder);
 
-                if (!Directory.Exists(prebuiltRoot) || !string.Equals(currentSignature, existingSignature, StringComparison.Ordinal))
+                if (!Directory.Exists(prebuiltRoot))
                 {
-                    if (Directory.Exists(prebuiltRoot))
-                    {
-                        try { Directory.Delete(prebuiltRoot, true); } catch { }
-                    }
                     Directory.CreateDirectory(prebuiltRoot);
                     ZipFile.ExtractToDirectory(bundle, prebuiltRoot);
-                    File.WriteAllText(marker, currentSignature, Encoding.UTF8);
                     VoiceRuntimeLog.Info($"FunASR prebuilt runtime extracted: bundle={bundle}, target={prebuiltRoot}");
                 }
 
@@ -992,6 +986,23 @@ namespace TimeTask
             {
                 VoiceRuntimeLog.Error("FunASR prebuilt runtime prepare failed.", ex);
                 return FunAsrRuntimeBootstrapResult.NotReady(string.Empty, "prebuilt-prepare-failed");
+            }
+        }
+
+        private static string ComputeStableFolderName(string signature)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    byte[] hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(signature ?? string.Empty));
+                    string hex = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+                    return hex.Substring(0, 16);
+                }
+            }
+            catch
+            {
+                return "default";
             }
         }
 

@@ -1,0 +1,48 @@
+task_markers:
+  - "- [ ]"
+  - "* [ ]"
+  - "TODO"
+  - "待办"
+  - "待处理"
+action_verbs:
+  - "完成"
+  - "处理"
+  - "跟进"
+  - "整理"
+  - "提交"
+  - "联系"
+  - "安排"
+  - "评审"
+  - "修复"
+  - "优化"
+exclude_prefixes:
+  - "#"
+  - ">"
+  - "```"
+  - "!--"
+  - "---"
+deadline_keywords:
+  - "截止"
+  - "due"
+  - "ddl"
+  - "今天"
+  - "明天"
+  - "后天"
+high_priority_keywords:
+  - "紧急"
+  - "尽快"
+  - "马上"
+  - "asap"
+  - "critical"
+  - "blocker"
+low_priority_keywords:
+  - "有空"
+  - "可选"
+  - "之后"
+  - "someday"
+  - "maybe"
+min_title_length: 4
+max_title_length: 120
+checkbox_confidence: 0.94
+verb_confidence: 0.75
+deadline_boost: 0.1

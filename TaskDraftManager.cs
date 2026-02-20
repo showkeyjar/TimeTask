@@ -286,6 +286,8 @@ namespace TimeTask
         public string Id { get; set; }
         public string RawText { get; set; }          // 原始识别文本
         public string CleanedText { get; set; }      // 清理后的任务描述
+        public string SourceNotePath { get; set; }   // 来源笔记相对路径（如 Obsidian）
+        public double Confidence { get; set; }       // 抽取置信度 0~1
         public DateTime? ReminderTime { get; set; }  // 解析出的提醒时间
         public string ReminderHintText { get; set; } // 原始时间短语提示
         public string EstimatedQuadrant { get; set; } // 基于关键词估计的象限
