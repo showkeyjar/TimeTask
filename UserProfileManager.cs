@@ -345,6 +345,23 @@ namespace TimeTask
             }
         }
 
+        public UserProfileSnapshot GetSnapshotCopy()
+        {
+            lock (_sync)
+            {
+                try
+                {
+                    string json = JsonSerializer.Serialize(_profile);
+                    var copy = JsonSerializer.Deserialize<UserProfileSnapshot>(json);
+                    return copy ?? new UserProfileSnapshot();
+                }
+                catch
+                {
+                    return new UserProfileSnapshot();
+                }
+            }
+        }
+
         public string BuildReminderContext(ItemGrid task, TimeSpan inactiveDuration)
         {
             lock (_sync)

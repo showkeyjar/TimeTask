@@ -75,6 +75,8 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="AdaptiveGoalManager.cs" />
+    <Compile Include="DecisionEngine.cs" />
+    <Compile Include="GoalHierarchyEngine.cs" />
     <Compile Include="ConfirmGoalTasksWindow.xaml.cs">
       <DependentUpon>ConfirmGoalTasksWindow.xaml</DependentUpon>
     </Compile>
@@ -92,6 +94,10 @@
     </Compile>
     <Compile Include="SkillManagementWindow.xaml.cs">
       <DependentUpon>SkillManagementWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="StrategyDashboardWindow.xaml.cs">
+      <DependentUpon>StrategyDashboardWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
     </Compile>
     <Compile Include="TaskReminderWindow.xaml.cs">
       <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
@@ -191,10 +197,12 @@
     <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="SkillManagementService.cs" />
+    <Compile Include="LifeProfileEngine.cs" />
     <Compile Include="VoiceReminderTimeParser.cs" />
     <Compile Include="NotificationManager.cs" />
     <Compile Include="FunAsrRuntimeManager.cs" />
     <Compile Include="VoiceListenerStatusCenter.cs" />
+    <Compile Include="WeeklyReviewEngine.cs" />
     <Compile Include="DraftViewerWindow.xaml.cs">
       <DependentUpon>DraftViewerWindow.xaml</DependentUpon>
     </Compile>
@@ -203,6 +211,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="TaskReminderWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="StrategyDashboardWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

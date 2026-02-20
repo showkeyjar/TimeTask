@@ -367,10 +367,20 @@ namespace TimeTask
         private ConversationRecorder _conversationRecorder;
         private UserBehaviorObserver _behaviorObserver;
         private AdaptiveGoalManager _adaptiveGoalManager;
+        private LifeProfileEngine _lifeProfileEngine;
+        private DecisionEngine _decisionEngine;
+        private WeeklyReviewEngine _weeklyReviewEngine;
+        private GoalHierarchyEngine _goalHierarchyEngine;
         private System.Windows.Threading.DispatcherTimer _smartSystemTimer;
         private System.Windows.Threading.DispatcherTimer _conversationIdleTimer;
         private DateTime _lastVoiceConversationSegmentAtUtc = DateTime.MinValue;
+        private DateTime _lastStrategyCycleAt = DateTime.MinValue;
+        private DateTime _lastWeeklyReviewNoticeDate = DateTime.MinValue;
         private static readonly TimeSpan ConversationIdleTimeout = TimeSpan.FromSeconds(75);
+        private TimeSpan _strategyCycleInterval = TimeSpan.FromMinutes(30);
+        private DayOfWeek _weeklyReviewPublishDay = DayOfWeek.Monday;
+        private int _strategyTopFocusCount = 5;
+        private DecisionEngineOptions _decisionOptions = new DecisionEngineOptions();
 
         private ItemGrid _draggedItem;
         private DataGrid _sourceDataGrid;
@@ -909,6 +919,28 @@ namespace TimeTask
             _nonBlockingInteractionEnabled = GetAppSettingBool("NonBlockingInteractionEnabled", true);
             _quietHoursStart = GetAppSettingInt("QuietHoursStart", 22, 0, 23);
             _quietHoursEnd = GetAppSettingInt("QuietHoursEnd", 8, 0, 23);
+            _strategyCycleInterval = TimeSpan.FromMinutes(GetAppSettingInt("StrategyCycleIntervalMinutes", 30, 5, 180));
+            int weeklyPublish = GetAppSettingInt("WeeklyReviewPublishDay", 1, 1, 7);
+            _weeklyReviewPublishDay = weeklyPublish switch
+            {
+                1 => DayOfWeek.Monday,
+                2 => DayOfWeek.Tuesday,
+                3 => DayOfWeek.Wednesday,
+                4 => DayOfWeek.Thursday,
+                5 => DayOfWeek.Friday,
+                6 => DayOfWeek.Saturday,
+                _ => DayOfWeek.Sunday
+            };
+            _strategyTopFocusCount = GetAppSettingInt("StrategyTopFocusCount", 5, 1, 10);
+            _decisionOptions = new DecisionEngineOptions
+            {
+                LongTermWeight = GetAppSettingDouble("DecisionWeightLongTerm", 0.45, 0.0, 1.5),
+                UrgencyWeight = GetAppSettingDouble("DecisionWeightUrgency", 0.35, 0.0, 1.5),
+                StrengthFitWeight = GetAppSettingDouble("DecisionWeightStrengthFit", 1.0, 0.0, 3.0),
+                EnergyFitWeight = GetAppSettingDouble("DecisionWeightEnergyFit", 1.0, 0.0, 3.0),
+                RiskPenaltyWeight = GetAppSettingDouble("DecisionWeightRiskPenalty", 1.0, 0.0, 3.0),
+                SnapshotTopCount = _strategyTopFocusCount
+            };
         }
 
         private static bool GetAppSettingBool(string key, bool defaultValue)
@@ -921,6 +953,17 @@ namespace TimeTask
         {
             string value = ConfigurationManager.AppSettings[key];
             if (int.TryParse(value, out int parsed))
+            {
+                return Math.Max(min, Math.Min(max, parsed));
+            }
+            return defaultValue;
+        }
+
+        private static double GetAppSettingDouble(string key, double defaultValue, double min, double max)
+        {
+            string value = ConfigurationManager.AppSettings[key];
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ||
+                double.TryParse(value, out parsed))
             {
                 return Math.Max(min, Math.Min(max, parsed));
             }
@@ -1029,6 +1072,10 @@ namespace TimeTask
                 _smartGuidanceManager = new SmartGuidanceManager(dataPath);
                 _conversationRecorder = new ConversationRecorder(dataPath);
                 _adaptiveGoalManager = new AdaptiveGoalManager(dataPath, _userProfileManager, _behaviorObserver);
+                _lifeProfileEngine = new LifeProfileEngine(dataPath);
+                _decisionEngine = new DecisionEngine(dataPath, _decisionOptions);
+                _weeklyReviewEngine = new WeeklyReviewEngine(dataPath);
+                _goalHierarchyEngine = new GoalHierarchyEngine(dataPath);
 
                 _smartGuidanceManager.ScenarioTriggered += SmartGuidanceManager_ScenarioTriggered;
                 _conversationRecorder.ConversationEnded += ConversationRecorder_ConversationEnded;
@@ -1050,6 +1097,7 @@ namespace TimeTask
                 _conversationIdleTimer.Tick += ConversationIdleTimer_Tick;
                 _conversationIdleTimer.Start();
 
+                RunStrategicNavigationCycle(force: true);
                 Console.WriteLine("[SmartSystems] Initialized successfully");
             }
             catch (Exception ex)
@@ -1064,10 +1112,105 @@ namespace TimeTask
             {
                 _smartGuidanceManager.CheckAndTriggerScenarios();
                 _adaptiveGoalManager.CheckAndAdjustGoals();
+                RunStrategicNavigationCycle(force: false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[SmartSystems] Timer tick failed: {ex.Message}");
+            }
+        }
+
+        private void RunStrategicNavigationCycle(bool force)
+        {
+            try
+            {
+                DateTime now = DateTime.Now;
+                if (!force && (now - _lastStrategyCycleAt) < _strategyCycleInterval)
+                {
+                    return;
+                }
+
+                var allTasks = GetAllQuadrantTasks();
+                var activeGoals = LoadActiveLongTermGoals();
+                UserProfileSnapshot behaviorSnapshot = ShouldRecordBehavior() ? _userProfileManager.GetSnapshotCopy() : new UserProfileSnapshot();
+                var lifeProfile = _lifeProfileEngine?.BuildAndPersist(behaviorSnapshot, allTasks, now) ?? new LifeProfileSnapshot();
+                _goalHierarchyEngine?.BuildAndPersist(activeGoals, allTasks, now);
+                var ranked = _decisionEngine?.RankTasks(allTasks, lifeProfile, _activeLongTermGoal?.Id, now) ?? new List<TaskDecisionScore>();
+                _decisionEngine?.PersistSnapshot(ranked, now);
+
+                WeeklyReviewReport weeklyReport = null;
+                bool shouldRunWeekly = force || now.DayOfWeek == _weeklyReviewPublishDay;
+                if (shouldRunWeekly)
+                {
+                    weeklyReport = _weeklyReviewEngine?.GenerateAndPersist(
+                        allTasks,
+                        activeGoals,
+                        lifeProfile,
+                        ranked,
+                        now,
+                        force: now.DayOfWeek == _weeklyReviewPublishDay);
+                }
+
+                if (weeklyReport != null && _lastWeeklyReviewNoticeDate.Date != now.Date)
+                {
+                    _lastWeeklyReviewNoticeDate = now.Date;
+                    string focusSummary = string.Join("、", weeklyReport.TopFocusTasks.Take(Math.Max(1, _strategyTopFocusCount)).Select(t => t.TaskName));
+                    ShowPassiveNotification(
+                        "已生成周复盘",
+                        $"周期 {weeklyReport.WeekStart:MM-dd}~{weeklyReport.WeekEnd:MM-dd}，建议聚焦：{focusSummary}",
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+
+                _lastStrategyCycleAt = now;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StrategyCycle] failed: {ex.Message}");
+            }
+        }
+
+        private List<ItemGrid> GetAllQuadrantTasks()
+        {
+            var tasks = new List<ItemGrid>();
+            AddQuadrantItems(tasks, task1?.ItemsSource);
+            AddQuadrantItems(tasks, task2?.ItemsSource);
+            AddQuadrantItems(tasks, task3?.ItemsSource);
+            AddQuadrantItems(tasks, task4?.ItemsSource);
+            return tasks;
+        }
+
+        private static void AddQuadrantItems(List<ItemGrid> target, IEnumerable source)
+        {
+            if (target == null || source == null)
+            {
+                return;
+            }
+
+            foreach (object item in source)
+            {
+                if (item is ItemGrid task && task != null)
+                {
+                    target.Add(task);
+                }
+            }
+        }
+
+        private List<LongTermGoal> LoadActiveLongTermGoals()
+        {
+            try
+            {
+                string goalsPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+                if (!File.Exists(goalsPath))
+                {
+                    return new List<LongTermGoal>();
+                }
+
+                var goals = HelperClass.ReadLongTermGoalsCsv(goalsPath) ?? new List<LongTermGoal>();
+                return goals.Where(g => g != null && g.IsActive).ToList();
+            }
+            catch
+            {
+                return new List<LongTermGoal>();
             }
         }
 
@@ -3649,6 +3792,14 @@ namespace TimeTask
             };
             skillManagementItem.Click += (s, e) => OpenSkillManagement();
             contextMenu.Items.Add(skillManagementItem);
+
+            var strategyDashboardItem = new MenuItem
+            {
+                Header = "🧭 策略导航面板",
+                ToolTip = "查看画像、目标层级、任务取舍与周复盘"
+            };
+            strategyDashboardItem.Click += (s, e) => OpenStrategyDashboard();
+            contextMenu.Items.Add(strategyDashboardItem);
             
             contextMenu.Items.Add(new Separator());
             
@@ -4064,6 +4215,15 @@ namespace TimeTask
         private void OpenSkillManagement()
         {
             var window = new SkillManagementWindow
+            {
+                Owner = this
+            };
+            window.ShowDialog();
+        }
+
+        private void OpenStrategyDashboard()
+        {
+            var window = new StrategyDashboardWindow(Path.Combine(currentPath, "data"))
             {
                 Owner = this
             };
