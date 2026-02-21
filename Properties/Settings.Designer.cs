@@ -214,5 +214,17 @@ namespace TimeTask.Properties {
                 this["SecondWarningAfterDays"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SkillHintShown {
+            get {
+                return ((bool)(this["SkillHintShown"]));
+            }
+            set {
+                this["SkillHintShown"] = value;
+            }
+        }
     }
 }

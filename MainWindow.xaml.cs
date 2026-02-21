@@ -2157,10 +2157,21 @@ namespace TimeTask
                 return result;
             }
 
+            Dictionary<string, ActionPerformance> perfByAction = null;
+            if (ShouldRecordBehavior() && _userProfileManager != null)
+            {
+                perfByAction = _userProfileManager
+                    .GetActionPerformance(30)
+                    .ToDictionary(x => x.ActionId, StringComparer.OrdinalIgnoreCase);
+            }
+
             foreach (var skill in skills)
             {
                 if (skill == null) continue;
-                string text = $"Skill[{skill.Title}]: {skill.NextStep}";
+                string hint = BuildSkillHintLabel(skill, perfByAction);
+                string text = string.IsNullOrWhiteSpace(hint)
+                    ? $"Skill[{skill.Title}]: {skill.NextStep}"
+                    : $"Skill[{skill.Title}]: {skill.NextStep}（{hint}）";
                 if (!result.Any(s => string.Equals(s, text, StringComparison.OrdinalIgnoreCase)))
                 {
                     result.Insert(0, text);
@@ -2176,6 +2187,68 @@ namespace TimeTask
                 }
             }
             return result.Take(5).ToList();
+        }
+
+        private static string BuildSkillHintLabel(LlmSkillRecommendation skill, Dictionary<string, ActionPerformance> perfByAction)
+        {
+            if (skill == null)
+            {
+                return string.Empty;
+            }
+
+            string matchLevel = GetMatchLevel(skill.Confidence);
+            string benefitLevel = GetBenefitLevel(skill.SkillId, skill.Confidence, perfByAction);
+            if (string.IsNullOrWhiteSpace(matchLevel) || string.IsNullOrWhiteSpace(benefitLevel))
+            {
+                return string.Empty;
+            }
+
+            return $"匹配度:{matchLevel}，预计收益:{benefitLevel}";
+        }
+
+        private static string GetMatchLevel(double confidence)
+        {
+            if (confidence >= 0.70)
+            {
+                return "高";
+            }
+            if (confidence >= 0.45)
+            {
+                return "中";
+            }
+            return "低";
+        }
+
+        private static string GetBenefitLevel(string skillId, double fallbackConfidence, Dictionary<string, ActionPerformance> perfByAction)
+        {
+            if (string.IsNullOrWhiteSpace(skillId))
+            {
+                return GetMatchLevel(fallbackConfidence);
+            }
+
+            if (perfByAction == null || !perfByAction.TryGetValue(skillId, out var perf) || perf == null)
+            {
+                return GetMatchLevel(fallbackConfidence);
+            }
+
+            int shown = Math.Max(0, perf.Shown);
+            int accepted = Math.Max(0, perf.Accepted);
+            int deferred = Math.Max(0, perf.Deferred);
+            if (shown < 3)
+            {
+                return GetMatchLevel(fallbackConfidence);
+            }
+
+            double expectedReward = (accepted + deferred * 0.35 + 1.0) / (shown + 2.0);
+            if (expectedReward >= 0.60)
+            {
+                return "高";
+            }
+            if (expectedReward >= 0.40)
+            {
+                return "中";
+            }
+            return "低";
         }
 
         private void RememberPendingReminderSkills(ItemGrid task, List<string> shownSkillIds)
@@ -4120,11 +4193,6 @@ namespace TimeTask
             UpdateDraftBadge();
         }
 
-        private void SkillCenterButton_Click(object sender, RoutedEventArgs e)
-        {
-            OpenSkillManagement();
-        }
-
         private void ShowSettingsMenu()
         {
             var contextMenu = new ContextMenu();
@@ -4181,14 +4249,14 @@ namespace TimeTask
             
             contextMenu.Items.Add(new Separator());
             
-            // 备份管理
-            var backupItem = new MenuItem
+            // 数据导入
+            var importItem = new MenuItem
             {
-                Header = "💾 备份管理",
-                ToolTip = "管理数据备份和恢复"
+                Header = "📥 导入数据",
+                ToolTip = "从导出文件导入任务和目标"
             };
-            backupItem.Click += (s, e) => ShowBackupManager();
-            contextMenu.Items.Add(backupItem);
+            importItem.Click += (s, e) => ImportAllData();
+            contextMenu.Items.Add(importItem);
             
             // 数据导出
             var exportItem = new MenuItem
@@ -4243,11 +4311,62 @@ namespace TimeTask
             return null;
         }
 
-        private void ShowBackupManager()
+        private void ImportAllData()
         {
             try
             {
-                MessageBox.Show("备份管理功能暂时不可用", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                var openDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    DefaultExt = "json"
+                };
+
+                if (openDialog.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                string json = File.ReadAllText(openDialog.FileName, Encoding.UTF8);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var package = JsonSerializer.Deserialize<DataExportPackage>(json, options);
+                if (package == null)
+                {
+                    MessageBox.Show("导入失败：文件内容无法解析。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var confirm = MessageBox.Show(
+                    "导入会覆盖当前任务、目标与学习计划数据，是否继续？",
+                    "确认导入",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                string dataDir = Path.Combine(currentPath, "data");
+                Directory.CreateDirectory(dataDir);
+
+                if (package.Tasks != null)
+                {
+                    WriteTasksFromPackage(package.Tasks, dataDir);
+                }
+
+                if (package.LongTermGoals != null)
+                {
+                    string goalsPath = Path.Combine(dataDir, "long_term_goals.csv");
+                    HelperClass.WriteLongTermGoalsCsv(package.LongTermGoals, goalsPath);
+                }
+
+                if (package.LearningMilestones != null)
+                {
+                    ImportLearningMilestones(package.LearningMilestones, dataDir);
+                }
+
+                loadDataGridView();
+                LoadActiveLongTermGoalAndRefreshDisplay();
+                MessageBox.Show("数据导入完成。", "导入成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -4268,12 +4387,108 @@ namespace TimeTask
 
                 if (saveDialog.ShowDialog() == true)
                 {
-                    MessageBox.Show("导出功能暂时不可用", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    var package = BuildExportPackage();
+                    var options = new JsonSerializerOptions { WriteIndented = true };
+                    string json = JsonSerializer.Serialize(package, options);
+                    File.WriteAllText(saveDialog.FileName, json, Encoding.UTF8);
+                    MessageBox.Show("数据已导出。", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private DataExportPackage BuildExportPackage()
+        {
+            string dataDir = Path.Combine(currentPath, "data");
+            var package = new DataExportPackage
+            {
+                ExportedAt = DateTime.Now,
+                Tasks = new Dictionary<string, List<ItemGrid>>(),
+                LongTermGoals = new List<LongTermGoal>(),
+                LearningMilestones = new List<LearningMilestone>()
+            };
+
+            package.Tasks["1"] = HelperClass.ReadCsv(Path.Combine(dataDir, "1.csv")) ?? new List<ItemGrid>();
+            package.Tasks["2"] = HelperClass.ReadCsv(Path.Combine(dataDir, "2.csv")) ?? new List<ItemGrid>();
+            package.Tasks["3"] = HelperClass.ReadCsv(Path.Combine(dataDir, "3.csv")) ?? new List<ItemGrid>();
+            package.Tasks["4"] = HelperClass.ReadCsv(Path.Combine(dataDir, "4.csv")) ?? new List<ItemGrid>();
+
+            string goalsPath = Path.Combine(dataDir, "long_term_goals.csv");
+            package.LongTermGoals = HelperClass.ReadLongTermGoalsCsv(goalsPath) ?? new List<LongTermGoal>();
+
+            package.LearningMilestones = ReadAllLearningMilestones(dataDir);
+
+            return package;
+        }
+
+        private static void WriteTasksFromPackage(Dictionary<string, List<ItemGrid>> tasks, string dataDir)
+        {
+            List<ItemGrid> GetTasks(string key)
+            {
+                if (tasks != null && tasks.TryGetValue(key, out var list) && list != null)
+                {
+                    return list;
+                }
+                return new List<ItemGrid>();
+            }
+
+            HelperClass.WriteCsv(GetTasks("1"), Path.Combine(dataDir, "1.csv"));
+            HelperClass.WriteCsv(GetTasks("2"), Path.Combine(dataDir, "2.csv"));
+            HelperClass.WriteCsv(GetTasks("3"), Path.Combine(dataDir, "3.csv"));
+            HelperClass.WriteCsv(GetTasks("4"), Path.Combine(dataDir, "4.csv"));
+        }
+
+        private static List<LearningMilestone> ReadAllLearningMilestones(string dataDir)
+        {
+            var results = new List<LearningMilestone>();
+            if (!Directory.Exists(dataDir))
+            {
+                return results;
+            }
+
+            foreach (var file in Directory.GetFiles(dataDir, "learning_milestones_*.csv"))
+            {
+                var milestones = HelperClass.ReadLearningMilestonesCsv(file);
+                if (milestones != null && milestones.Count > 0)
+                {
+                    results.AddRange(milestones);
+                }
+            }
+
+            return results;
+        }
+
+        private static void ImportLearningMilestones(List<LearningMilestone> milestones, string dataDir)
+        {
+            if (!Directory.Exists(dataDir))
+            {
+                Directory.CreateDirectory(dataDir);
+            }
+
+            foreach (var file in Directory.GetFiles(dataDir, "learning_milestones_*.csv"))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch
+                {
+                    // Ignore cleanup failures; will overwrite when possible.
+                }
+            }
+
+            if (milestones == null || milestones.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var group in milestones.GroupBy(m => m.LearningPlanId))
+            {
+                string filePath = Path.Combine(dataDir, $"learning_milestones_{group.Key}.csv");
+                HelperClass.WriteLearningMilestonesCsv(group.ToList(), filePath);
             }
         }
         
@@ -4644,7 +4859,7 @@ namespace TimeTask
                              "- 长期目标设定\n" +
                              "- 学习计划制定\n" +
                              "- AI智能分解\n" +
-                             "- 数据备份与恢复\n\n" +
+                             "- 数据导入/导出\n\n" +
                              "© 2024 TimeTask Team";
             
             MessageBox.Show(aboutText, "关于 TimeTask", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -4762,6 +4977,15 @@ namespace TimeTask // Ensure it's within the same namespace or accessible
             Id = Guid.NewGuid().ToString();
             IsCompleted = false;
         }
+    }
+
+    public class DataExportPackage
+    {
+        public int Version { get; set; } = 1;
+        public DateTime ExportedAt { get; set; } = DateTime.Now;
+        public Dictionary<string, List<ItemGrid>> Tasks { get; set; }
+        public List<LongTermGoal> LongTermGoals { get; set; }
+        public List<LearningMilestone> LearningMilestones { get; set; }
     }
 }
 

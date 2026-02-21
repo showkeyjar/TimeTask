@@ -371,6 +371,11 @@ namespace TimeTask
             var taskPattern = _patterns.FirstOrDefault(p => p.PatternId == "task_creation_frequency");
             if (taskPattern == null) return;
 
+            if (taskPattern.FrequencyByDay == null || taskPattern.FrequencyByDay.Count == 0)
+            {
+                return;
+            }
+
             var avgTasksPerDay = taskPattern.FrequencyByDay.Values.Average();
             
             if (avgTasksPerDay > 10)
@@ -400,7 +405,13 @@ namespace TimeTask
             var voicePattern = _patterns.FirstOrDefault(p => p.PatternId == "voice_usage_preference");
             if (voicePattern == null) return;
 
-            var voiceUsageRate = voicePattern.ObservationCount / (double)_interactions.Count(i => i.Timestamp > DateTime.Now.AddDays(-7));
+            int recentCount = _interactions.Count(i => i.Timestamp > DateTime.Now.AddDays(-7));
+            if (recentCount == 0)
+            {
+                return;
+            }
+
+            var voiceUsageRate = voicePattern.ObservationCount / (double)recentCount;
 
             if (voiceUsageRate < 0.1)
             {
