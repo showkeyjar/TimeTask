@@ -20,6 +20,7 @@ jobs:
       Solution_Name: TimeTask.sln
       Main_Project_Path: TimeTask.csproj
       Build_Configuration: Release
+      Build_Platform: AnyCPU
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -28,10 +29,10 @@ jobs:
       uses: microsoft/setup-msbuild@v2
 
     - name: Restore main project
-      run: msbuild $env:Main_Project_Path /t:Restore /p:Configuration=$env:Build_Configuration
+      run: msbuild $env:Main_Project_Path /t:Restore /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform
 
     - name: Build main project
-      run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform="Any CPU" /m
+      run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform /m
 
     - name: Execute unit tests (optional)
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_tests == true }}
