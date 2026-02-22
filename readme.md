@@ -56,6 +56,31 @@
 - FunASR 可使用预置运行时包 `data/funasr-runtime-bundle.zip`。
 - 语音草稿可自动入象限或进入草稿箱。
 
+**自动更新（新）**
+- 启动时会后台检查更新（可在 `App.config` 关闭）。
+- 默认从 GitHub Releases 检查最新版本并下载 zip 资产。
+- GitHub 配置项：
+  - `AutoUpdateEnabled`：是否启用自动更新。
+  - `AutoUpdateGithubOwner`：GitHub 仓库 owner。
+  - `AutoUpdateGithubRepo`：GitHub 仓库名。
+  - `AutoUpdateGithubAssetNameContains`：可选，按资产名关键字筛选 zip。
+  - `AutoUpdateGithubIncludePrerelease`：是否允许预发布。
+  - `AutoUpdateCheckTimeoutSeconds`：检查超时（秒）。
+  - `AutoUpdateDownloadTimeoutSeconds`：下载超时（秒）。
+- 可选兜底（不使用 GitHub 时）：
+  - `AutoUpdateManifestUrl`：更新清单地址（HTTP/HTTPS）。
+  - manifest JSON 示例：
+
+```json
+{
+  "version": "1.1.0",
+  "downloadUrl": "https://example.com/releases/TimeTask-1.1.0.zip",
+  "sha256": "可选，更新包SHA256"
+}
+```
+
+- 发布包要求：`downloadUrl` 指向的 zip 解压后需包含 `TimeTask.exe`（可在根目录或单层子目录中）。
+
 **自我进化能力（本地）**
 - 基于提醒反馈自动调整推荐策略。
 - 仅存本地 `%AppData%/TimeTask/user-profile.json`。

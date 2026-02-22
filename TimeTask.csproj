@@ -194,6 +194,7 @@
     <Compile Include="ObsidianKnowledgeConnector.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
+    <Compile Include="AutoUpdateService.cs" />
     <Compile Include="EnhancedAudioCaptureService.cs" />
     <Compile Include="SpeechModelManager.cs" />
     <Compile Include="VoiceRuntimeLog.cs" />

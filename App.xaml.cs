@@ -24,6 +24,9 @@ namespace TimeTask
         // 通知管理器
         private NotificationManager _notificationManager;
 
+        // 自动更新服务
+        private AutoUpdateService _autoUpdateService;
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e); // Call base implementation
@@ -33,6 +36,17 @@ namespace TimeTask
             VoiceRuntimeLog.Info($"Config: VoiceAsrProvider={ConfigurationManager.AppSettings["VoiceAsrProvider"]}, FunAsrAutoBootstrap={ConfigurationManager.AppSettings["FunAsrAutoBootstrap"]}");
             VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用（启动初始化中）");
             FunAsrRuntimeManager.KickoffIfNeeded();
+
+            // 启动自动更新检查（后台执行）
+            try
+            {
+                _autoUpdateService = new AutoUpdateService(Dispatcher);
+                _autoUpdateService.StartBackgroundCheck();
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("AutoUpdateService startup failed.", ex);
+            }
 
             // Check for API Key configuration
             string apiKey = System.Configuration.ConfigurationManager.AppSettings["OpenAIApiKey"];
