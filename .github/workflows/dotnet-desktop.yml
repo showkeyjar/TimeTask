@@ -18,6 +18,7 @@ jobs:
     runs-on: windows-latest
     env:
       Solution_Name: TimeTask.sln
+      Main_Project_Path: TimeTask.csproj
       Build_Configuration: Release
     steps:
     - name: Checkout
@@ -26,12 +27,12 @@ jobs:
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
 
-    - name: Restore solution
-      run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Build_Configuration
+    - name: Restore main project
+      run: msbuild $env:Main_Project_Path /t:Restore /p:Configuration=$env:Build_Configuration
 
-    - name: Build solution
-      run: msbuild $env:Solution_Name /p:Configuration=$env:Build_Configuration /p:Platform="Any CPU" /m
+    - name: Build main project
+      run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform="Any CPU" /m
 
     - name: Execute unit tests (optional)
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_tests == true }}
-      run: dotnet test TimeTask.Tests/TimeTask.Tests.csproj -c $env:Build_Configuration --no-build
+      run: dotnet test TimeTask.Tests/TimeTask.Tests.csproj -c $env:Build_Configuration
