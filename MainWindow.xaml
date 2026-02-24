@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="时间管理" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
+        Title="{local:Loc Key=Window_Main_Title}" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
         LocationChanged="location_Save"
         Background="Transparent" ShowInTaskbar="False">
     <Window.Resources>
@@ -58,7 +58,7 @@
                                     <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1" SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" Visibility="{TemplateBinding DetailsVisibility}"/>
                                     <DataGridRowHeader Grid.RowSpan="2" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"/>
                                 </SelectiveScrollingGrid>
-                                <Button x:Name="PART_ReminderButton" Grid.Column="1" Content="⏰" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="EditReminderTime_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="编辑提醒时间"/>
+                                <Button x:Name="PART_ReminderButton" Grid.Column="1" Content="⏰" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="EditReminderTime_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_EditReminderTime}"/>
                                 <Button x:Name="PART_DeleteButton" Grid.Column="2" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray"/>
                             </Grid>
                         </Border>
@@ -105,7 +105,7 @@
                     Margin="0,0,10,0"
                     Padding="10,0"
                     FontSize="14"
-                    ToolTip="View and manage your active long-term goal"
+                    ToolTip="{local:Loc Key=Tooltip_ActiveLongTermGoal}"
                     Click="ActiveLongTermGoalDisplay_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
@@ -125,7 +125,7 @@
                     </Style>
                 </Button.Style>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="ActiveLongTermGoalName" Text="My Long Goal" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ActiveLongTermGoalName" Text="{local:Loc Key=ActiveLongGoal_DefaultName}" VerticalAlignment="Center"/>
                     <Border Background="Red" CornerRadius="8" Margin="5,0,0,0" Padding="5,2" VerticalAlignment="Center">
                         <TextBlock x:Name="LongTermGoalBadge" Text="0" Foreground="White" FontSize="10" FontWeight="Bold"/>
                     </Border>
@@ -133,13 +133,13 @@
             </Button>
 
             <Button x:Name="LongTermGoalButton"
-                    Content="Set Long-Term Goal"
+                    Content="{local:Loc Key=Button_SetLongTermGoal}"
                     Width="Auto"
                     Height="30"
                     Margin="0,0,5,0"
                     Padding="10,0"
                     FontSize="14"
-                    ToolTip="Set or update your long-term goal"
+                    ToolTip="{local:Loc Key=Tooltip_SetLongTermGoal}"
                     Click="LongTermGoalButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
@@ -166,7 +166,7 @@
                     Height="30"
                     FontSize="16"
                     FontWeight="Bold"
-                    ToolTip="Open LLM Settings"
+                    ToolTip="{local:Loc Key=Tooltip_OpenSettings}"
                     Click="SettingsButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
@@ -192,7 +192,7 @@
                     Height="30"
                     FontSize="16"
                     FontWeight="Bold"
-                    ToolTip="View Task Drafts"
+                    ToolTip="{local:Loc Key=Tooltip_ViewDrafts}"
                     Click="DraftsButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
@@ -243,7 +243,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
-                    <Label Content="重要且紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Label Content="{local:Loc Key=Quadrant_ImportantUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
                     <Button x:Name="AddUrgentImportantTaskButton" Content="+" Tag="0" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAFFDADA" BorderBrush="#88FFDADA" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
@@ -254,7 +254,7 @@
                 </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325">
+                        <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock TextWrapping="Wrap">
@@ -292,7 +292,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Label Content="重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                        <Label Content="{local:Loc Key=Quadrant_ImportantNotUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
                         <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
                             <Button.Resources>
                                 <Style TargetType="Border">
@@ -313,7 +313,7 @@
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             IsHitTestVisible="False"
-                            ToolTip="语音监听状态">
+                            ToolTip="{local:Loc Key=Tooltip_VoiceStatus}">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="13"/>
@@ -345,7 +345,7 @@
                             </TextBlock>
                             <TextBlock x:Name="VoiceStatusText"
                                        Grid.Column="1"
-                                       Text="语音·未知"
+                                        Text="{local:Loc Key=Voice_TextUnknown}"
                                        VerticalAlignment="Center"
                                        Foreground="#666666"/>
                             <Ellipse x:Name="VoiceStatusDot"
@@ -360,7 +360,7 @@
                 </Grid>
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325">
+                        <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock TextWrapping="Wrap">
@@ -392,7 +392,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
-                    <Label Content="不重要但紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Label Content="{local:Loc Key=Quadrant_NotImportantUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
                     <Button x:Name="AddNotImportantUrgentTaskButton" Content="+" Tag="2" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD9FFD9" BorderBrush="#88D9FFD9" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
@@ -403,7 +403,7 @@
                 </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325">
+                        <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock TextWrapping="Wrap">
@@ -435,7 +435,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
-                    <Label Content="不重要不紧急" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Label Content="{local:Loc Key=Quadrant_NotImportantNotUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
                     <Button x:Name="AddNotImportantNotUrgentTaskButton" Content="+" Tag="3" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAE0E0E0" BorderBrush="#88E0E0E0" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
@@ -446,7 +446,7 @@
                 </StackPanel>
                 <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Task" Width="*" MaxWidth="325">
+                        <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock TextWrapping="Wrap">

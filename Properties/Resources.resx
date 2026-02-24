@@ -114,4 +114,222 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Window_Main_Title" xml:space="preserve">
+    <value>时间管理</value>
+  </data>
+  <data name="Tooltip_EditReminderTime" xml:space="preserve">
+    <value>编辑提醒时间</value>
+  </data>
+  <data name="Tooltip_ActiveLongTermGoal" xml:space="preserve">
+    <value>查看和管理当前长期目标</value>
+  </data>
+  <data name="ActiveLongGoal_DefaultName" xml:space="preserve">
+    <value>我的长期目标</value>
+  </data>
+  <data name="Button_SetLongTermGoal" xml:space="preserve">
+    <value>设置长期目标</value>
+  </data>
+  <data name="Tooltip_SetLongTermGoal" xml:space="preserve">
+    <value>设置或更新长期目标</value>
+  </data>
+  <data name="Tooltip_OpenSettings" xml:space="preserve">
+    <value>打开设置菜单</value>
+  </data>
+  <data name="Tooltip_ViewDrafts" xml:space="preserve">
+    <value>查看任务草稿</value>
+  </data>
+  <data name="Quadrant_ImportantUrgent" xml:space="preserve">
+    <value>重要且紧急</value>
+  </data>
+  <data name="Quadrant_ImportantNotUrgent" xml:space="preserve">
+    <value>重要不紧急</value>
+  </data>
+  <data name="Quadrant_NotImportantUrgent" xml:space="preserve">
+    <value>不重要但紧急</value>
+  </data>
+  <data name="Quadrant_NotImportantNotUrgent" xml:space="preserve">
+    <value>不重要不紧急</value>
+  </data>
+  <data name="Task_Header" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="Tooltip_VoiceStatus" xml:space="preserve">
+    <value>语音监听状态</value>
+  </data>
+  <data name="Voice_TextUnknown" xml:space="preserve">
+    <value>语音·未知</value>
+  </data>
+  <data name="Voice_StatusTitle" xml:space="preserve">
+    <value>语音状态</value>
+  </data>
+  <data name="Voice_StatusUpdatedAt" xml:space="preserve">
+    <value>更新时间</value>
+  </data>
+  <data name="Voice_StatusUnavailable" xml:space="preserve">
+    <value>不可用</value>
+  </data>
+  <data name="Voice_StatusReady" xml:space="preserve">
+    <value>可监听</value>
+  </data>
+  <data name="Voice_StatusRecognizing" xml:space="preserve">
+    <value>识别中</value>
+  </data>
+  <data name="Voice_StatusUnknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="Voice_StatusCooldownFormat" xml:space="preserve">
+    <value>语音冷却中 约{0}</value>
+  </data>
+  <data name="Voice_StatusPrefixFormat" xml:space="preserve">
+    <value>语音·{0}</value>
+  </data>
+  <data name="Duration_Seconds" xml:space="preserve">
+    <value>{0}秒</value>
+  </data>
+  <data name="Duration_Minutes" xml:space="preserve">
+    <value>{0}分</value>
+  </data>
+  <data name="Duration_MinutesSeconds" xml:space="preserve">
+    <value>{0}分{1}秒</value>
+  </data>
+  <data name="Menu_AISettings_Header" xml:space="preserve">
+    <value>🤖 AI助手设置</value>
+  </data>
+  <data name="Menu_AISettings_Tooltip" xml:space="preserve">
+    <value>配置大语言模型API设置</value>
+  </data>
+  <data name="Menu_ReminderSettings_Header" xml:space="preserve">
+    <value>⏰ 任务提醒设置</value>
+  </data>
+  <data name="Menu_ReminderSettings_Tooltip" xml:space="preserve">
+    <value>配置任务提醒频率和行为</value>
+  </data>
+  <data name="Menu_Skill_Header" xml:space="preserve">
+    <value>🧠 Skill 管理</value>
+  </data>
+  <data name="Menu_Skill_Tooltip" xml:space="preserve">
+    <value>启用/停用技能并查看反馈效果</value>
+  </data>
+  <data name="Menu_Strategy_Header" xml:space="preserve">
+    <value>🧭 策略导航面板</value>
+  </data>
+  <data name="Menu_Strategy_Tooltip" xml:space="preserve">
+    <value>查看画像、目标层级、任务取舍与周复盘</value>
+  </data>
+  <data name="Menu_KnowledgeSync_Header" xml:space="preserve">
+    <value>📚 笔记任务同步</value>
+  </data>
+  <data name="Menu_KnowledgeSync_Tooltip" xml:space="preserve">
+    <value>从 Obsidian 笔记提取待办到草稿箱</value>
+  </data>
+  <data name="Menu_CaptureKnowledge_Header" xml:space="preserve">
+    <value>📝 沉淀选中任务</value>
+  </data>
+  <data name="Menu_CaptureKnowledge_Tooltip" xml:space="preserve">
+    <value>将当前选中任务沉淀为知识卡</value>
+  </data>
+  <data name="Menu_Language_Header" xml:space="preserve">
+    <value>🌐 语言</value>
+  </data>
+  <data name="Menu_Language_ZhCN" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Menu_Language_EnUS" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Menu_Import_Header" xml:space="preserve">
+    <value>📥 导入数据</value>
+  </data>
+  <data name="Menu_Import_Tooltip" xml:space="preserve">
+    <value>从导出文件导入任务和目标</value>
+  </data>
+  <data name="Menu_Export_Header" xml:space="preserve">
+    <value>📤 导出数据</value>
+  </data>
+  <data name="Menu_Export_Tooltip" xml:space="preserve">
+    <value>导出任务数据为JSON格式</value>
+  </data>
+  <data name="Menu_About_Header" xml:space="preserve">
+    <value>ℹ️ 关于</value>
+  </data>
+  <data name="Menu_About_Tooltip" xml:space="preserve">
+    <value>查看应用程序信息</value>
+  </data>
+  <data name="Title_Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Title_Prompt" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="Title_Done" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="Message_SelectTaskFirst" xml:space="preserve">
+    <value>请先在任一象限选中一个任务。</value>
+  </data>
+  <data name="Message_KnowledgeCaptured" xml:space="preserve">
+    <value>已沉淀知识卡。</value>
+  </data>
+  <data name="Import_Filter" xml:space="preserve">
+    <value>JSON文件|*.json|所有文件|*.*</value>
+  </data>
+  <data name="Export_Filter" xml:space="preserve">
+    <value>JSON文件|*.json|所有文件|*.*</value>
+  </data>
+  <data name="Message_ImportParseFailed" xml:space="preserve">
+    <value>导入失败：文件内容无法解析。</value>
+  </data>
+  <data name="Message_ImportOverwriteConfirm" xml:space="preserve">
+    <value>导入会覆盖当前任务、目标与学习计划数据，是否继续？</value>
+  </data>
+  <data name="Title_ConfirmImport" xml:space="preserve">
+    <value>确认导入</value>
+  </data>
+  <data name="Message_ImportCompleted" xml:space="preserve">
+    <value>数据导入完成。</value>
+  </data>
+  <data name="Title_ImportSuccess" xml:space="preserve">
+    <value>导入成功</value>
+  </data>
+  <data name="Message_OperationFailedFormat" xml:space="preserve">
+    <value>操作失败: {0}</value>
+  </data>
+  <data name="Message_ExportCompleted" xml:space="preserve">
+    <value>数据已导出。</value>
+  </data>
+  <data name="Title_ExportSuccess" xml:space="preserve">
+    <value>导出成功</value>
+  </data>
+  <data name="Message_ExportFailedFormat" xml:space="preserve">
+    <value>导出失败: {0}</value>
+  </data>
+  <data name="About_Text" xml:space="preserve">
+    <value>TimeTask - 智能任务管理系统
+
+版本: 1.0
+功能:
+- 任务四象限管理
+- 长期目标设定
+- 学习计划制定
+- AI智能分解
+- 数据导入/导出
+
+© 2024 TimeTask Team</value>
+  </data>
+  <data name="Title_About" xml:space="preserve">
+    <value>关于 TimeTask</value>
+  </data>
+  <data name="App_ApiKeyWarningText" xml:space="preserve">
+    <value>OpenAI API Key 未配置或仍为占位值。智能建议、自动分类等依赖 LLM 的功能可能无法正常工作。请参阅 README.md 在 App.config 中完成配置。</value>
+  </data>
+  <data name="App_ApiKeyWarningTitle" xml:space="preserve">
+    <value>API Key 配置提醒</value>
+  </data>
+  <data name="App_VoiceInitFailedTextFormat" xml:space="preserve">
+    <value>语音识别初始化失败，系统未检测到可用语音识别引擎或麦克风权限异常。
+请查看日志：{0}</value>
+  </data>
+  <data name="App_VoiceInitFailedTitle" xml:space="preserve">
+    <value>语音功能不可用</value>
+  </data>
 </root>

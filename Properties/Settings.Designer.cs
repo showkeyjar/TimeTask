@@ -226,5 +226,17 @@ namespace TimeTask.Properties {
                 this["SkillHintShown"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("zh-CN")]
+        public string UiLanguage {
+            get {
+                return ((string)(this["UiLanguage"]));
+            }
+            set {
+                this["UiLanguage"] = value;
+            }
+        }
     }
 }

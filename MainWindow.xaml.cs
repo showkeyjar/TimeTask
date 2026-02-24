@@ -621,6 +621,7 @@ namespace TimeTask
         public MainWindow()
         {
             InitializeComponent();
+            I18n.LanguageChanged += I18n_LanguageChanged;
             InitializeVoiceStatusIndicator();
             this.Closed += MainWindow_Closed;
             
@@ -672,6 +673,17 @@ namespace TimeTask
             InitializeSmartSystems();
         }
 
+        private void I18n_LanguageChanged(object sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => I18n_LanguageChanged(sender, e)));
+                return;
+            }
+
+            UpdateVoiceStatusUi(VoiceListenerStatusCenter.Current);
+        }
+
         private void InitializeVoiceStatusIndicator()
         {
             try
@@ -709,7 +721,7 @@ namespace TimeTask
             string statusLabel = GetVoiceStatusLabel(status.State);
             string tooltipMessage = string.IsNullOrWhiteSpace(status.Message) ? statusLabel : status.Message;
             string updatedLocal = status.UpdatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
-            VoiceStatusButton.ToolTip = $"语音状态: {statusLabel}\n{tooltipMessage}\n更新时间: {updatedLocal}";
+            VoiceStatusButton.ToolTip = $"{I18n.T("Voice_StatusTitle")}: {statusLabel}\n{tooltipMessage}\n{I18n.T("Voice_StatusUpdatedAt")}: {updatedLocal}";
             VoiceStatusText.Text = BuildVoiceStatusText(statusLabel, status.Message);
 
             switch (status.State)
@@ -744,15 +756,15 @@ namespace TimeTask
             {
                 case VoiceListenerState.Installing:
                 case VoiceListenerState.Loading:
-                    return "不可用";
+                    return I18n.T("Voice_StatusUnavailable");
                 case VoiceListenerState.Unavailable:
-                    return "不可用";
+                    return I18n.T("Voice_StatusUnavailable");
                 case VoiceListenerState.Ready:
-                    return "可监听";
+                    return I18n.T("Voice_StatusReady");
                 case VoiceListenerState.Recognizing:
-                    return "识别中";
+                    return I18n.T("Voice_StatusRecognizing");
                 default:
-                    return "未知";
+                    return I18n.T("Voice_StatusUnknown");
             }
         }
 
@@ -762,7 +774,7 @@ namespace TimeTask
             int retrySec = ParseRetryAfterSeconds(msg);
             if (retrySec > 0)
             {
-                return $"语音冷却中 约{FormatDurationZh(retrySec)}";
+                return I18n.Tf("Voice_StatusCooldownFormat", FormatDuration(retrySec));
             }
 
             if (!string.IsNullOrWhiteSpace(msg))
@@ -775,7 +787,7 @@ namespace TimeTask
                 return compact;
             }
 
-            return $"语音·{statusLabel}";
+            return I18n.Tf("Voice_StatusPrefixFormat", statusLabel);
         }
 
         private static int ParseRetryAfterSeconds(string message)
@@ -802,18 +814,18 @@ namespace TimeTask
             return int.TryParse(number, out int sec) ? sec : 0;
         }
 
-        private static string FormatDurationZh(int totalSeconds)
+        private static string FormatDuration(int totalSeconds)
         {
             if (totalSeconds <= 0)
-                return "0秒";
+                return I18n.Tf("Duration_Seconds", 0);
 
             int minutes = totalSeconds / 60;
             int seconds = totalSeconds % 60;
             if (minutes <= 0)
-                return $"{seconds}秒";
+                return I18n.Tf("Duration_Seconds", seconds);
             if (seconds == 0)
-                return $"{minutes}分";
-            return $"{minutes}分{seconds}秒";
+                return I18n.Tf("Duration_Minutes", minutes);
+            return I18n.Tf("Duration_MinutesSeconds", minutes, seconds);
         }
 
         private void ApplyVoiceStatusBrush(string bgHex, string borderHex, string fgHex)
@@ -880,6 +892,7 @@ namespace TimeTask
             try
             {
                 VoiceListenerStatusCenter.StatusChanged -= VoiceListenerStatusCenter_StatusChanged;
+                I18n.LanguageChanged -= I18n_LanguageChanged;
                 VoiceListenerStatusCenter.RecognitionCaptured -= VoiceListenerStatusCenter_RecognitionCaptured;
                 TaskDraftManager.DraftsChanged -= TaskDraftManager_DraftsChanged;
                 if (_voiceStatusAnimTimer != null)
@@ -4200,8 +4213,8 @@ namespace TimeTask
             // LLM设置
             var llmSettingsItem = new MenuItem
             {
-                Header = "🤖 AI助手设置",
-                ToolTip = "配置大语言模型API设置"
+                Header = I18n.T("Menu_AISettings_Header"),
+                ToolTip = I18n.T("Menu_AISettings_Tooltip")
             };
             llmSettingsItem.Click += (s, e) => OpenLlmSettings();
             contextMenu.Items.Add(llmSettingsItem);
@@ -4209,51 +4222,76 @@ namespace TimeTask
             // 提醒设置
             var reminderSettingsItem = new MenuItem
             {
-                Header = "⏰ 任务提醒设置",
-                ToolTip = "配置任务提醒频率和行为"
+                Header = I18n.T("Menu_ReminderSettings_Header"),
+                ToolTip = I18n.T("Menu_ReminderSettings_Tooltip")
             };
             reminderSettingsItem.Click += (s, e) => OpenReminderSettings();
             contextMenu.Items.Add(reminderSettingsItem);
 
             var skillManagementItem = new MenuItem
             {
-                Header = "🧠 Skill 管理",
-                ToolTip = "启用/停用技能并查看反馈效果"
+                Header = I18n.T("Menu_Skill_Header"),
+                ToolTip = I18n.T("Menu_Skill_Tooltip")
             };
             skillManagementItem.Click += (s, e) => OpenSkillManagement();
             contextMenu.Items.Add(skillManagementItem);
 
             var strategyDashboardItem = new MenuItem
             {
-                Header = "🧭 策略导航面板",
-                ToolTip = "查看画像、目标层级、任务取舍与周复盘"
+                Header = I18n.T("Menu_Strategy_Header"),
+                ToolTip = I18n.T("Menu_Strategy_Tooltip")
             };
             strategyDashboardItem.Click += (s, e) => OpenStrategyDashboard();
             contextMenu.Items.Add(strategyDashboardItem);
 
             var knowledgeSyncItem = new MenuItem
             {
-                Header = "📚 笔记任务同步",
-                ToolTip = "从 Obsidian 笔记提取待办到草稿箱"
+                Header = I18n.T("Menu_KnowledgeSync_Header"),
+                ToolTip = I18n.T("Menu_KnowledgeSync_Tooltip")
             };
             knowledgeSyncItem.Click += async (s, e) => await RunKnowledgeSyncAsync(true);
             contextMenu.Items.Add(knowledgeSyncItem);
 
             var captureKnowledgeItem = new MenuItem
             {
-                Header = "📝 沉淀选中任务",
-                ToolTip = "将当前选中任务沉淀为知识卡"
+                Header = I18n.T("Menu_CaptureKnowledge_Header"),
+                ToolTip = I18n.T("Menu_CaptureKnowledge_Tooltip")
             };
             captureKnowledgeItem.Click += (s, e) => CaptureSelectedTaskKnowledge();
             contextMenu.Items.Add(captureKnowledgeItem);
+
+            var languageItem = new MenuItem
+            {
+                Header = I18n.T("Menu_Language_Header")
+            };
+
+            var zhItem = new MenuItem
+            {
+                Header = I18n.T("Menu_Language_ZhCN"),
+                IsCheckable = true,
+                IsChecked = I18n.CurrentCulture.Name.Equals("zh-CN", StringComparison.OrdinalIgnoreCase)
+            };
+            zhItem.Click += (s, e) => I18n.SetLanguage("zh-CN");
+
+            var enItem = new MenuItem
+            {
+                Header = I18n.T("Menu_Language_EnUS"),
+                IsCheckable = true,
+                IsChecked = I18n.CurrentCulture.Name.Equals("en-US", StringComparison.OrdinalIgnoreCase)
+            };
+            enItem.Click += (s, e) => I18n.SetLanguage("en-US");
+
+            languageItem.Items.Add(zhItem);
+            languageItem.Items.Add(enItem);
+            contextMenu.Items.Add(languageItem);
             
             contextMenu.Items.Add(new Separator());
             
             // 数据导入
             var importItem = new MenuItem
             {
-                Header = "📥 导入数据",
-                ToolTip = "从导出文件导入任务和目标"
+                Header = I18n.T("Menu_Import_Header"),
+                ToolTip = I18n.T("Menu_Import_Tooltip")
             };
             importItem.Click += (s, e) => ImportAllData();
             contextMenu.Items.Add(importItem);
@@ -4261,8 +4299,8 @@ namespace TimeTask
             // 数据导出
             var exportItem = new MenuItem
             {
-                Header = "📤 导出数据",
-                ToolTip = "导出任务数据为JSON格式"
+                Header = I18n.T("Menu_Export_Header"),
+                ToolTip = I18n.T("Menu_Export_Tooltip")
             };
             exportItem.Click += (s, e) => ExportAllData();
             contextMenu.Items.Add(exportItem);
@@ -4272,8 +4310,8 @@ namespace TimeTask
             // 关于
             var aboutItem = new MenuItem
             {
-                Header = "ℹ️ 关于",
-                ToolTip = "查看应用程序信息"
+                Header = I18n.T("Menu_About_Header"),
+                ToolTip = I18n.T("Menu_About_Tooltip")
             };
             aboutItem.Click += (s, e) => ShowAbout();
             contextMenu.Items.Add(aboutItem);
@@ -4289,7 +4327,7 @@ namespace TimeTask
             var task = GetSelectedTaskFromAnyQuadrant();
             if (task == null)
             {
-                MessageBox.Show("请先在任一象限选中一个任务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Message_SelectTaskFirst"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -4299,7 +4337,7 @@ namespace TimeTask
             }
 
             PersistKnowledgeArtifact(task);
-            MessageBox.Show("已沉淀知识卡。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(I18n.T("Message_KnowledgeCaptured"), I18n.T("Title_Done"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private ItemGrid GetSelectedTaskFromAnyQuadrant()
@@ -4317,7 +4355,7 @@ namespace TimeTask
             {
                 var openDialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    Filter = I18n.T("Import_Filter"),
                     DefaultExt = "json"
                 };
 
@@ -4331,13 +4369,13 @@ namespace TimeTask
                 var package = JsonSerializer.Deserialize<DataExportPackage>(json, options);
                 if (package == null)
                 {
-                    MessageBox.Show("导入失败：文件内容无法解析。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(I18n.T("Message_ImportParseFailed"), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
                 var confirm = MessageBox.Show(
-                    "导入会覆盖当前任务、目标与学习计划数据，是否继续？",
-                    "确认导入",
+                    I18n.T("Message_ImportOverwriteConfirm"),
+                    I18n.T("Title_ConfirmImport"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
                 if (confirm != MessageBoxResult.Yes)
@@ -4366,11 +4404,11 @@ namespace TimeTask
 
                 loadDataGridView();
                 LoadActiveLongTermGoalAndRefreshDisplay();
-                MessageBox.Show("数据导入完成。", "导入成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Message_ImportCompleted"), I18n.T("Title_ImportSuccess"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"操作失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("Message_OperationFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -4380,7 +4418,7 @@ namespace TimeTask
             {
                 var saveDialog = new Microsoft.Win32.SaveFileDialog
                 {
-                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    Filter = I18n.T("Export_Filter"),
                     DefaultExt = "json",
                     FileName = $"TimeTask_Export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
                 };
@@ -4391,12 +4429,12 @@ namespace TimeTask
                     var options = new JsonSerializerOptions { WriteIndented = true };
                     string json = JsonSerializer.Serialize(package, options);
                     File.WriteAllText(saveDialog.FileName, json, Encoding.UTF8);
-                    MessageBox.Show("数据已导出。", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(I18n.T("Message_ExportCompleted"), I18n.T("Title_ExportSuccess"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("Message_ExportFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -4852,17 +4890,7 @@ namespace TimeTask
 
         private void ShowAbout()
         {
-            string aboutText = "TimeTask - 智能任务管理系统\n\n" +
-                             "版本: 1.0\n" +
-                             "功能:\n" +
-                             "- 任务四象限管理\n" +
-                             "- 长期目标设定\n" +
-                             "- 学习计划制定\n" +
-                             "- AI智能分解\n" +
-                             "- 数据导入/导出\n\n" +
-                             "© 2024 TimeTask Team";
-            
-            MessageBox.Show(aboutText, "关于 TimeTask", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(I18n.T("About_Text"), I18n.T("Title_About"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }

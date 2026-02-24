@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Window_Main_Title" xml:space="preserve"><value>Time Management</value></data>
+  <data name="Tooltip_EditReminderTime" xml:space="preserve"><value>Edit reminder time</value></data>
+  <data name="Tooltip_ActiveLongTermGoal" xml:space="preserve"><value>View and manage current long-term goal</value></data>
+  <data name="ActiveLongGoal_DefaultName" xml:space="preserve"><value>My Long-Term Goal</value></data>
+  <data name="Button_SetLongTermGoal" xml:space="preserve"><value>Set Long-Term Goal</value></data>
+  <data name="Tooltip_SetLongTermGoal" xml:space="preserve"><value>Set or update your long-term goal</value></data>
+  <data name="Tooltip_OpenSettings" xml:space="preserve"><value>Open settings menu</value></data>
+  <data name="Tooltip_ViewDrafts" xml:space="preserve"><value>View task drafts</value></data>
+  <data name="Quadrant_ImportantUrgent" xml:space="preserve"><value>Important &amp; Urgent</value></data>
+  <data name="Quadrant_ImportantNotUrgent" xml:space="preserve"><value>Important, Not Urgent</value></data>
+  <data name="Quadrant_NotImportantUrgent" xml:space="preserve"><value>Not Important, Urgent</value></data>
+  <data name="Quadrant_NotImportantNotUrgent" xml:space="preserve"><value>Not Important, Not Urgent</value></data>
+  <data name="Task_Header" xml:space="preserve"><value>Task</value></data>
+  <data name="Tooltip_VoiceStatus" xml:space="preserve"><value>Voice listener status</value></data>
+  <data name="Voice_TextUnknown" xml:space="preserve"><value>Voice · Unknown</value></data>
+  <data name="Voice_StatusTitle" xml:space="preserve"><value>Voice Status</value></data>
+  <data name="Voice_StatusUpdatedAt" xml:space="preserve"><value>Updated</value></data>
+  <data name="Voice_StatusUnavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="Voice_StatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="Voice_StatusRecognizing" xml:space="preserve"><value>Recognizing</value></data>
+  <data name="Voice_StatusUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Voice_StatusCooldownFormat" xml:space="preserve"><value>Voice cooling down about {0}</value></data>
+  <data name="Voice_StatusPrefixFormat" xml:space="preserve"><value>Voice · {0}</value></data>
+  <data name="Duration_Seconds" xml:space="preserve"><value>{0}s</value></data>
+  <data name="Duration_Minutes" xml:space="preserve"><value>{0}m</value></data>
+  <data name="Duration_MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>
+  <data name="Menu_AISettings_Header" xml:space="preserve"><value>🤖 AI Assistant Settings</value></data>
+  <data name="Menu_AISettings_Tooltip" xml:space="preserve"><value>Configure LLM API settings</value></data>
+  <data name="Menu_ReminderSettings_Header" xml:space="preserve"><value>⏰ Reminder Settings</value></data>
+  <data name="Menu_ReminderSettings_Tooltip" xml:space="preserve"><value>Configure reminder frequency and behavior</value></data>
+  <data name="Menu_Skill_Header" xml:space="preserve"><value>🧠 Skill Management</value></data>
+  <data name="Menu_Skill_Tooltip" xml:space="preserve"><value>Enable/disable skills and view feedback</value></data>
+  <data name="Menu_Strategy_Header" xml:space="preserve"><value>🧭 Strategy Dashboard</value></data>
+  <data name="Menu_Strategy_Tooltip" xml:space="preserve"><value>View profile, goal hierarchy, prioritization and weekly review</value></data>
+  <data name="Menu_KnowledgeSync_Header" xml:space="preserve"><value>📚 Notes Sync</value></data>
+  <data name="Menu_KnowledgeSync_Tooltip" xml:space="preserve"><value>Extract TODO items from Obsidian notes to drafts</value></data>
+  <data name="Menu_CaptureKnowledge_Header" xml:space="preserve"><value>📝 Capture Selected Task</value></data>
+  <data name="Menu_CaptureKnowledge_Tooltip" xml:space="preserve"><value>Convert selected task to knowledge card</value></data>
+  <data name="Menu_Language_Header" xml:space="preserve"><value>🌐 Language</value></data>
+  <data name="Menu_Language_ZhCN" xml:space="preserve"><value>Simplified Chinese</value></data>
+  <data name="Menu_Language_EnUS" xml:space="preserve"><value>English</value></data>
+  <data name="Menu_Import_Header" xml:space="preserve"><value>📥 Import Data</value></data>
+  <data name="Menu_Import_Tooltip" xml:space="preserve"><value>Import tasks and goals from export file</value></data>
+  <data name="Menu_Export_Header" xml:space="preserve"><value>📤 Export Data</value></data>
+  <data name="Menu_Export_Tooltip" xml:space="preserve"><value>Export task data as JSON</value></data>
+  <data name="Menu_About_Header" xml:space="preserve"><value>ℹ️ About</value></data>
+  <data name="Menu_About_Tooltip" xml:space="preserve"><value>View application information</value></data>
+  <data name="Title_Error" xml:space="preserve"><value>Error</value></data>
+  <data name="Title_Prompt" xml:space="preserve"><value>Notice</value></data>
+  <data name="Title_Done" xml:space="preserve"><value>Done</value></data>
+  <data name="Message_SelectTaskFirst" xml:space="preserve"><value>Please select a task in any quadrant first.</value></data>
+  <data name="Message_KnowledgeCaptured" xml:space="preserve"><value>Knowledge card captured.</value></data>
+  <data name="Import_Filter" xml:space="preserve"><value>JSON files|*.json|All files|*.*</value></data>
+  <data name="Export_Filter" xml:space="preserve"><value>JSON files|*.json|All files|*.*</value></data>
+  <data name="Message_ImportParseFailed" xml:space="preserve"><value>Import failed: file content could not be parsed.</value></data>
+  <data name="Message_ImportOverwriteConfirm" xml:space="preserve"><value>Import will overwrite current tasks, goals, and learning plans. Continue?</value></data>
+  <data name="Title_ConfirmImport" xml:space="preserve"><value>Confirm Import</value></data>
+  <data name="Message_ImportCompleted" xml:space="preserve"><value>Data import completed.</value></data>
+  <data name="Title_ImportSuccess" xml:space="preserve"><value>Import Successful</value></data>
+  <data name="Message_OperationFailedFormat" xml:space="preserve"><value>Operation failed: {0}</value></data>
+  <data name="Message_ExportCompleted" xml:space="preserve"><value>Data exported.</value></data>
+  <data name="Title_ExportSuccess" xml:space="preserve"><value>Export Successful</value></data>
+  <data name="Message_ExportFailedFormat" xml:space="preserve"><value>Export failed: {0}</value></data>
+  <data name="About_Text" xml:space="preserve"><value>TimeTask - Intelligent Task Manager
+
+Version: 1.0
+Features:
+- Four-quadrant task management
+- Long-term goal planning
+- Learning plan generation
+- AI-assisted decomposition
+- Data import/export
+
+© 2024 TimeTask Team</value></data>
+  <data name="Title_About" xml:space="preserve"><value>About TimeTask</value></data>
+  <data name="App_ApiKeyWarningText" xml:space="preserve"><value>The OpenAI API key is missing or still using a placeholder. LLM-powered features may not work as expected. Please configure it in App.config as described in README.md.</value></data>
+  <data name="App_ApiKeyWarningTitle" xml:space="preserve"><value>API Key Warning</value></data>
+  <data name="App_VoiceInitFailedTextFormat" xml:space="preserve"><value>Voice recognition initialization failed. No available voice engine was detected or microphone permission is missing.
+Please check logs: {0}</value></data>
+  <data name="App_VoiceInitFailedTitle" xml:space="preserve"><value>Voice Feature Unavailable</value></data>
+</root>

@@ -29,12 +29,13 @@ namespace TimeTask
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            I18n.InitializeFromSettings();
             base.OnStartup(e); // Call base implementation
             VoiceRuntimeLog.Info("App startup.");
             VoiceRuntimeLog.Info($"ProcessBitness: {(Environment.Is64BitProcess ? "x64" : "x86")}, OS: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
             VoiceRuntimeLog.Info($"BaseDirectory: {AppDomain.CurrentDomain.BaseDirectory}");
             VoiceRuntimeLog.Info($"Config: VoiceAsrProvider={ConfigurationManager.AppSettings["VoiceAsrProvider"]}, FunAsrAutoBootstrap={ConfigurationManager.AppSettings["FunAsrAutoBootstrap"]}");
-            VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用（启动初始化中）");
+            VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, I18n.T("Voice_StatusUnavailable"));
             FunAsrRuntimeManager.KickoffIfNeeded();
 
             // 启动自动更新检查（后台执行）
@@ -55,10 +56,8 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey == PlaceholderApiKey)
             {
                 System.Windows.MessageBox.Show(
-                    "The OpenAI API key is not configured or is using the placeholder value. " +
-                    "LLM-powered features like smart suggestions and automatic task classification will use dummy responses or may not function correctly. " +
-                    "Please refer to the readme.md file for instructions on how to set up your API key in the App.config file.",
-                    "API Key Configuration Warning",
+                    I18n.T("App_ApiKeyWarningText"),
+                    I18n.T("App_ApiKeyWarningTitle"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning
                 );
@@ -107,17 +106,16 @@ namespace TimeTask
                     _legacyAudioService = new AudioCaptureService();
                     _legacyAudioService.Start();
                     VoiceRuntimeLog.Info("Legacy AudioCaptureService started as fallback.");
-                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "已回退到系统语音引擎，监听可用");
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, I18n.T("Voice_StatusReady"));
                 }
                 catch (Exception ex2)
                 {
                     Console.WriteLine($"[App] Legacy AudioCaptureService also failed: {ex2.Message}");
                     VoiceRuntimeLog.Error("Legacy AudioCaptureService start failed.", ex2);
-                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音监听不可用");
+                    VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, I18n.T("Voice_StatusUnavailable"));
                     MessageBox.Show(
-                        "语音识别初始化失败，系统未检测到可用语音识别引擎或麦克风权限异常。\n" +
-                        $"请查看日志：{VoiceRuntimeLog.LogFilePath}",
-                        "语音功能不可用",
+                        I18n.Tf("App_VoiceInitFailedTextFormat", VoiceRuntimeLog.LogFilePath),
+                        I18n.T("App_VoiceInitFailedTitle"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                 }

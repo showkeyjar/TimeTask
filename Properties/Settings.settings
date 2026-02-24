@@ -53,5 +53,8 @@
     <Setting Name="SkillHintShown" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="UiLanguage" Type="System.String" Scope="User">
+      <Value Profile="(Default)">zh-CN</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
