@@ -9,6 +9,13 @@
 
 适用人群：希望把“任务执行 + 长期目标 + 提醒复盘”放在一个桌面工具里的 Windows 用户。
 
+## 项目状态
+- 路线图: [docs/ROADMAP.md](docs/ROADMAP.md)
+- 更新日志: [CHANGELOG.md](CHANGELOG.md)
+- 贡献指南: [CONTRIBUTING.md](CONTRIBUTING.md)
+- 安全策略: [SECURITY.md](SECURITY.md)
+- 社区行为准则: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
 ## 30 秒开始使用
 
 1. 打开 [Releases](https://github.com/showkeyjar/TimeTask/releases/latest) 下载 `TimeTask-win-x64.zip`。

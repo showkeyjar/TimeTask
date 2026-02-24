@@ -8,6 +8,13 @@ A Windows desktop task manager built around the Eisenhower Matrix (Important/Urg
 
 English | [简体中文](README.zh-CN.md)
 
+## Project Status
+- Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
 ## Download In 30 Seconds
 1. Go to [Latest Release](https://github.com/showkeyjar/TimeTask/releases/latest).
 2. Download `TimeTask-win-x64.zip`.
