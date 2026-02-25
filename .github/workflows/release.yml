@@ -1,9 +1,8 @@
-name: TimeTask Release
+name: TimeTask Auto Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [ "master", "main" ]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,6 @@ jobs:
       Main_Project_Path: TimeTask.csproj
       Build_Configuration: Release
       Build_Platform: AnyCPU
-      Artifact_Name: TimeTask-win-x64.zip
 
     steps:
       - name: Checkout
@@ -31,7 +29,35 @@ jobs:
       - name: Build
         run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform /m
 
+      - name: Resolve version and release metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $assemblyInfoPath = Join-Path $env:GITHUB_WORKSPACE "Properties\AssemblyInfo.cs"
+          if (-not (Test-Path $assemblyInfoPath)) {
+            throw "AssemblyInfo.cs not found: $assemblyInfoPath"
+          }
+
+          $assemblyInfo = Get-Content $assemblyInfoPath -Raw
+          $versionMatch = [regex]::Match($assemblyInfo, 'AssemblyFileVersion\("(?<v>\d+\.\d+\.\d+)(?:\.\d+)?"\)')
+          if (-not $versionMatch.Success) {
+            throw "Unable to parse AssemblyFileVersion from $assemblyInfoPath"
+          }
+
+          $baseVersion = $versionMatch.Groups['v'].Value
+          $buildNo = "${{ github.run_number }}"
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          $tagName = "v$baseVersion-build.$buildNo"
+          $releaseName = "TimeTask $baseVersion (build $buildNo)"
+          $assetName = "TimeTask-win-x64-$baseVersion-build.$buildNo-$shortSha.zip"
+
+          "base_version=$baseVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag_name=$tagName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "release_name=$releaseName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "asset_name=$assetName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Package app
+        id: package
         shell: pwsh
         run: |
           $outputDir = Join-Path $env:GITHUB_WORKSPACE "bin\Release"
@@ -40,15 +66,20 @@ jobs:
           }
 
           $stagingDir = Join-Path $env:RUNNER_TEMP "TimeTask"
+          if (Test-Path $stagingDir) { Remove-Item $stagingDir -Recurse -Force }
           New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
           Copy-Item -Path (Join-Path $outputDir "*") -Destination $stagingDir -Recurse -Force
 
-          $zipPath = Join-Path $env:GITHUB_WORKSPACE $env:Artifact_Name
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE "${{ steps.meta.outputs.asset_name }}"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path (Join-Path $stagingDir "*") -DestinationPath $zipPath -Force
 
-      - name: Create release
+          "zip_path=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Create release and upload asset
         uses: softprops/action-gh-release@v2
         with:
-          files: TimeTask-win-x64.zip
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_name }}
+          files: ${{ steps.package.outputs.zip_path }}
           generate_release_notes: true
