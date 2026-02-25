@@ -154,9 +154,9 @@ namespace TimeTask
             "\n\nUser behavior context (local profile, use as soft guidance only):\n{userContext}\n" +
             "Adapt tone and suggestions to reduce interruption. Keep one clear next step.";
 
-        private const string SkillRecommendationSystemPrompt =
+        private const string SkillRecommendationSystemPromptTemplate =
             "You are a task execution copilot. Based on the task and context, recommend 1-3 skills that best help the user move forward now. " +
-            "Allowed skill_id values ONLY: decompose, focus_sprint, priority_rebalance, risk_check, delegate_prepare, clarify_goal. " +
+            "Allowed skill_id values ONLY: {allowedSkillIds}. " +
             "Return ONLY a valid JSON array. Each item must contain: " +
             "\"skill_id\", \"title\", \"why\", \"next_step\", \"confidence\" (0 to 1). " +
             "Keep title/why/next_step concise and actionable.\n" +
@@ -577,7 +577,8 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             }
 
             string context = string.IsNullOrWhiteSpace(userContext) ? "N/A" : userContext;
-            string prompt = SkillRecommendationSystemPrompt
+            string prompt = SkillRecommendationSystemPromptTemplate
+                .Replace("{allowedSkillIds}", ThinkingToolAdvisor.GetAllowedSkillIdsCsv())
                 .Replace("{taskDescription}", taskDescription)
                 .Replace("{importance}", string.IsNullOrWhiteSpace(importance) ? "Unknown" : importance)
                 .Replace("{urgency}", string.IsNullOrWhiteSpace(urgency) ? "Unknown" : urgency)
@@ -598,12 +599,21 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 var filtered = parsed
                     .Where(s => s != null && IsAllowedSkillId(s.SkillId))
                     .Select(s => NormalizeSkillRecommendation(s))
+                    .ToList();
+
+                var ruleBased = GetRuleBasedSkillRecommendations(taskDescription, importance, urgency, inactiveDuration, maxSkills);
+                var merged = filtered
+                    .Concat(ruleBased)
+                    .Where(s => s != null && IsAllowedSkillId(s.SkillId))
+                    .GroupBy(s => s.SkillId, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.OrderByDescending(x => x.Confidence).First())
+                    .OrderByDescending(s => s.Confidence)
                     .Take(Math.Max(1, maxSkills))
                     .ToList();
 
-                if (filtered.Count > 0)
+                if (merged.Count > 0)
                 {
-                    return filtered;
+                    return merged;
                 }
             }
             catch (Exception ex)
@@ -616,14 +626,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
 
         private static bool IsAllowedSkillId(string skillId)
         {
-            if (string.IsNullOrWhiteSpace(skillId)) return false;
-            string id = skillId.Trim().ToLowerInvariant();
-            return id == "decompose"
-                || id == "focus_sprint"
-                || id == "priority_rebalance"
-                || id == "risk_check"
-                || id == "delegate_prepare"
-                || id == "clarify_goal";
+            return ThinkingToolAdvisor.IsAllowedSkillId(skillId);
         }
 
         private static LlmSkillRecommendation NormalizeSkillRecommendation(LlmSkillRecommendation s)
@@ -645,71 +648,20 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             TimeSpan inactiveDuration,
             int maxSkills)
         {
-            var result = new List<LlmSkillRecommendation>();
-            bool highImportance = string.Equals(importance, "High", StringComparison.OrdinalIgnoreCase);
-            bool highUrgency = string.Equals(urgency, "High", StringComparison.OrdinalIgnoreCase);
-            bool veryStale = inactiveDuration >= TimeSpan.FromDays(3);
-            bool longText = !string.IsNullOrWhiteSpace(taskDescription) && taskDescription.Length > 40;
-
-            if (longText || veryStale)
-            {
-                result.Add(new LlmSkillRecommendation
-                {
-                    SkillId = "decompose",
-                    Title = "任务分解",
-                    Why = "当前任务复杂或停滞，先拆小更容易推进。",
-                    NextStep = "拆成2-3个30分钟内可完成的子任务。",
-                    Confidence = 0.78
-                });
-            }
-
-            if (highImportance && highUrgency)
-            {
-                result.Add(new LlmSkillRecommendation
-                {
-                    SkillId = "focus_sprint",
-                    Title = "专注冲刺",
-                    Why = "高价值高时效任务适合短时冲刺推进。",
-                    NextStep = "立刻开始一个25分钟专注块，仅做此任务。",
-                    Confidence = 0.82
-                });
-            }
-            else if (!highImportance && highUrgency)
-            {
-                result.Add(new LlmSkillRecommendation
-                {
-                    SkillId = "delegate_prepare",
-                    Title = "委托准备",
-                    Why = "紧急但低重要任务可优先考虑委托。",
-                    NextStep = "写一条委托说明：目标、截止时间、验收标准。",
-                    Confidence = 0.72
-                });
-            }
-            else
-            {
-                result.Add(new LlmSkillRecommendation
-                {
-                    SkillId = "priority_rebalance",
-                    Title = "优先级重排",
-                    Why = "通过重排顺序减少低价值任务挤占时间。",
-                    NextStep = "确认该任务本周优先级，不匹配则延期。",
-                    Confidence = 0.68
-                });
-            }
-
-            result.Add(new LlmSkillRecommendation
-            {
-                SkillId = "risk_check",
-                Title = "风险检查",
-                Why = "提前识别阻塞点能降低返工成本。",
-                NextStep = "写下1个可能阻塞因素和1个应对动作。",
-                Confidence = 0.64
-            });
-
+            var result = ThinkingToolAdvisor.RecommendForTask(taskDescription, importance, urgency, inactiveDuration, maxSkills + 2);
             return result
+                .Select(r => new LlmSkillRecommendation
+                {
+                    SkillId = (r.SkillId ?? "clarify_goal").Trim().ToLowerInvariant(),
+                    Title = string.IsNullOrWhiteSpace(r.Title) ? "执行技能建议" : r.Title.Trim(),
+                    Why = string.IsNullOrWhiteSpace(r.Why) ? "帮助你更快推进任务。" : r.Why.Trim(),
+                    NextStep = string.IsNullOrWhiteSpace(r.NextStep) ? "先执行一个可在10分钟内完成的动作。" : r.NextStep.Trim(),
+                    Confidence = Math.Max(0, Math.Min(1, r.Confidence))
+                })
                 .Where(s => IsAllowedSkillId(s.SkillId))
-                .GroupBy(s => s.SkillId)
-                .Select(g => g.First())
+                .GroupBy(s => s.SkillId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderByDescending(x => x.Confidence).First())
+                .OrderByDescending(s => s.Confidence)
                 .Take(Math.Max(1, maxSkills))
                 .ToList();
         }

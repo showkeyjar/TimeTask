@@ -30,7 +30,7 @@ namespace TimeTask
 
         private void UpdateCount(int count)
         {
-            DraftCountText.Text = $"({count} 个)";
+            DraftCountText.Text = I18n.Tf("DraftViewer_CountFormat", count);
         }
 
         private void AddToTaskButton_Click(object sender, RoutedEventArgs e)
@@ -38,7 +38,7 @@ namespace TimeTask
             var selectedDrafts = DraftsDataGrid.SelectedItems.Cast<TaskDraft>().ToList();
             if (selectedDrafts == null || selectedDrafts.Count == 0)
             {
-                MessageBox.Show("请先选择草稿", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("DraftViewer_SelectDraftFirst"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -50,11 +50,11 @@ namespace TimeTask
             var drafts = _draftManager.GetUnprocessedDrafts();
             if (drafts == null || drafts.Count == 0)
             {
-                MessageBox.Show("没有草稿可添加", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("DraftViewer_NoDraftToAdd"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            if (MessageBox.Show($"确定要添加全部 {drafts.Count} 个草稿吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (MessageBox.Show(I18n.Tf("DraftViewer_ConfirmAddAllFormat", drafts.Count), I18n.T("Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
             AddDraftsToQuadrants(drafts);
@@ -130,6 +130,14 @@ namespace TimeTask
             if (string.Equals(q, "重要不紧急", StringComparison.OrdinalIgnoreCase)) return 1;
             if (string.Equals(q, "不重要紧急", StringComparison.OrdinalIgnoreCase)) return 2;
             if (string.Equals(q, "不重要不紧急", StringComparison.OrdinalIgnoreCase)) return 3;
+            if (string.Equals(q, "Important & Urgent", StringComparison.OrdinalIgnoreCase)) return 0;
+            if (string.Equals(q, "Important & Not Urgent", StringComparison.OrdinalIgnoreCase)) return 1;
+            if (string.Equals(q, "Not Important & Urgent", StringComparison.OrdinalIgnoreCase)) return 2;
+            if (string.Equals(q, "Not Important & Not Urgent", StringComparison.OrdinalIgnoreCase)) return 3;
+            if (string.Equals(q, I18n.T("Quadrant_ImportantUrgent"), StringComparison.OrdinalIgnoreCase)) return 0;
+            if (string.Equals(q, I18n.T("Quadrant_ImportantNotUrgent"), StringComparison.OrdinalIgnoreCase)) return 1;
+            if (string.Equals(q, I18n.T("Quadrant_NotImportantUrgent"), StringComparison.OrdinalIgnoreCase)) return 2;
+            if (string.Equals(q, I18n.T("Quadrant_NotImportantNotUrgent"), StringComparison.OrdinalIgnoreCase)) return 3;
 
             if (draft.Importance == "High" && draft.Urgency == "High") return 0;
             if (draft.Importance == "High" && draft.Urgency == "Low") return 1;
@@ -143,11 +151,11 @@ namespace TimeTask
             var selectedDraft = DraftsDataGrid.SelectedItem as TaskDraft;
             if (selectedDraft == null)
             {
-                MessageBox.Show("请先选择一个草稿", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("DraftViewer_SelectOneFirst"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            if (MessageBox.Show($"确定要忽略草稿 \"{selectedDraft.CleanedText}\" 吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(I18n.Tf("DraftViewer_ConfirmIgnoreFormat", selectedDraft.CleanedText), I18n.T("Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 _draftManager.DeleteDraft(selectedDraft.Id);
                 LoadDrafts();
@@ -159,11 +167,11 @@ namespace TimeTask
             var drafts = _draftManager.GetUnprocessedDrafts();
             if (drafts.Count == 0)
             {
-                MessageBox.Show("没有草稿需要清空", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("DraftViewer_NoDraftToClear"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            if (MessageBox.Show($"确定要清空所有 {drafts.Count} 个草稿吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            if (MessageBox.Show(I18n.Tf("DraftViewer_ConfirmClearAllFormat", drafts.Count), I18n.T("Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 _draftManager.ClearAll();
                 LoadDrafts();

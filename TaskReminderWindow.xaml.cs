@@ -106,12 +106,12 @@ namespace TimeTask
         {
             _isDueReminderMode = true;
             Task = task;
-            ReminderMessage = $"任务已到提醒时间（{dueTime:yyyy-MM-dd HH:mm}）。请选择下一步操作。";
+            ReminderMessage = I18n.Tf("TaskReminder_DueMessageFormat", dueTime);
             Suggestions = new List<string>
             {
-                "确认提醒：本次提醒完成并清除提醒时间",
-                "延后30分钟：保持任务提醒并自动顺延",
-                "编辑时间：重新设置提醒时间，避免误触发"
+                I18n.T("TaskReminder_DueSuggestionConfirm"),
+                I18n.T("TaskReminder_DueSuggestionPostpone"),
+                I18n.T("TaskReminder_DueSuggestionEdit")
             };
             CanDecompose = false;
             ApplyDueReminderMode(dueTime);
@@ -127,33 +127,33 @@ namespace TimeTask
             if (inactiveDuration.TotalDays >= 7)
             {
                 int weeks = (int)(inactiveDuration.TotalDays / 7);
-                InactiveTime = $"{weeks} 周未更新";
+                InactiveTime = I18n.Tf("TaskReminder_InactiveWeeksFormat", weeks);
             }
             else if (inactiveDuration.TotalDays >= 1)
             {
-                InactiveTime = $"{(int)inactiveDuration.TotalDays} 天未更新";
+                InactiveTime = I18n.Tf("TaskReminder_InactiveDaysFormat", (int)inactiveDuration.TotalDays);
             }
             else if (inactiveDuration.TotalHours >= 1)
             {
-                InactiveTime = $"{(int)inactiveDuration.TotalHours} 小时未更新";
+                InactiveTime = I18n.Tf("TaskReminder_InactiveHoursFormat", (int)inactiveDuration.TotalHours);
             }
             else
             {
-                InactiveTime = "不到1小时未更新";
+                InactiveTime = I18n.T("TaskReminder_InactiveLessThanHour");
             }
         }
 
         private void ApplyDueReminderMode(DateTime dueTime)
         {
-            WindowTitleText.Text = "⏰ 定时提醒确认";
-            TaskMetaLabelText.Text = "原定提醒时间:";
+            WindowTitleText.Text = I18n.T("TaskReminder_DueHeader");
+            TaskMetaLabelText.Text = I18n.T("TaskReminder_DueOriginalTimeLabel");
             InactiveTime = dueTime.ToString("yyyy-MM-dd HH:mm");
 
-            CompleteTaskButton.Content = "✓ 确认提醒";
-            UpdateTaskButton.Content = "⏱ 延后30分钟";
+            CompleteTaskButton.Content = I18n.T("TaskReminder_DueButtonConfirm");
+            UpdateTaskButton.Content = I18n.T("TaskReminder_DueButtonPostpone");
             DecomposeTaskButton.Visibility = Visibility.Collapsed;
-            SnoozeButton.Content = "🗓 编辑时间";
-            CloseButton.Content = "关闭";
+            SnoozeButton.Content = I18n.T("TaskReminder_DueButtonEdit");
+            CloseButton.Content = I18n.T("TaskReminder_ButtonClose");
         }
         
         private void CompleteTaskButton_Click(object sender, RoutedEventArgs e)

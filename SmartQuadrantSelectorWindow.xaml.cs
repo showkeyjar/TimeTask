@@ -13,6 +13,8 @@ namespace TimeTask
         public event PropertyChangedEventHandler PropertyChanged;
         
         private List<SubTaskWithQuadrant> _subTasks;
+        private bool _isLoading;
+        private string _loadingStatus;
         
         public List<SubTaskWithQuadrant> SubTasks
         {
@@ -23,26 +25,101 @@ namespace TimeTask
                 OnPropertyChanged(nameof(SubTasks));
             }
         }
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                _isLoading = value;
+                OnPropertyChanged(nameof(IsLoading));
+            }
+        }
+
+        public string LoadingStatus
+        {
+            get => _loadingStatus;
+            set
+            {
+                _loadingStatus = value;
+                OnPropertyChanged(nameof(LoadingStatus));
+            }
+        }
         
         public Dictionary<string, int> TaskQuadrantAssignments { get; private set; }
+        public bool LoadSucceeded { get; private set; } = false;
+        public string LoadErrorMessage { get; private set; }
+        public int LoadedSubTaskCount => SubTasks?.Count ?? 0;
         
         public SmartQuadrantSelectorWindow()
         {
             InitializeComponent();
             DataContext = this;
             TaskQuadrantAssignments = new Dictionary<string, int>();
+            SubTasks = new List<SubTaskWithQuadrant>();
+            IsLoading = false;
+            LoadingStatus = string.Empty;
         }
         
         public SmartQuadrantSelectorWindow(List<string> subTaskDescriptions, ILlmService llmService) : this()
         {
-            InitializeSubTasks(subTaskDescriptions, llmService);
+            _ = InitializeSubTasksFromDescriptionsAsync(subTaskDescriptions, llmService);
         }
-        
-        private async void InitializeSubTasks(List<string> subTaskDescriptions, ILlmService llmService)
+
+        public SmartQuadrantSelectorWindow(string parentTaskDescription, ILlmService llmService, bool loadFromParentTask) : this()
         {
+            _ = InitializeFromParentTaskAsync(parentTaskDescription, llmService);
+        }
+
+        private async System.Threading.Tasks.Task InitializeFromParentTaskAsync(string parentTaskDescription, ILlmService llmService)
+        {
+            IsLoading = true;
+            ConfirmButton.IsEnabled = false;
+            LoadingStatus = I18n.T("SmartQuadrant_LoadingDecompose");
+            try
+            {
+                if (llmService == null || string.IsNullOrWhiteSpace(parentTaskDescription))
+                {
+                    LoadSucceeded = false;
+                    LoadErrorMessage = I18n.T("SmartQuadrant_InvalidInput");
+                    LoadingStatus = LoadErrorMessage;
+                    return;
+                }
+
+                var (decompositionStatus, subTaskStrings) = await llmService.DecomposeTaskAsync(parentTaskDescription);
+                if (decompositionStatus != DecompositionStatus.NeedsDecomposition || subTaskStrings == null || !subTaskStrings.Any())
+                {
+                    LoadSucceeded = false;
+                    LoadErrorMessage = I18n.Tf("SmartQuadrant_NoDecomposeResultFormat", decompositionStatus);
+                    LoadingStatus = LoadErrorMessage;
+                    return;
+                }
+
+                await InitializeSubTasksFromDescriptionsAsync(subTaskStrings, llmService);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SmartQuadrantSelectorWindow load failed: {ex.Message}");
+                LoadSucceeded = false;
+                LoadErrorMessage = I18n.Tf("SmartQuadrant_LoadFailedFormat", ex.Message);
+                LoadingStatus = LoadErrorMessage;
+            }
+            finally
+            {
+                IsLoading = false;
+                ConfirmButton.IsEnabled = LoadSucceeded && LoadedSubTaskCount > 0;
+            }
+        }
+
+        private async System.Threading.Tasks.Task InitializeSubTasksFromDescriptionsAsync(List<string> subTaskDescriptions, ILlmService llmService)
+        {
+            IsLoading = true;
+            ConfirmButton.IsEnabled = false;
+            LoadingStatus = I18n.T("SmartQuadrant_LoadingRecommend");
             var subTasks = new List<SubTaskWithQuadrant>();
-            
-            foreach (var description in subTaskDescriptions)
+            TaskQuadrantAssignments.Clear();
+
+            foreach (var description in subTaskDescriptions ?? new List<string>())
             {
                 var subTask = new SubTaskWithQuadrant
                 {
@@ -57,12 +134,12 @@ namespace TimeTask
                     var (importance, urgency) = await llmService.AnalyzeTaskPriorityAsync(description);
                     subTask.RecommendedQuadrant = GetQuadrantIndex(importance, urgency);
                     subTask.SelectedQuadrant = subTask.RecommendedQuadrant;
-                    subTask.RecommendationText = $"AI推荐: {GetQuadrantName(subTask.RecommendedQuadrant)} ({importance}重要性, {urgency}紧急性)";
+                    subTask.RecommendationText = I18n.Tf("SmartQuadrant_AiSuggestFormat", GetQuadrantName(subTask.RecommendedQuadrant), LocalizePriority(importance), LocalizePriority(urgency));
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error analyzing task priority: {ex.Message}");
-                    subTask.RecommendationText = "AI推荐: 重要不紧急 (默认推荐)";
+                    subTask.RecommendationText = I18n.Tf("SmartQuadrant_AiSuggestFallbackFormat", GetQuadrantName(1));
                 }
                 
                 subTasks.Add(subTask);
@@ -70,6 +147,10 @@ namespace TimeTask
             }
             
             SubTasks = subTasks;
+            LoadSucceeded = SubTasks.Count > 0;
+            LoadingStatus = LoadSucceeded ? I18n.T("SmartQuadrant_LoadDone") : I18n.T("SmartQuadrant_NoTaskLoaded");
+            IsLoading = false;
+            ConfirmButton.IsEnabled = LoadSucceeded && LoadedSubTaskCount > 0;
         }
         
         private int GetQuadrantIndex(string importance, string urgency)
@@ -87,12 +168,26 @@ namespace TimeTask
         {
             return quadrantIndex switch
             {
-                0 => "重要且紧急",
-                1 => "重要不紧急",
-                2 => "不重要但紧急",
-                3 => "不重要不紧急",
-                _ => "未知象限"
+                0 => I18n.T("Quadrant_ImportantUrgent"),
+                1 => I18n.T("Quadrant_ImportantNotUrgent"),
+                2 => I18n.T("Quadrant_NotImportantUrgent"),
+                3 => I18n.T("Quadrant_NotImportantNotUrgent"),
+                _ => I18n.T("SmartQuadrant_UnknownQuadrant")
             };
+        }
+
+        private static string LocalizePriority(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return I18n.T("Priority_Unknown");
+            }
+
+            string v = value.Trim().ToLowerInvariant();
+            if (v == "high") return I18n.T("Priority_High");
+            if (v == "medium") return I18n.T("Priority_Medium");
+            if (v == "low") return I18n.T("Priority_Low");
+            return value;
         }
         
         private void QuadrantButton_Click(object sender, RoutedEventArgs e)
@@ -142,7 +237,7 @@ namespace TimeTask
             // 检查是否所有任务都已分配
             if (TaskQuadrantAssignments.Count != SubTasks?.Count)
             {
-                MessageBox.Show("请为所有子任务选择象限。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SmartQuadrant_AssignAll"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             

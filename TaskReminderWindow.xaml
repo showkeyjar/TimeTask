@@ -1,7 +1,8 @@
 <Window x:Class="TimeTask.TaskReminderWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="任务提醒" Height="400" Width="500"
+        xmlns:local="clr-namespace:TimeTask"
+        Title="{local:Loc Key=TaskReminder_WindowTitle}" Height="400" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Topmost="True"
@@ -97,7 +98,7 @@
         <!-- 标题 -->
         <TextBlock x:Name="WindowTitleText"
                    Grid.Row="0" 
-                   Text="📋 任务提醒" 
+                   Text="{local:Loc Key=TaskReminder_Header}" 
                    FontSize="18" 
                    FontWeight="Bold" 
                    Foreground="#333"
@@ -112,7 +113,7 @@
                 BorderThickness="1"
                 Margin="0,0,0,15">
             <StackPanel>
-                <TextBlock Text="任务内容:" FontWeight="Bold" Foreground="#666" FontSize="12"/>
+                <TextBlock Text="{local:Loc Key=TaskReminder_LabelTask}" FontWeight="Bold" Foreground="#666" FontSize="12"/>
                 <TextBlock x:Name="TaskDescriptionText" 
                            Text="{Binding TaskDescription}" 
                            FontSize="14" 
@@ -120,7 +121,7 @@
                            TextWrapping="Wrap"
                            Margin="0,5,0,10"/>
                 
-                <TextBlock x:Name="TaskMetaLabelText" Text="未更新时间:" FontWeight="Bold" Foreground="#666" FontSize="12"/>
+                <TextBlock x:Name="TaskMetaLabelText" Text="{local:Loc Key=TaskReminder_LabelInactive}" FontWeight="Bold" Foreground="#666" FontSize="12"/>
                 <TextBlock x:Name="InactiveTimeText" 
                            Text="{Binding InactiveTime}" 
                            FontSize="12" 
@@ -139,7 +140,7 @@
                            TextWrapping="Wrap"
                            Margin="0,0,0,15"/>
                 
-                <TextBlock Text="建议操作:" 
+                <TextBlock Text="{local:Loc Key=TaskReminder_LabelSuggestions}" 
                            FontWeight="Bold" 
                            Foreground="#666" 
                            FontSize="12"
@@ -170,17 +171,17 @@
                     HorizontalAlignment="Center"
                     Margin="0,15,0,10">
             <Button x:Name="CompleteTaskButton" 
-                    Content="✓ 标记完成" 
+                    Content="{local:Loc Key=TaskReminder_ButtonComplete}" 
                     Style="{StaticResource ModernButtonStyle}"
                     Click="CompleteTaskButton_Click"/>
             
             <Button x:Name="UpdateTaskButton" 
-                    Content="✏️ 更新任务" 
+                    Content="{local:Loc Key=TaskReminder_ButtonUpdate}" 
                     Style="{StaticResource SecondaryButtonStyle}"
                     Click="UpdateTaskButton_Click"/>
             
             <Button x:Name="DecomposeTaskButton" 
-                    Content="🔄 分解任务" 
+                    Content="{local:Loc Key=TaskReminder_ButtonDecompose}" 
                     Style="{StaticResource SecondaryButtonStyle}"
                     Click="DecomposeTaskButton_Click"
                     Visibility="{Binding CanDecompose, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -191,12 +192,12 @@
                     Orientation="Horizontal" 
                     HorizontalAlignment="Right">
             <Button x:Name="SnoozeButton" 
-                    Content="⏰ 稍后提醒" 
+                    Content="{local:Loc Key=TaskReminder_ButtonSnooze}" 
                     Style="{StaticResource SecondaryButtonStyle}"
                     Click="SnoozeButton_Click"/>
             
             <Button x:Name="CloseButton" 
-                    Content="关闭" 
+                    Content="{local:Loc Key=TaskReminder_ButtonClose}" 
                     Style="{StaticResource DangerButtonStyle}"
                     Click="CloseButton_Click"/>
         </StackPanel>

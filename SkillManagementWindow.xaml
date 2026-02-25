@@ -1,7 +1,8 @@
 <Window x:Class="TimeTask.SkillManagementWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Skill 管理" Height="520" Width="760"
+        xmlns:local="clr-namespace:TimeTask"
+        Title="{local:Loc Key=SkillWindow_Title}" Height="540" Width="920"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="12">
         <Grid.RowDefinitions>
@@ -11,20 +12,20 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="管理大模型 Skills：可启用/停用技能，并查看最近30天触达与反馈。"
+            <TextBlock Text="{local:Loc Key=SkillWindow_Intro}"
                        Foreground="#555"
                        TextWrapping="Wrap"/>
             <Border Background="#F7F7F7" CornerRadius="6" Padding="10" Margin="0,8,0,0" BorderBrush="#E0E0E0" BorderThickness="1">
                 <TextBlock Foreground="#444" TextWrapping="Wrap">
-                    <Run Text="使用方法："/>
+                    <Run Text="{local:Loc Key=SkillWindow_HowTo1}"/>
                     <LineBreak/>
-                    <Run Text="1. 勾选想启用的技能（会在任务提醒中给出“下一步建议”）。"/>
+                    <Run Text="{local:Loc Key=SkillWindow_HowTo2}"/>
                     <LineBreak/>
-                    <Run Text="2. 点击“保存”生效。"/>
+                    <Run Text="{local:Loc Key=SkillWindow_HowTo3}"/>
                     <LineBreak/>
-                    <Run Text="3. 当任务久未更新或触发智能提醒时，系统会提示这些技能。"/>
+                    <Run Text="{local:Loc Key=SkillWindow_HowTo4}"/>
                     <LineBreak/>
-                    <Run Text="小提示：如果不确定，先保持全选，再根据反馈调整。"/>
+                    <Run Text="{local:Loc Key=SkillWindow_HowTo5}"/>
                 </TextBlock>
             </Border>
             <Border x:Name="FirstTimeHintBanner"
@@ -36,7 +37,7 @@
                     BorderThickness="1"
                     Visibility="Collapsed">
                 <TextBlock Foreground="#6B4E16" TextWrapping="Wrap"
-                           Text="提示：技能会在任务提醒里给出“下一步行动”，建议先全选体验，再根据反馈调整。"/>
+                           Text="{local:Loc Key=SkillWindow_FirstHint}"/>
             </Border>
         </StackPanel>
 
@@ -49,23 +50,24 @@
                   SelectionMode="Extended"
                   SelectionUnit="FullRow">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="启用" Width="60" Binding="{Binding Enabled, Mode=TwoWay}"/>
-                <DataGridTextColumn Header="Skill" Width="140" Binding="{Binding Title}"/>
-                <DataGridTextColumn Header="说明" Width="*" Binding="{Binding Description}"/>
-                <DataGridTextColumn Header="Shown(30d)" Width="90" Binding="{Binding Shown}"/>
-                <DataGridTextColumn Header="Accepted" Width="80" Binding="{Binding Accepted}"/>
-                <DataGridTextColumn Header="Deferred" Width="80" Binding="{Binding Deferred}"/>
-                <DataGridTextColumn Header="Rejected" Width="80" Binding="{Binding Rejected}"/>
+                <DataGridCheckBoxColumn Header="{local:Loc Key=Skill_Column_Enable}" Width="60" Binding="{Binding Enabled, Mode=TwoWay}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Name}" Width="130" Binding="{Binding Title}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Description}" Width="250" Binding="{Binding Description}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Scenario}" Width="*" Binding="{Binding Scenario}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Shown30d}" Width="90" Binding="{Binding Shown}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Accepted}" Width="80" Binding="{Binding Accepted}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Deferred}" Width="80" Binding="{Binding Deferred}"/>
+                <DataGridTextColumn Header="{local:Loc Key=Skill_Column_Rejected}" Width="80" Binding="{Binding Rejected}"/>
             </DataGrid.Columns>
         </DataGrid>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="全选" Width="72" Height="32" Margin="0,0,8,0" Click="EnableAll_Click"/>
-            <Button Content="全不选" Width="72" Height="32" Margin="0,0,8,0" Click="DisableAll_Click"/>
-            <Button Content="导入" Width="72" Height="32" Margin="0,0,8,0" Click="Import_Click"/>
-            <Button Content="导出" Width="72" Height="32" Margin="0,0,8,0" Click="Export_Click"/>
-            <Button Content="保存" Width="72" Height="32" Margin="0,0,8,0" Click="Save_Click"/>
-            <Button Content="关闭" Width="72" Height="32" Click="Close_Click"/>
+            <Button Content="{local:Loc Key=Button_SelectAll}" Width="72" Height="32" Margin="0,0,8,0" Click="EnableAll_Click"/>
+            <Button Content="{local:Loc Key=Button_DeselectAll}" Width="72" Height="32" Margin="0,0,8,0" Click="DisableAll_Click"/>
+            <Button Content="{local:Loc Key=Button_Import}" Width="72" Height="32" Margin="0,0,8,0" Click="Import_Click"/>
+            <Button Content="{local:Loc Key=Button_Export}" Width="72" Height="32" Margin="0,0,8,0" Click="Export_Click"/>
+            <Button Content="{local:Loc Key=Button_Save}" Width="72" Height="32" Margin="0,0,8,0" Click="Save_Click"/>
+            <Button Content="{local:Loc Key=Button_Close}" Width="72" Height="32" Click="Close_Click"/>
         </StackPanel>
     </Grid>
 </Window>

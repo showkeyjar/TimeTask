@@ -14,13 +14,13 @@ namespace TimeTask
         private int _staleTaskThresholdDays;
         private int _maxInactiveWarnings;
         private int _reminderCheckIntervalMinutes;
-        private string _metricsWindowLabel = "最近7天";
+        private string _metricsWindowLabel = string.Empty;
         private string _suggestionHitRateText = "0.0%";
         private string _interruptionIndexText = "0.0%";
         private string _topEffectiveActionText = "N/A";
-        private string _suggestionOutcomeText = "shown:0 / accepted:0 / deferred:0 / rejected:0";
-        private string _recommendedStuckThresholdText = "90 分钟";
-        private string _recommendedDailyNudgeLimitText = "2 次/天";
+        private string _suggestionOutcomeText = string.Empty;
+        private string _recommendedStuckThresholdText = string.Empty;
+        private string _recommendedDailyNudgeLimitText = string.Empty;
         private bool _proactiveAssistEnabled = true;
         private bool _behaviorLearningEnabled = true;
         private bool _stuckNudgesEnabled = true;
@@ -212,7 +212,16 @@ namespace TimeTask
         {
             InitializeComponent();
             DataContext = this;
+            InitializeLocalizedDefaults();
             LoadCurrentSettings();
+        }
+
+        private void InitializeLocalizedDefaults()
+        {
+            MetricsWindowLabel = I18n.Tf("ReminderSettings_MetricsWindowFormat", 7);
+            SuggestionOutcomeText = I18n.T("ReminderSettings_OutcomeDefault");
+            RecommendedStuckThresholdText = I18n.Tf("ReminderSettings_MinutesFormat", 90);
+            RecommendedDailyNudgeLimitText = I18n.Tf("ReminderSettings_PerDayFormat", 2);
         }
         
         private void LoadCurrentSettings()
@@ -285,20 +294,25 @@ namespace TimeTask
                 var manager = new UserProfileManager();
                 var metrics = manager.GetDashboardMetrics(7);
 
-                MetricsWindowLabel = $"最近{metrics.WindowDays}天";
+                MetricsWindowLabel = I18n.Tf("ReminderSettings_MetricsWindowFormat", metrics.WindowDays);
                 SuggestionHitRateText = $"{metrics.HitRate:P1}";
                 InterruptionIndexText = $"{metrics.InterruptionIndex:P1}";
                 TopEffectiveActionText = ToActionLabel(metrics.TopEffectiveActionId);
-                SuggestionOutcomeText = $"shown:{metrics.SuggestionsShown} / accepted:{metrics.SuggestionsAccepted} / deferred:{metrics.SuggestionsDeferred} / rejected:{metrics.SuggestionsRejected}";
+                SuggestionOutcomeText = I18n.Tf(
+                    "ReminderSettings_OutcomeFormat",
+                    metrics.SuggestionsShown,
+                    metrics.SuggestionsAccepted,
+                    metrics.SuggestionsDeferred,
+                    metrics.SuggestionsRejected);
 
                 var recommendation = manager.GetAdaptiveNudgeRecommendation(7);
-                RecommendedStuckThresholdText = $"{recommendation.RecommendedStuckThresholdMinutes} 分钟";
-                RecommendedDailyNudgeLimitText = $"{recommendation.RecommendedDailyNudgeLimit} 次/天";
+                RecommendedStuckThresholdText = I18n.Tf("ReminderSettings_MinutesFormat", recommendation.RecommendedStuckThresholdMinutes);
+                RecommendedDailyNudgeLimitText = I18n.Tf("ReminderSettings_PerDayFormat", recommendation.RecommendedDailyNudgeLimit);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading profile metrics: {ex.Message}");
-                MetricsWindowLabel = "最近7天";
+                MetricsWindowLabel = I18n.Tf("ReminderSettings_MetricsWindowFormat", 7);
                 SuggestionHitRateText = "N/A";
                 InterruptionIndexText = "N/A";
                 TopEffectiveActionText = "N/A";
@@ -312,12 +326,12 @@ namespace TimeTask
         {
             switch ((actionId ?? string.Empty).Trim().ToLowerInvariant())
             {
-                case "start_10_min": return "10分钟最小动作";
-                case "split_20_min": return "20分钟切块";
-                case "delegate_or_drop": return "委托/降优先级";
-                case "pause_and_switch": return "暂停并切换";
-                case "decision_now": return "立即做决定";
-                case "fallback_min_step": return "最小下一步";
+                case "start_10_min": return I18n.T("ReminderSettings_ActionStart10");
+                case "split_20_min": return I18n.T("ReminderSettings_ActionSplit20");
+                case "delegate_or_drop": return I18n.T("ReminderSettings_ActionDelegate");
+                case "pause_and_switch": return I18n.T("ReminderSettings_ActionPauseSwitch");
+                case "decision_now": return I18n.T("ReminderSettings_ActionDecisionNow");
+                case "fallback_min_step": return I18n.T("ReminderSettings_ActionFallback");
                 case "n/a":
                 case "":
                     return "N/A";
@@ -341,7 +355,7 @@ namespace TimeTask
                     
                     Properties.Settings.Default.Save();
                     
-                    MessageBox.Show("设置已保存成功！重启应用程序后生效。", "保存成功", 
+                    MessageBox.Show(I18n.T("ReminderSettings_SaveSuccess"), I18n.T("ReminderSettings_TitleSaveSuccess"),
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                     
                     DialogResult = true;
@@ -350,7 +364,7 @@ namespace TimeTask
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error saving reminder settings: {ex.Message}");
-                    MessageBox.Show("保存设置时发生错误，请重试。", "保存失败", 
+                    MessageBox.Show(I18n.T("ReminderSettings_SaveFailed"), I18n.T("ReminderSettings_TitleSaveFailed"),
                                   MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -360,42 +374,42 @@ namespace TimeTask
         {
             if (FirstWarningAfterDays < 1 || FirstWarningAfterDays > 30)
             {
-                MessageBox.Show("第一次提醒间隔必须在1-30天之间。", "设置错误", 
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationFirstWarning"), I18n.T("ReminderSettings_TitleValidation"), 
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             
             if (SecondWarningAfterDays < FirstWarningAfterDays || SecondWarningAfterDays > 60)
             {
-                MessageBox.Show("第二次提醒间隔必须大于第一次提醒间隔且不超过60天。", "设置错误", 
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationSecondWarning"), I18n.T("ReminderSettings_TitleValidation"), 
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             
             if (StaleTaskThresholdDays < SecondWarningAfterDays || StaleTaskThresholdDays > 365)
             {
-                MessageBox.Show("任务过期阈值必须大于第二次提醒间隔且不超过365天。", "设置错误", 
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationStaleThreshold"), I18n.T("ReminderSettings_TitleValidation"), 
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             
             if (MaxInactiveWarnings < 1 || MaxInactiveWarnings > 10)
             {
-                MessageBox.Show("最大提醒次数必须在1-10次之间。", "设置错误", 
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationMaxWarnings"), I18n.T("ReminderSettings_TitleValidation"), 
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             
             if (ReminderCheckIntervalMinutes < 1 || ReminderCheckIntervalMinutes > 60)
             {
-                MessageBox.Show("检查间隔必须在1-60分钟之间。", "设置错误", 
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationInterval"), I18n.T("ReminderSettings_TitleValidation"), 
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
             if (QuietHoursStart < 0 || QuietHoursStart > 23 || QuietHoursEnd < 0 || QuietHoursEnd > 23)
             {
-                MessageBox.Show("安静时段必须在0-23点之间。", "设置错误",
+                MessageBox.Show(I18n.T("ReminderSettings_ValidationQuietHours"), I18n.T("ReminderSettings_TitleValidation"),
                               MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
@@ -439,7 +453,7 @@ namespace TimeTask
         
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("确定要恢复默认设置吗？", "确认重置", 
+            var result = MessageBox.Show(I18n.T("ReminderSettings_ResetConfirm"), I18n.T("ReminderSettings_TitleResetConfirm"), 
                                        MessageBoxButton.YesNo, MessageBoxImage.Question);
             
             if (result == MessageBoxResult.Yes)

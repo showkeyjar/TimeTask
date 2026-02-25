@@ -21,6 +21,8 @@ namespace TimeTask
         private const string PlaceholderManifestUrl = "YOUR_UPDATE_MANIFEST_URL";
         private const string PlaceholderGithubOwner = "YOUR_GITHUB_OWNER";
         private const string PlaceholderGithubRepo = "YOUR_GITHUB_REPO";
+        private const string DefaultGithubOwner = "showkeyjar";
+        private const string DefaultGithubRepo = "TimeTask";
         private readonly Dispatcher _dispatcher;
 
         public AutoUpdateService(Dispatcher dispatcher)
@@ -56,17 +58,18 @@ namespace TimeTask
                     return;
                 }
 
-                Version currentVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0, 0);
-                if (updateInfo.Version <= currentVersion)
+                Version currentVersion = NormalizeVersion(Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0, 0));
+                Version latestVersion = NormalizeVersion(updateInfo.Version);
+                if (latestVersion <= currentVersion)
                 {
-                    VoiceRuntimeLog.Info($"Auto update: no update. Current={currentVersion}, Latest={updateInfo.Version}");
+                    VoiceRuntimeLog.Info($"Auto update: no update. Current={currentVersion}, Latest={latestVersion}");
                     return;
                 }
 
                 bool shouldInstall = await _dispatcher.InvokeAsync(() =>
                 {
                     var result = MessageBox.Show(
-                        $"检测到新版本：{updateInfo.Version}（当前：{currentVersion}）。\n\n是否立即下载并在重启后完成更新？",
+                        $"检测到新版本：{latestVersion}（当前：{currentVersion}）。\n\n是否立即下载并在重启后完成更新？",
                         "发现新版本",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Information);
@@ -102,15 +105,16 @@ namespace TimeTask
             string owner = (ConfigurationManager.AppSettings["AutoUpdateGithubOwner"] ?? string.Empty).Trim();
             string repo = (ConfigurationManager.AppSettings["AutoUpdateGithubRepo"] ?? string.Empty).Trim();
 
-            if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo))
+            if (string.IsNullOrWhiteSpace(owner) ||
+                string.Equals(owner, PlaceholderGithubOwner, StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                owner = DefaultGithubOwner;
             }
 
-            if (string.Equals(owner, PlaceholderGithubOwner, StringComparison.OrdinalIgnoreCase) ||
+            if (string.IsNullOrWhiteSpace(repo) ||
                 string.Equals(repo, PlaceholderGithubRepo, StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                repo = DefaultGithubRepo;
             }
 
             bool includePrerelease = GetBool("AutoUpdateGithubIncludePrerelease", false);
@@ -393,8 +397,27 @@ namespace TimeTask
                 normalized = normalized.Substring(1);
             }
 
-            Version version;
-            return Version.TryParse(normalized, out version) ? version : null;
+                Version version;
+                if (!Version.TryParse(normalized, out version))
+                {
+                    return null;
+                }
+
+                return NormalizeVersion(version);
+        }
+
+        private static Version NormalizeVersion(Version version)
+        {
+            if (version == null)
+            {
+                return new Version(0, 0, 0, 0);
+            }
+
+            int major = Math.Max(0, version.Major);
+            int minor = Math.Max(0, version.Minor);
+            int build = version.Build >= 0 ? version.Build : 0;
+            int revision = version.Revision >= 0 ? version.Revision : 0;
+            return new Version(major, minor, build, revision);
         }
 
         private static bool GetBool(string key, bool defaultValue)

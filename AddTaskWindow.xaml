@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
+        Title="{local:Loc Key=AddTask_WindowTitle}"
         Height="Auto" Width="400"
         WindowStartupLocation="CenterScreen" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -58,25 +59,25 @@
             <RowDefinition Height="Auto"/> <!-- Buttons StackPanel -->
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Task Description:" FontWeight="SemiBold"/>
+        <TextBlock Grid.Row="0" Text="{local:Loc Key=AddTask_LabelDescription}" FontWeight="SemiBold"/>
         <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60" BorderBrush="#CCCCCC" BorderThickness="1"/>
 
         <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
             <StackPanel>
                 <TextBlock Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Visible"/>
-                <Button Name="ResetClarificationButton" Content="Edit Original Task / Reset" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
+                <Button Name="ResetClarificationButton" Content="{local:Loc Key=AddTask_ButtonResetClarification}" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
             </StackPanel>
         </Border>
         
-        <TextBlock Grid.Row="3" Text="Add to List:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+        <TextBlock Grid.Row="3" Text="{local:Loc Key=AddTask_LabelList}" FontWeight="SemiBold" Margin="0,0,0,5"/>
         <TextBlock Grid.Row="4" Name="LlmSuggestionText" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
 
-        <CheckBox Grid.Row="5" Name="EnableReminderCheckBox" Content="Set Reminder" Margin="0,5,0,5" IsChecked="False"/>
+        <CheckBox Grid.Row="5" Name="EnableReminderCheckBox" Content="{local:Loc Key=AddTask_EnableReminder}" Margin="0,5,0,5" IsChecked="False"/>
 
         <StackPanel Grid.Row="6" Name="ReminderControlsPanel" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsChecked, ElementName=EnableReminderCheckBox, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <TextBlock Text="Reminder Date:" Margin="0,0,0,2"/>
+            <TextBlock Text="{local:Loc Key=AddTask_ReminderDate}" Margin="0,0,0,2"/>
             <DatePicker Name="ReminderDatePicker" Margin="0,0,0,5"/>
-            <TextBlock Text="Reminder Time:" Margin="0,0,0,2"/>
+            <TextBlock Text="{local:Loc Key=AddTask_ReminderTime}" Margin="0,0,0,2"/>
             <StackPanel Orientation="Horizontal">
                 <ComboBox Name="ReminderHourComboBox" Width="50" Margin="0,0,5,0"/>
                 <TextBlock Text=":" VerticalAlignment="Center"/>
@@ -87,14 +88,14 @@
         <ComboBox Grid.Row="7" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
 
         <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Name="AddTaskButton" Content="Add Task" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click">
+            <Button Name="AddTaskButton" Content="{local:Loc Key=AddTask_ButtonAdd}" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
                     </Style>
                 </Button.Resources>
             </Button>
-            <Button Name="CancelButton" Content="Cancel" Width="100" Click="CancelButton_Click">
+            <Button Name="CancelButton" Content="{local:Loc Key=AddTask_ButtonCancel}" Width="100" Click="CancelButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>

@@ -102,6 +102,9 @@
     <Compile Include="TaskReminderWindow.xaml.cs">
       <DependentUpon>TaskReminderWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ThinkingToolAnalysisWindow.xaml.cs">
+      <DependentUpon>ThinkingToolAnalysisWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TaskStatisticsWindow.xaml.cs">
       <DependentUpon>TaskStatisticsWindow.xaml</DependentUpon>
     </Compile>
@@ -204,6 +207,7 @@
     <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="SkillManagementService.cs" />
+    <Compile Include="ThinkingToolAdvisor.cs" />
     <Compile Include="LifeProfileEngine.cs" />
     <Compile Include="VoiceReminderTimeParser.cs" />
     <Compile Include="NotificationManager.cs" />
@@ -219,6 +223,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="TaskReminderWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ThinkingToolAnalysisWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

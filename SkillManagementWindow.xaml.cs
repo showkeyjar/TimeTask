@@ -35,6 +35,7 @@ namespace TimeTask
                     SkillId = d.SkillId,
                     Title = d.Title,
                     Description = d.Description,
+                    Scenario = d.Scenario,
                     Enabled = d.Enabled,
                     Shown = stat?.Shown ?? 0,
                     Accepted = stat?.Accepted ?? 0,
@@ -70,7 +71,7 @@ namespace TimeTask
             {
                 var openDialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    Filter = I18n.T("Import_Filter"),
                     DefaultExt = "json"
                 };
 
@@ -84,17 +85,17 @@ namespace TimeTask
                 var package = JsonSerializer.Deserialize<SkillExportPackage>(json, options);
                 if (package == null || package.EnabledSkillIds == null)
                 {
-                    MessageBox.Show("导入失败：文件内容无法解析。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(I18n.T("Skill_Message_ImportParseFailed"), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
                 SkillManagementService.SaveEnabledSkillIds(package.EnabledSkillIds);
                 LoadSkills();
-                MessageBox.Show("Skill 设置已导入。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Skill_Message_Imported"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"导入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("Skill_Message_ImportFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -104,7 +105,7 @@ namespace TimeTask
             {
                 var saveDialog = new Microsoft.Win32.SaveFileDialog
                 {
-                    Filter = "JSON文件|*.json|所有文件|*.*",
+                    Filter = I18n.T("Export_Filter"),
                     DefaultExt = "json",
                     FileName = $"TimeTask_Skills_{DateTime.Now:yyyyMMdd_HHmmss}.json"
                 };
@@ -123,11 +124,11 @@ namespace TimeTask
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(package, options);
                 File.WriteAllText(saveDialog.FileName, json, Encoding.UTF8);
-                MessageBox.Show("Skill 设置已导出。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Skill_Message_Exported"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("Skill_Message_ExportFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -137,11 +138,11 @@ namespace TimeTask
             {
                 var enabled = _items.Where(x => x.Enabled).Select(x => x.SkillId).ToList();
                 SkillManagementService.SaveEnabledSkillIds(enabled);
-                MessageBox.Show("Skill 设置已保存，将在下一次任务提醒中生效。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Skill_Message_Saved"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("Skill_Message_SaveFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -176,6 +177,7 @@ namespace TimeTask
         public string SkillId { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }
+        public string Scenario { get; set; }
         public bool Enabled { get; set; }
         public int Shown { get; set; }
         public int Accepted { get; set; }

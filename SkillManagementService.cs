@@ -10,6 +10,7 @@ namespace TimeTask
         public string SkillId { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }
+        public string Scenario { get; set; }
         public bool Enabled { get; set; }
     }
 
@@ -17,31 +18,21 @@ namespace TimeTask
     {
         private const string EnabledSkillIdsKey = "EnabledSkillIds";
 
-        public static readonly string[] AllowedSkillIds = new[]
-        {
-            "decompose", "focus_sprint", "priority_rebalance", "risk_check", "delegate_prepare", "clarify_goal"
-        };
+        public static readonly string[] AllowedSkillIds = ThinkingToolAdvisor.GetAllowedSkillIds();
 
         public static List<SkillDefinition> GetSkillDefinitions()
         {
             var enabled = LoadEnabledSkillIds();
-            var map = new Dictionary<string, (string title, string desc)>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["decompose"] = ("任务拆解", "把模糊任务拆成可执行的下一步"),
-                ["focus_sprint"] = ("专注冲刺", "给当前任务安排短时高专注执行"),
-                ["priority_rebalance"] = ("优先级重排", "根据紧急/重要性调整顺序"),
-                ["risk_check"] = ("风险检查", "提前检查阻塞点与失败风险"),
-                ["delegate_prepare"] = ("委托准备", "为委托/协作准备最小信息包"),
-                ["clarify_goal"] = ("目标澄清", "澄清任务目标、边界和完成标准")
-            };
+            var defs = ThinkingToolAdvisor.GetDefinitions();
 
-            return AllowedSkillIds
-                .Select(id => new SkillDefinition
+            return defs
+                .Select(def => new SkillDefinition
                 {
-                    SkillId = id,
-                    Title = map.TryGetValue(id, out var v) ? v.title : id,
-                    Description = map.TryGetValue(id, out var vv) ? vv.desc : id,
-                    Enabled = enabled.Contains(id)
+                    SkillId = def.SkillId,
+                    Title = def.Title,
+                    Description = def.Description,
+                    Scenario = def.Scenario,
+                    Enabled = enabled.Contains(def.SkillId)
                 })
                 .ToList();
         }

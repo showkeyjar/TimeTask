@@ -40,11 +40,11 @@ namespace TimeTask
                 LoadGoalHierarchy();
                 LoadDecisionSnapshot();
                 LoadWeeklyReview();
-                StatusText.Text = $"已加载：{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                StatusText.Text = I18n.Tf("Strategy_StatusLoadedFormat", DateTime.Now);
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"加载失败: {ex.Message}";
+                StatusText.Text = I18n.Tf("Strategy_StatusLoadFailedFormat", ex.Message);
             }
         }
 
@@ -53,7 +53,7 @@ namespace TimeTask
             string path = Path.Combine(_strategyPath, "user_life_profile.json");
             if (!File.Exists(path))
             {
-                ProfileHeadlineText.Text = "暂无画像数据，等待系统完成策略周期。";
+                ProfileHeadlineText.Text = I18n.T("Strategy_NoProfileData");
                 StrengthsList.ItemsSource = new List<string>();
                 RisksList.ItemsSource = new List<string>();
                 PeakHoursList.ItemsSource = new List<string>();
@@ -62,13 +62,13 @@ namespace TimeTask
 
             string json = File.ReadAllText(path);
             var profile = JsonSerializer.Deserialize<LifeProfileSnapshot>(json) ?? new LifeProfileSnapshot();
-            GeneratedAtText.Text = $"最后更新：{profile.GeneratedAt:yyyy-MM-dd HH:mm}";
-            ProfileHeadlineText.Text = $"执行可靠度 {profile.ExecutionReliability:P0}，打断敏感度 {profile.InterruptionSensitivity:P0}，活跃任务 {profile.ActiveTaskCount}。";
-            StrengthsList.ItemsSource = profile.Strengths?.Any() == true ? profile.Strengths : new List<string> { "暂无" };
-            RisksList.ItemsSource = profile.RiskTriggers?.Any() == true ? profile.RiskTriggers : new List<string> { "暂无" };
+            GeneratedAtText.Text = I18n.Tf("Strategy_LastUpdatedFormat", profile.GeneratedAt);
+            ProfileHeadlineText.Text = I18n.Tf("Strategy_ProfileHeadlineFormat", profile.ExecutionReliability, profile.InterruptionSensitivity, profile.ActiveTaskCount);
+            StrengthsList.ItemsSource = profile.Strengths?.Any() == true ? profile.Strengths : new List<string> { I18n.T("Strategy_None") };
+            RisksList.ItemsSource = profile.RiskTriggers?.Any() == true ? profile.RiskTriggers : new List<string> { I18n.T("Strategy_None") };
             PeakHoursList.ItemsSource = profile.PeakHours?.Any() == true
                 ? profile.PeakHours.Select(h => $"{h:D2}:00").ToList()
-                : new List<string> { "暂无" };
+                : new List<string> { I18n.T("Strategy_None") };
         }
 
         private void LoadGoalHierarchy()
@@ -76,7 +76,7 @@ namespace TimeTask
             string path = Path.Combine(_strategyPath, "goal_hierarchy.json");
             if (!File.Exists(path))
             {
-                GoalHierarchySummaryText.Text = "暂无目标层级数据。";
+                GoalHierarchySummaryText.Text = I18n.T("Strategy_NoGoalHierarchyData");
                 YearThemesList.ItemsSource = new List<string>();
                 QuarterMilestonesList.ItemsSource = new List<string>();
                 WeekCommitmentsList.ItemsSource = new List<string>();
@@ -88,7 +88,7 @@ namespace TimeTask
             var first = hierarchy.Goals?.FirstOrDefault();
             if (first == null)
             {
-                GoalHierarchySummaryText.Text = "当前无活跃长期目标。";
+                GoalHierarchySummaryText.Text = I18n.T("Strategy_NoActiveGoal");
                 YearThemesList.ItemsSource = new List<string>();
                 QuarterMilestonesList.ItemsSource = new List<string>();
                 WeekCommitmentsList.ItemsSource = new List<string>();
@@ -96,9 +96,9 @@ namespace TimeTask
             }
 
             GoalHierarchySummaryText.Text = $"{first.GoalDescription}（{first.TimeHorizon}）";
-            YearThemesList.ItemsSource = first.YearlyThemes?.Any() == true ? first.YearlyThemes : new List<string> { "暂无" };
-            QuarterMilestonesList.ItemsSource = first.QuarterlyMilestones?.Any() == true ? first.QuarterlyMilestones : new List<string> { "暂无" };
-            WeekCommitmentsList.ItemsSource = first.WeeklyCommitments?.Any() == true ? first.WeeklyCommitments : new List<string> { "暂无" };
+            YearThemesList.ItemsSource = first.YearlyThemes?.Any() == true ? first.YearlyThemes : new List<string> { I18n.T("Strategy_None") };
+            QuarterMilestonesList.ItemsSource = first.QuarterlyMilestones?.Any() == true ? first.QuarterlyMilestones : new List<string> { I18n.T("Strategy_None") };
+            WeekCommitmentsList.ItemsSource = first.WeeklyCommitments?.Any() == true ? first.WeeklyCommitments : new List<string> { I18n.T("Strategy_None") };
         }
 
         private void LoadDecisionSnapshot()
@@ -107,18 +107,22 @@ namespace TimeTask
             if (!File.Exists(path))
             {
                 FocusTasksGrid.ItemsSource = new List<StrategyFocusTaskView>();
+                ThinkingToolsText.Text = I18n.T("Strategy_ThinkingToolHintWaiting");
                 return;
             }
 
             string json = File.ReadAllText(path);
             using var doc = JsonDocument.Parse(json);
             var list = new List<StrategyFocusTaskView>();
+            var toolHints = new List<string>();
             if (doc.RootElement.TryGetProperty("top", out JsonElement top) && top.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in top.EnumerateArray())
                 {
                     string task = item.TryGetProperty("TaskName", out var taskProp) ? taskProp.GetString() : "(未命名)";
                     double score = item.TryGetProperty("Score", out var scoreProp) ? scoreProp.GetDouble() : 0.0;
+                    string importance = item.TryGetProperty("Importance", out var importanceProp) ? importanceProp.GetString() : "Unknown";
+                    string urgency = item.TryGetProperty("Urgency", out var urgencyProp) ? urgencyProp.GetString() : "Unknown";
                     string reason = "待补充";
                     if (item.TryGetProperty("Reasons", out var reasonsProp) && reasonsProp.ValueKind == JsonValueKind.Array)
                     {
@@ -135,10 +139,20 @@ namespace TimeTask
                         Score = score.ToString("F2"),
                         ReasonText = reason
                     });
+
+                    var tools = ThinkingToolAdvisor.RecommendForTask(task, importance, urgency, TimeSpan.Zero, 2);
+                    if (tools.Count > 0)
+                    {
+                        string toolText = string.Join("、", tools.Select(t => t.Title).Distinct().Take(2));
+                        toolHints.Add($"- {task}：{toolText}");
+                    }
                 }
             }
 
             FocusTasksGrid.ItemsSource = list;
+            ThinkingToolsText.Text = toolHints.Count > 0
+                ? string.Join(Environment.NewLine, toolHints.Take(4))
+                : I18n.T("Strategy_NoSuggestion");
         }
 
         private void LoadWeeklyReview()
@@ -146,7 +160,7 @@ namespace TimeTask
             string weeklyFolder = Path.Combine(_strategyPath, "weekly_reviews");
             if (!Directory.Exists(weeklyFolder))
             {
-                WeeklyStrategyText.Text = "暂无周复盘。";
+                WeeklyStrategyText.Text = I18n.T("Strategy_NoWeeklyReview");
                 return;
             }
 
@@ -155,7 +169,7 @@ namespace TimeTask
                 .FirstOrDefault();
             if (string.IsNullOrWhiteSpace(latest))
             {
-                WeeklyStrategyText.Text = "暂无周复盘。";
+                WeeklyStrategyText.Text = I18n.T("Strategy_NoWeeklyReview");
                 return;
             }
 
@@ -163,15 +177,15 @@ namespace TimeTask
             var report = JsonSerializer.Deserialize<WeeklyReviewReport>(json);
             if (report == null)
             {
-                WeeklyStrategyText.Text = "周复盘文件读取失败。";
+                WeeklyStrategyText.Text = I18n.T("Strategy_WeeklyReviewReadFailed");
                 return;
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine($"周期：{report.WeekStart:yyyy-MM-dd} ~ {report.WeekEnd:yyyy-MM-dd}");
-            sb.AppendLine($"活跃任务：{report.ActiveTaskCount}，卡住任务：{report.StuckTaskCount}");
+            sb.AppendLine(I18n.Tf("Strategy_PeriodFormat", report.WeekStart, report.WeekEnd));
+            sb.AppendLine(I18n.Tf("Strategy_ActiveStuckFormat", report.ActiveTaskCount, report.StuckTaskCount));
             sb.AppendLine();
-            sb.AppendLine("下周策略：");
+            sb.AppendLine(I18n.T("Strategy_NextWeekPlanHeader"));
             foreach (var s in report.NextWeekStrategy ?? new List<string>())
             {
                 sb.AppendLine($"- {s}");

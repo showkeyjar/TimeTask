@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -12,72 +12,199 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Window_Main_Title" xml:space="preserve"><value>Time Management</value></data>
-  <data name="Tooltip_EditReminderTime" xml:space="preserve"><value>Edit reminder time</value></data>
-  <data name="Tooltip_ActiveLongTermGoal" xml:space="preserve"><value>View and manage current long-term goal</value></data>
-  <data name="ActiveLongGoal_DefaultName" xml:space="preserve"><value>My Long-Term Goal</value></data>
-  <data name="Button_SetLongTermGoal" xml:space="preserve"><value>Set Long-Term Goal</value></data>
-  <data name="Tooltip_SetLongTermGoal" xml:space="preserve"><value>Set or update your long-term goal</value></data>
-  <data name="Tooltip_OpenSettings" xml:space="preserve"><value>Open settings menu</value></data>
-  <data name="Tooltip_ViewDrafts" xml:space="preserve"><value>View task drafts</value></data>
-  <data name="Quadrant_ImportantUrgent" xml:space="preserve"><value>Important &amp; Urgent</value></data>
-  <data name="Quadrant_ImportantNotUrgent" xml:space="preserve"><value>Important, Not Urgent</value></data>
-  <data name="Quadrant_NotImportantUrgent" xml:space="preserve"><value>Not Important, Urgent</value></data>
-  <data name="Quadrant_NotImportantNotUrgent" xml:space="preserve"><value>Not Important, Not Urgent</value></data>
-  <data name="Task_Header" xml:space="preserve"><value>Task</value></data>
-  <data name="Tooltip_VoiceStatus" xml:space="preserve"><value>Voice listener status</value></data>
-  <data name="Voice_TextUnknown" xml:space="preserve"><value>Voice · Unknown</value></data>
-  <data name="Voice_StatusTitle" xml:space="preserve"><value>Voice Status</value></data>
-  <data name="Voice_StatusUpdatedAt" xml:space="preserve"><value>Updated</value></data>
-  <data name="Voice_StatusUnavailable" xml:space="preserve"><value>Unavailable</value></data>
-  <data name="Voice_StatusReady" xml:space="preserve"><value>Ready</value></data>
-  <data name="Voice_StatusRecognizing" xml:space="preserve"><value>Recognizing</value></data>
-  <data name="Voice_StatusUnknown" xml:space="preserve"><value>Unknown</value></data>
-  <data name="Voice_StatusCooldownFormat" xml:space="preserve"><value>Voice cooling down about {0}</value></data>
-  <data name="Voice_StatusPrefixFormat" xml:space="preserve"><value>Voice · {0}</value></data>
-  <data name="Duration_Seconds" xml:space="preserve"><value>{0}s</value></data>
-  <data name="Duration_Minutes" xml:space="preserve"><value>{0}m</value></data>
-  <data name="Duration_MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>
-  <data name="Menu_AISettings_Header" xml:space="preserve"><value>🤖 AI Assistant Settings</value></data>
-  <data name="Menu_AISettings_Tooltip" xml:space="preserve"><value>Configure LLM API settings</value></data>
-  <data name="Menu_ReminderSettings_Header" xml:space="preserve"><value>⏰ Reminder Settings</value></data>
-  <data name="Menu_ReminderSettings_Tooltip" xml:space="preserve"><value>Configure reminder frequency and behavior</value></data>
-  <data name="Menu_Skill_Header" xml:space="preserve"><value>🧠 Skill Management</value></data>
-  <data name="Menu_Skill_Tooltip" xml:space="preserve"><value>Enable/disable skills and view feedback</value></data>
-  <data name="Menu_Strategy_Header" xml:space="preserve"><value>🧭 Strategy Dashboard</value></data>
-  <data name="Menu_Strategy_Tooltip" xml:space="preserve"><value>View profile, goal hierarchy, prioritization and weekly review</value></data>
-  <data name="Menu_KnowledgeSync_Header" xml:space="preserve"><value>📚 Notes Sync</value></data>
-  <data name="Menu_KnowledgeSync_Tooltip" xml:space="preserve"><value>Extract TODO items from Obsidian notes to drafts</value></data>
-  <data name="Menu_CaptureKnowledge_Header" xml:space="preserve"><value>📝 Capture Selected Task</value></data>
-  <data name="Menu_CaptureKnowledge_Tooltip" xml:space="preserve"><value>Convert selected task to knowledge card</value></data>
-  <data name="Menu_Language_Header" xml:space="preserve"><value>🌐 Language</value></data>
-  <data name="Menu_Language_ZhCN" xml:space="preserve"><value>Simplified Chinese</value></data>
-  <data name="Menu_Language_EnUS" xml:space="preserve"><value>English</value></data>
-  <data name="Menu_Import_Header" xml:space="preserve"><value>📥 Import Data</value></data>
-  <data name="Menu_Import_Tooltip" xml:space="preserve"><value>Import tasks and goals from export file</value></data>
-  <data name="Menu_Export_Header" xml:space="preserve"><value>📤 Export Data</value></data>
-  <data name="Menu_Export_Tooltip" xml:space="preserve"><value>Export task data as JSON</value></data>
-  <data name="Menu_About_Header" xml:space="preserve"><value>ℹ️ About</value></data>
-  <data name="Menu_About_Tooltip" xml:space="preserve"><value>View application information</value></data>
-  <data name="Title_Error" xml:space="preserve"><value>Error</value></data>
-  <data name="Title_Prompt" xml:space="preserve"><value>Notice</value></data>
-  <data name="Title_Done" xml:space="preserve"><value>Done</value></data>
-  <data name="Message_SelectTaskFirst" xml:space="preserve"><value>Please select a task in any quadrant first.</value></data>
-  <data name="Message_KnowledgeCaptured" xml:space="preserve"><value>Knowledge card captured.</value></data>
-  <data name="Import_Filter" xml:space="preserve"><value>JSON files|*.json|All files|*.*</value></data>
-  <data name="Export_Filter" xml:space="preserve"><value>JSON files|*.json|All files|*.*</value></data>
-  <data name="Message_ImportParseFailed" xml:space="preserve"><value>Import failed: file content could not be parsed.</value></data>
-  <data name="Message_ImportOverwriteConfirm" xml:space="preserve"><value>Import will overwrite current tasks, goals, and learning plans. Continue?</value></data>
-  <data name="Title_ConfirmImport" xml:space="preserve"><value>Confirm Import</value></data>
-  <data name="Message_ImportCompleted" xml:space="preserve"><value>Data import completed.</value></data>
-  <data name="Title_ImportSuccess" xml:space="preserve"><value>Import Successful</value></data>
-  <data name="Message_OperationFailedFormat" xml:space="preserve"><value>Operation failed: {0}</value></data>
-  <data name="Message_ExportCompleted" xml:space="preserve"><value>Data exported.</value></data>
-  <data name="Title_ExportSuccess" xml:space="preserve"><value>Export Successful</value></data>
-  <data name="Message_ExportFailedFormat" xml:space="preserve"><value>Export failed: {0}</value></data>
-  <data name="About_Text" xml:space="preserve"><value>TimeTask - Intelligent Task Manager
+  <data name="Window_Main_Title" xml:space="preserve">
+    <value>Time Management</value>
+  </data>
+  <data name="Tooltip_EditReminderTime" xml:space="preserve">
+    <value>Edit reminder time</value>
+  </data>
+  <data name="Tooltip_ActiveLongTermGoal" xml:space="preserve">
+    <value>View and manage current long-term goal</value>
+  </data>
+  <data name="ActiveLongGoal_DefaultName" xml:space="preserve">
+    <value>My Long-Term Goal</value>
+  </data>
+  <data name="Button_SetLongTermGoal" xml:space="preserve">
+    <value>Set Long-Term Goal</value>
+  </data>
+  <data name="Tooltip_SetLongTermGoal" xml:space="preserve">
+    <value>Set or update your long-term goal</value>
+  </data>
+  <data name="Tooltip_OpenSettings" xml:space="preserve">
+    <value>Open settings menu</value>
+  </data>
+  <data name="Tooltip_ViewDrafts" xml:space="preserve">
+    <value>View task drafts</value>
+  </data>
+  <data name="Quadrant_ImportantUrgent" xml:space="preserve">
+    <value>Important &amp; Urgent</value>
+  </data>
+  <data name="Quadrant_ImportantNotUrgent" xml:space="preserve">
+    <value>Important, Not Urgent</value>
+  </data>
+  <data name="Quadrant_NotImportantUrgent" xml:space="preserve">
+    <value>Not Important, Urgent</value>
+  </data>
+  <data name="Quadrant_NotImportantNotUrgent" xml:space="preserve">
+    <value>Not Important, Not Urgent</value>
+  </data>
+  <data name="Task_Header" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="Tooltip_VoiceStatus" xml:space="preserve">
+    <value>Voice listener status</value>
+  </data>
+  <data name="Voice_TextUnknown" xml:space="preserve">
+    <value>Voice 路 Unknown</value>
+  </data>
+  <data name="Voice_StatusTitle" xml:space="preserve">
+    <value>Voice Status</value>
+  </data>
+  <data name="Voice_StatusUpdatedAt" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="Voice_StatusUnavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="Voice_StatusReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Voice_StatusRecognizing" xml:space="preserve">
+    <value>Recognizing</value>
+  </data>
+  <data name="Voice_StatusUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Voice_StatusCooldownFormat" xml:space="preserve">
+    <value>Voice cooling down about {0}</value>
+  </data>
+  <data name="Voice_StatusPrefixFormat" xml:space="preserve">
+    <value>Voice 路 {0}</value>
+  </data>
+  <data name="Duration_Seconds" xml:space="preserve">
+    <value>{0}s</value>
+  </data>
+  <data name="Duration_Minutes" xml:space="preserve">
+    <value>{0}m</value>
+  </data>
+  <data name="Duration_MinutesSeconds" xml:space="preserve">
+    <value>{0}m {1}s</value>
+  </data>
+  <data name="Menu_AISettings_Header" xml:space="preserve">
+    <value>AI Assistant Settings</value>
+  </data>
+  <data name="Menu_AISettings_Tooltip" xml:space="preserve">
+    <value>Configure LLM API settings</value>
+  </data>
+  <data name="Menu_ReminderSettings_Header" xml:space="preserve">
+    <value>Reminder Settings</value>
+  </data>
+  <data name="Menu_ReminderSettings_Tooltip" xml:space="preserve">
+    <value>Configure reminder frequency and behavior</value>
+  </data>
+  <data name="Menu_Skill_Header" xml:space="preserve">
+    <value>Skill Management</value>
+  </data>
+  <data name="Menu_Skill_Tooltip" xml:space="preserve">
+    <value>Enable/disable skills and view feedback</value>
+  </data>
+  <data name="Menu_Strategy_Header" xml:space="preserve">
+    <value>Strategy Dashboard</value>
+  </data>
+  <data name="Menu_Strategy_Tooltip" xml:space="preserve">
+    <value>View profile, goal hierarchy, prioritization and weekly review</value>
+  </data>
+  <data name="Menu_KnowledgeSync_Header" xml:space="preserve">
+    <value>Notes Sync</value>
+  </data>
+  <data name="Menu_KnowledgeSync_Tooltip" xml:space="preserve">
+    <value>Extract TODO items from Obsidian notes to drafts</value>
+  </data>
+  <data name="Menu_CaptureKnowledge_Header" xml:space="preserve">
+    <value>Capture Selected Task</value>
+  </data>
+  <data name="Menu_CaptureKnowledge_Tooltip" xml:space="preserve">
+    <value>Convert selected task to knowledge card</value>
+  </data>
+  <data name="Menu_Language_Header" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Menu_Language_ZhCN" xml:space="preserve">
+    <value>Simplified Chinese</value>
+  </data>
+  <data name="Menu_Language_EnUS" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Menu_Import_Header" xml:space="preserve">
+    <value>Import Data</value>
+  </data>
+  <data name="Menu_Import_Tooltip" xml:space="preserve">
+    <value>Import tasks and goals from export file</value>
+  </data>
+  <data name="Menu_Export_Header" xml:space="preserve">
+    <value>Export Data</value>
+  </data>
+  <data name="Menu_Export_Tooltip" xml:space="preserve">
+    <value>Export task data as JSON</value>
+  </data>
+  <data name="Menu_About_Header" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Menu_About_Tooltip" xml:space="preserve">
+    <value>View application information</value>
+  </data>
+  <data name="Title_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Title_Prompt" xml:space="preserve">
+    <value>Notice</value>
+  </data>
+  <data name="Title_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Message_SelectTaskFirst" xml:space="preserve">
+    <value>Please select a task in any quadrant first.</value>
+  </data>
+  <data name="Message_KnowledgeCaptured" xml:space="preserve">
+    <value>Knowledge card captured.</value>
+  </data>
+  <data name="Import_Filter" xml:space="preserve">
+    <value>JSON files|*.json|All files|*.*</value>
+  </data>
+  <data name="Export_Filter" xml:space="preserve">
+    <value>JSON files|*.json|All files|*.*</value>
+  </data>
+  <data name="Message_ImportParseFailed" xml:space="preserve">
+    <value>Import failed: file content could not be parsed.</value>
+  </data>
+  <data name="Message_ImportOverwriteConfirm" xml:space="preserve">
+    <value>Import will overwrite current tasks, goals, and learning plans. Continue?</value>
+  </data>
+  <data name="Title_ConfirmImport" xml:space="preserve">
+    <value>Confirm Import</value>
+  </data>
+  <data name="Message_ImportCompleted" xml:space="preserve">
+    <value>Data import completed.</value>
+  </data>
+  <data name="Title_ImportSuccess" xml:space="preserve">
+    <value>Import Successful</value>
+  </data>
+  <data name="Message_OperationFailedFormat" xml:space="preserve">
+    <value>Operation failed: {0}</value>
+  </data>
+  <data name="Message_ExportCompleted" xml:space="preserve">
+    <value>Data exported.</value>
+  </data>
+  <data name="Title_ExportSuccess" xml:space="preserve">
+    <value>Export Successful</value>
+  </data>
+  <data name="Message_ExportFailedFormat" xml:space="preserve">
+    <value>Export failed: {0}</value>
+  </data>
+  <data name="About_Text" xml:space="preserve">
+    <value>TimeTask - Intelligent Task Manager
 
-Version: 1.0
+Version: {0}
 Features:
 - Four-quadrant task management
 - Long-term goal planning
@@ -85,11 +212,850 @@ Features:
 - AI-assisted decomposition
 - Data import/export
 
-© 2024 TimeTask Team</value></data>
-  <data name="Title_About" xml:space="preserve"><value>About TimeTask</value></data>
-  <data name="App_ApiKeyWarningText" xml:space="preserve"><value>The OpenAI API key is missing or still using a placeholder. LLM-powered features may not work as expected. Please configure it in App.config as described in README.md.</value></data>
-  <data name="App_ApiKeyWarningTitle" xml:space="preserve"><value>API Key Warning</value></data>
-  <data name="App_VoiceInitFailedTextFormat" xml:space="preserve"><value>Voice recognition initialization failed. No available voice engine was detected or microphone permission is missing.
-Please check logs: {0}</value></data>
-  <data name="App_VoiceInitFailedTitle" xml:space="preserve"><value>Voice Feature Unavailable</value></data>
+(c) 2024 TimeTask Team</value>
+  </data>
+  <data name="Title_About" xml:space="preserve">
+    <value>About TimeTask</value>
+  </data>
+  <data name="App_ApiKeyWarningText" xml:space="preserve">
+    <value>The OpenAI API key is missing or still using a placeholder. LLM-powered features may not work as expected. Please configure it in App.config as described in README.md.</value>
+  </data>
+  <data name="App_ApiKeyWarningTitle" xml:space="preserve">
+    <value>API Key Warning</value>
+  </data>
+  <data name="App_VoiceInitFailedTextFormat" xml:space="preserve">
+    <value>Voice recognition initialization failed. No available voice engine was detected or microphone permission is missing.
+Please check logs: {0}</value>
+  </data>
+  <data name="App_VoiceInitFailedTitle" xml:space="preserve">
+    <value>Voice Feature Unavailable</value>
+  </data>
+  <data name="Tooltip_QuickDecompose" xml:space="preserve">
+    <value>Quickly decompose task</value>
+  </data>
+  <data name="Tooltip_ThinkingTools" xml:space="preserve">
+    <value>Thinking tools</value>
+  </data>
+  <data name="Message_TaskQuadrantNotFound" xml:space="preserve">
+    <value>Task quadrant not found, unable to perform this action.</value>
+  </data>
+  <data name="Message_NoThinkingToolSuggestion" xml:space="preserve">
+    <value>No thinking tool suggestion is available for this task yet.</value>
+  </data>
+  <data name="ThinkingTool_NextStepLabel" xml:space="preserve">
+    <value>Next step:</value>
+  </data>
+  <data name="ThinkingTool_ActionExistsTitle" xml:space="preserve">
+    <value>Thinking Tool</value>
+  </data>
+  <data name="ThinkingTool_ActionExistsText" xml:space="preserve">
+    <value>A similar action task already exists and was not duplicated.</value>
+  </data>
+  <data name="ThinkingTool_ActionCreatedTitle" xml:space="preserve">
+    <value>Action Task Created</value>
+  </data>
+  <data name="ThinkingTool_ActionCreatedFormat" xml:space="preserve">
+    <value>{0}: created {1} action task(s).</value>
+  </data>
+  <data name="Button_SelectAll" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="Button_DeselectAll" xml:space="preserve">
+    <value>Deselect All</value>
+  </data>
+  <data name="Button_Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="Button_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Button_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Button_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Button_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="SkillWindow_Title" xml:space="preserve">
+    <value>Thinking Tool Management</value>
+  </data>
+  <data name="SkillWindow_Intro" xml:space="preserve">
+    <value>Manage thinking tools: enable/disable them and review the last 30-day feedback.</value>
+  </data>
+  <data name="SkillWindow_HowTo1" xml:space="preserve">
+    <value>How to use:</value>
+  </data>
+  <data name="SkillWindow_HowTo2" xml:space="preserve">
+    <value>1. Enable tools you want to use (shown in reminders and the task-row 鈥滒煣犫€?button).</value>
+  </data>
+  <data name="SkillWindow_HowTo3" xml:space="preserve">
+    <value>2. Click Save to apply immediately.</value>
+  </data>
+  <data name="SkillWindow_HowTo4" xml:space="preserve">
+    <value>3. Use the Scenario column to know when each tool should be used.</value>
+  </data>
+  <data name="SkillWindow_HowTo5" xml:space="preserve">
+    <value>Tip: keep defaults enabled first, then trim based on feedback.</value>
+  </data>
+  <data name="SkillWindow_FirstHint" xml:space="preserve">
+    <value>Tip: click 鈥滒煣犫€?on each task card to apply thinking tools instantly.</value>
+  </data>
+  <data name="Skill_Column_Enable" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Skill_Column_Name" xml:space="preserve">
+    <value>Tool</value>
+  </data>
+  <data name="Skill_Column_Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Skill_Column_Scenario" xml:space="preserve">
+    <value>Scenario</value>
+  </data>
+  <data name="Skill_Column_Shown30d" xml:space="preserve">
+    <value>Shown(30d)</value>
+  </data>
+  <data name="Skill_Column_Accepted" xml:space="preserve">
+    <value>Accepted</value>
+  </data>
+  <data name="Skill_Column_Deferred" xml:space="preserve">
+    <value>Deferred</value>
+  </data>
+  <data name="Skill_Column_Rejected" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="Skill_Message_ImportParseFailed" xml:space="preserve">
+    <value>Import failed: file content could not be parsed.</value>
+  </data>
+  <data name="Skill_Message_Imported" xml:space="preserve">
+    <value>Thinking tool settings imported.</value>
+  </data>
+  <data name="Skill_Message_ImportFailedFormat" xml:space="preserve">
+    <value>Import failed: {0}</value>
+  </data>
+  <data name="Skill_Message_Exported" xml:space="preserve">
+    <value>Thinking tool settings exported.</value>
+  </data>
+  <data name="Skill_Message_ExportFailedFormat" xml:space="preserve">
+    <value>Export failed: {0}</value>
+  </data>
+  <data name="Skill_Message_Saved" xml:space="preserve">
+    <value>Thinking tool settings saved. Reminders and task-row analysis will use the new config immediately.</value>
+  </data>
+  <data name="Skill_Message_SaveFailedFormat" xml:space="preserve">
+    <value>Save failed: {0}</value>
+  </data>
+  <data name="Strategy_Window_Title" xml:space="preserve">
+    <value>Strategy Dashboard</value>
+  </data>
+  <data name="Strategy_Header" xml:space="preserve">
+    <value>Life Strategy and Weekly Navigation</value>
+  </data>
+  <data name="Strategy_LastUpdatedDefault" xml:space="preserve">
+    <value>Last updated: -</value>
+  </data>
+  <data name="Strategy_LastUpdatedFormat" xml:space="preserve">
+    <value>Last updated: {0:yyyy-MM-dd HH:mm}</value>
+  </data>
+  <data name="Strategy_Profile" xml:space="preserve">
+    <value>User Profile</value>
+  </data>
+  <data name="Strategy_Strengths" xml:space="preserve">
+    <value>Strengths</value>
+  </data>
+  <data name="Strategy_Risks" xml:space="preserve">
+    <value>Risk Triggers</value>
+  </data>
+  <data name="Strategy_PeakHours" xml:space="preserve">
+    <value>Peak Hours</value>
+  </data>
+  <data name="Strategy_GoalHierarchy" xml:space="preserve">
+    <value>Goal Hierarchy</value>
+  </data>
+  <data name="Strategy_YearThemes" xml:space="preserve">
+    <value>Year Themes</value>
+  </data>
+  <data name="Strategy_QuarterMilestones" xml:space="preserve">
+    <value>Quarter Milestones</value>
+  </data>
+  <data name="Strategy_WeekCommitments" xml:space="preserve">
+    <value>Weekly Commitments</value>
+  </data>
+  <data name="Strategy_DecisionReview" xml:space="preserve">
+    <value>Task Prioritization and Weekly Review</value>
+  </data>
+  <data name="Strategy_Column_Task" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="Strategy_Column_Score" xml:space="preserve">
+    <value>Score</value>
+  </data>
+  <data name="Strategy_Column_Reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="Strategy_WeeklySuggestion" xml:space="preserve">
+    <value>Weekly Strategy</value>
+  </data>
+  <data name="Strategy_ThinkingTools" xml:space="preserve">
+    <value>Thinking Tool Suggestions</value>
+  </data>
+  <data name="Strategy_StatusLoadedDefault" xml:space="preserve">
+    <value>Strategy data loaded</value>
+  </data>
+  <data name="Strategy_StatusLoadedFormat" xml:space="preserve">
+    <value>Loaded: {0:yyyy-MM-dd HH:mm:ss}</value>
+  </data>
+  <data name="Strategy_StatusLoadFailedFormat" xml:space="preserve">
+    <value>Load failed: {0}</value>
+  </data>
+  <data name="Strategy_NoProfileData" xml:space="preserve">
+    <value>No profile data yet. Wait for the next strategy cycle.</value>
+  </data>
+  <data name="Strategy_ProfileHeadlineFormat" xml:space="preserve">
+    <value>Execution reliability {0:P0}, interruption sensitivity {1:P0}, active tasks {2}.</value>
+  </data>
+  <data name="Strategy_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Strategy_NoGoalHierarchyData" xml:space="preserve">
+    <value>No goal hierarchy data.</value>
+  </data>
+  <data name="Strategy_NoActiveGoal" xml:space="preserve">
+    <value>No active long-term goal.</value>
+  </data>
+  <data name="Strategy_ThinkingToolHintWaiting" xml:space="preserve">
+    <value>No suggestion yet. Run a decision cycle first.</value>
+  </data>
+  <data name="Strategy_NoSuggestion" xml:space="preserve">
+    <value>No suggestion.</value>
+  </data>
+  <data name="Strategy_NoWeeklyReview" xml:space="preserve">
+    <value>No weekly review.</value>
+  </data>
+  <data name="Strategy_WeeklyReviewReadFailed" xml:space="preserve">
+    <value>Failed to read weekly review file.</value>
+  </data>
+  <data name="Strategy_PeriodFormat" xml:space="preserve">
+    <value>Period: {0:yyyy-MM-dd} ~ {1:yyyy-MM-dd}</value>
+  </data>
+  <data name="Strategy_ActiveStuckFormat" xml:space="preserve">
+    <value>Active tasks: {0}, stuck tasks: {1}</value>
+  </data>
+  <data name="Strategy_NextWeekPlanHeader" xml:space="preserve">
+    <value>Next week strategy:</value>
+  </data>
+  <data name="TaskReminder_WindowTitle" xml:space="preserve">
+    <value>Task Reminder</value>
+  </data>
+  <data name="TaskReminder_Header" xml:space="preserve">
+    <value>馃搵 Task Reminder</value>
+  </data>
+  <data name="TaskReminder_LabelTask" xml:space="preserve">
+    <value>Task:</value>
+  </data>
+  <data name="TaskReminder_LabelInactive" xml:space="preserve">
+    <value>Inactive for:</value>
+  </data>
+  <data name="TaskReminder_LabelSuggestions" xml:space="preserve">
+    <value>Suggested actions:</value>
+  </data>
+  <data name="TaskReminder_ButtonComplete" xml:space="preserve">
+    <value>鉁?Mark Complete</value>
+  </data>
+  <data name="TaskReminder_ButtonUpdate" xml:space="preserve">
+    <value>鉁忥笍 Update Task</value>
+  </data>
+  <data name="TaskReminder_ButtonDecompose" xml:space="preserve">
+    <value>馃攧 Decompose Task</value>
+  </data>
+  <data name="TaskReminder_ButtonSnooze" xml:space="preserve">
+    <value>鈴?Snooze</value>
+  </data>
+  <data name="TaskReminder_ButtonClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="TaskReminder_DueMessageFormat" xml:space="preserve">
+    <value>The task reminder is due ({0:yyyy-MM-dd HH:mm}). Choose next action.</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionConfirm" xml:space="preserve">
+    <value>Confirm reminder: clear this reminder time</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionPostpone" xml:space="preserve">
+    <value>Postpone 30 minutes: keep reminder and delay automatically</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionEdit" xml:space="preserve">
+    <value>Edit time: reset reminder time to avoid false triggers</value>
+  </data>
+  <data name="TaskReminder_InactiveWeeksFormat" xml:space="preserve">
+    <value>Inactive for {0} week(s)</value>
+  </data>
+  <data name="TaskReminder_InactiveDaysFormat" xml:space="preserve">
+    <value>Inactive for {0} day(s)</value>
+  </data>
+  <data name="TaskReminder_InactiveHoursFormat" xml:space="preserve">
+    <value>Inactive for {0} hour(s)</value>
+  </data>
+  <data name="TaskReminder_InactiveLessThanHour" xml:space="preserve">
+    <value>Inactive for less than 1 hour</value>
+  </data>
+  <data name="TaskReminder_DueHeader" xml:space="preserve">
+    <value>鈴?Reminder Confirmation</value>
+  </data>
+  <data name="TaskReminder_DueOriginalTimeLabel" xml:space="preserve">
+    <value>Original reminder time:</value>
+  </data>
+  <data name="TaskReminder_DueButtonConfirm" xml:space="preserve">
+    <value>鉁?Confirm</value>
+  </data>
+  <data name="TaskReminder_DueButtonPostpone" xml:space="preserve">
+    <value>鈴?Postpone 30m</value>
+  </data>
+  <data name="TaskReminder_DueButtonEdit" xml:space="preserve">
+    <value>馃棑 Edit Time</value>
+  </data>
+  <data name="ThinkingAnalysis_WindowTitle" xml:space="preserve">
+    <value>Thinking Tool Analysis</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupDiagnosis" xml:space="preserve">
+    <value>Diagnosis and Hypothesis</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupDecision" xml:space="preserve">
+    <value>Decision Rule and Risks</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupActions" xml:space="preserve">
+    <value>Action Items (select to write back to task list)</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnSelected" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnPriority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnAction" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnRationale" xml:space="preserve">
+    <value>Rationale</value>
+  </data>
+  <data name="ThinkingAnalysis_ButtonCreateSelected" xml:space="preserve">
+    <value>Create Selected Actions</value>
+  </data>
+  <data name="ThinkingAnalysis_ButtonCreateFirst" xml:space="preserve">
+    <value>Create First Action Only</value>
+  </data>
+  <data name="ThinkingAnalysis_TitleFormat" xml:space="preserve">
+    <value>{0} Analysis</value>
+  </data>
+  <data name="ThinkingAnalysis_TaskFormat" xml:space="preserve">
+    <value>Task: {0}</value>
+  </data>
+  <data name="ThinkingAnalysis_WhyFormat" xml:space="preserve">
+    <value>Why this tool: {0}</value>
+  </data>
+  <data name="ThinkingAnalysis_DiagnosticFormat" xml:space="preserve">
+    <value>Diagnosis: {0}</value>
+  </data>
+  <data name="ThinkingAnalysis_HypothesisFormat" xml:space="preserve">
+    <value>Hypothesis: {0}</value>
+  </data>
+  <data name="ThinkingAnalysis_DecisionRuleFormat" xml:space="preserve">
+    <value>Decision rule: {0}</value>
+  </data>
+  <data name="ThinkingAnalysis_ReviewPromptFormat" xml:space="preserve">
+    <value>Review prompt: {0}</value>
+  </data>
+  <data name="SmartQuadrant_Title" xml:space="preserve">
+    <value>Smart Quadrant Assignment</value>
+  </data>
+  <data name="SmartQuadrant_Header" xml:space="preserve">
+    <value>Smart Quadrant Assignment</value>
+  </data>
+  <data name="SmartQuadrant_Description" xml:space="preserve">
+    <value>Select a suitable quadrant for each sub-task. The UI appears first and recommendations are loaded asynchronously.</value>
+  </data>
+  <data name="SmartQuadrant_ActionNow" xml:space="preserve">
+    <value>Do Now</value>
+  </data>
+  <data name="SmartQuadrant_PlanIt" xml:space="preserve">
+    <value>Plan It</value>
+  </data>
+  <data name="SmartQuadrant_Delegate" xml:space="preserve">
+    <value>Delegate</value>
+  </data>
+  <data name="SmartQuadrant_Later" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="SmartQuadrant_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="SmartQuadrant_LoadingDecompose" xml:space="preserve">
+    <value>Decomposing task, please wait...</value>
+  </data>
+  <data name="SmartQuadrant_LoadingRecommend" xml:space="preserve">
+    <value>Calculating quadrant recommendations for sub-tasks...</value>
+  </data>
+  <data name="SmartQuadrant_LoadDone" xml:space="preserve">
+    <value>Sub-tasks loaded. Adjust quadrants and confirm.</value>
+  </data>
+  <data name="SmartQuadrant_NoTaskLoaded" xml:space="preserve">
+    <value>No sub-task could be loaded.</value>
+  </data>
+  <data name="SmartQuadrant_InvalidInput" xml:space="preserve">
+    <value>Invalid input. Unable to run smart decomposition.</value>
+  </data>
+  <data name="SmartQuadrant_NoDecomposeResultFormat" xml:space="preserve">
+    <value>Unable to decompose this task automatically. Status: {0}</value>
+  </data>
+  <data name="SmartQuadrant_LoadFailedFormat" xml:space="preserve">
+    <value>Decomposition load failed: {0}</value>
+  </data>
+  <data name="SmartQuadrant_AiSuggestFormat" xml:space="preserve">
+    <value>AI suggestion: {0} (Importance: {1}, Urgency: {2})</value>
+  </data>
+  <data name="SmartQuadrant_AiSuggestFallbackFormat" xml:space="preserve">
+    <value>AI suggestion: {0} (fallback)</value>
+  </data>
+  <data name="SmartQuadrant_UnknownQuadrant" xml:space="preserve">
+    <value>Unknown Quadrant</value>
+  </data>
+  <data name="SmartQuadrant_AssignAll" xml:space="preserve">
+    <value>Please select quadrants for all sub-tasks.</value>
+  </data>
+  <data name="Title_DecomposeDone" xml:space="preserve">
+    <value>Decomposition Completed</value>
+  </data>
+  <data name="Title_DecomposeResult" xml:space="preserve">
+    <value>Decomposition Result</value>
+  </data>
+  <data name="Title_DecomposeError" xml:space="preserve">
+    <value>Decomposition Error</value>
+  </data>
+  <data name="Message_DecomposeSuccessFormat" xml:space="preserve">
+    <value>Task was decomposed into {0} sub-tasks and assigned to quadrants.</value>
+  </data>
+  <data name="Priority_High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Priority_Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="Priority_Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Priority_Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="SetGoal_MessageFillRequired" xml:space="preserve">
+    <value>Please enter both goal description and duration.</value>
+  </data>
+  <data name="ReminderSettings_ButtonReset" xml:space="preserve">
+    <value>Reset Default</value>
+  </data>
+  <data name="ReminderSettings_ValidationFirstWarning" xml:space="preserve">
+    <value>First reminder must be between 1 and 30 days.</value>
+  </data>
+  <data name="ReminderSettings_MetricOutcome" xml:space="preserve">
+    <value>Suggestion outcomes:</value>
+  </data>
+  <data name="ReminderSettings_GroupFrequency" xml:space="preserve">
+    <value>Reminder Frequency</value>
+  </data>
+  <data name="ReminderSettings_ActionDecisionNow" xml:space="preserve">
+    <value>Decide now</value>
+  </data>
+  <data name="SetGoal_LabelDuration" xml:space="preserve">
+    <value>Expected Duration</value>
+  </data>
+  <data name="ReminderSettings_TitleResetConfirm" xml:space="preserve">
+    <value>Confirm Reset</value>
+  </data>
+  <data name="ReminderSettings_Header" xml:space="preserve">
+    <value>Task Reminder Settings</value>
+  </data>
+  <data name="AddTask_EnableReminder" xml:space="preserve">
+    <value>Set Reminder</value>
+  </data>
+  <data name="SetGoal_TypeTitle" xml:space="preserve">
+    <value>Select Goal Type</value>
+  </data>
+  <data name="Reminder_EditorInstruction" xml:space="preserve">
+    <value>Set reminder date and time</value>
+  </data>
+  <data name="ReminderSettings_MetricsWindowFormat" xml:space="preserve">
+    <value>Last {0} days</value>
+  </data>
+  <data name="Reminder_EditUpdatedSetFormat" xml:space="preserve">
+    <value>Reminder time updated: {0}</value>
+  </data>
+  <data name="ReminderSettings_UnitDay" xml:space="preserve">
+    <value>day(s)</value>
+  </data>
+  <data name="SetGoal_TypeLearning" xml:space="preserve">
+    <value>Learning Plan</value>
+  </data>
+  <data name="ReminderSettings_SecondWarningLabel" xml:space="preserve">
+    <value>Second reminder after:</value>
+  </data>
+  <data name="AddTask_ButtonResetClarification" xml:space="preserve">
+    <value>Edit Original Task / Reset</value>
+  </data>
+  <data name="SetGoal_ButtonCreate" xml:space="preserve">
+    <value>Create Goal</value>
+  </data>
+  <data name="ReminderSettings_ButtonSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="DraftViewer_SelectDraftFirst" xml:space="preserve">
+    <value>Please select draft(s) first.</value>
+  </data>
+  <data name="AddTask_SuggestionUnavailable" xml:space="preserve">
+    <value>AI suggestion is unavailable. Please choose a quadrant manually.</value>
+  </data>
+  <data name="ReminderSettings_Help1" xml:space="preserve">
+    <value>- First reminder after: days from task creation to first reminder</value>
+  </data>
+  <data name="ReminderSettings_MetricTopAction" xml:space="preserve">
+    <value>Most effective action:</value>
+  </data>
+  <data name="AddTask_ErrorOccurredFormat" xml:space="preserve">
+    <value>An error occurred: {0}</value>
+  </data>
+  <data name="ReminderSettings_Help2" xml:space="preserve">
+    <value>- Second reminder after: days from first reminder to second reminder</value>
+  </data>
+  <data name="DraftViewer_NoDraftToAdd" xml:space="preserve">
+    <value>No drafts to add.</value>
+  </data>
+  <data name="AddTask_SourceLlm" xml:space="preserve">
+    <value>LLM</value>
+  </data>
+  <data name="AddTask_ErrorSelectList" xml:space="preserve">
+    <value>Please select a list.</value>
+  </data>
+  <data name="Title_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Reminder_EditConfirmSetFormat" xml:space="preserve">
+    <value>Set reminder time for "{0}" to {1}?</value>
+  </data>
+  <data name="ReminderSettings_GroupBehavior" xml:space="preserve">
+    <value>Reminder Behavior</value>
+  </data>
+  <data name="ReminderSettings_ActionDelegate" xml:space="preserve">
+    <value>Delegate / downgrade</value>
+  </data>
+  <data name="DraftViewer_ConfirmAddAllFormat" xml:space="preserve">
+    <value>Add all {0} drafts?</value>
+  </data>
+  <data name="DraftViewer_ColReminder" xml:space="preserve">
+    <value>Reminder</value>
+  </data>
+  <data name="DraftViewer_WindowTitle" xml:space="preserve">
+    <value>Task Drafts</value>
+  </data>
+  <data name="ReminderSettings_MetricRecommendedDaily" xml:space="preserve">
+    <value>Recommended daily limit:</value>
+  </data>
+  <data name="ReminderSettings_ProactiveEnabled" xml:space="preserve">
+    <value>Enable proactive assistance (master switch)</value>
+  </data>
+  <data name="ReminderSettings_ValidationStaleThreshold" xml:space="preserve">
+    <value>Stale threshold must be greater than second reminder and no more than 365 days.</value>
+  </data>
+  <data name="ReminderSettings_ActionFallback" xml:space="preserve">
+    <value>Smallest next step</value>
+  </data>
+  <data name="ReminderSettings_BehaviorLearningEnabled" xml:space="preserve">
+    <value>Enable behavior learning (local profile)</value>
+  </data>
+  <data name="ReminderSettings_MetricWindow" xml:space="preserve">
+    <value>Window:</value>
+  </data>
+  <data name="Reminder_EditorWindowTitle" xml:space="preserve">
+    <value>Edit Reminder Time</value>
+  </data>
+  <data name="ReminderSettings_SaveFailed" xml:space="preserve">
+    <value>Failed to save settings. Please try again.</value>
+  </data>
+  <data name="DraftViewer_ColDetectedAt" xml:space="preserve">
+    <value>Detected At</value>
+  </data>
+  <data name="SetGoal_PlaceholderDuration" xml:space="preserve">
+    <value>e.g. 3 months, half year, 1 year...</value>
+  </data>
+  <data name="AddTask_LlmConfigIssueText" xml:space="preserve">
+    <value>AI assistant features may be limited due to configuration issues (for example missing or placeholder API key). Please check app settings for full functionality.</value>
+  </data>
+  <data name="ReminderSettings_ResetConfirm" xml:space="preserve">
+    <value>Restore default settings?</value>
+  </data>
+  <data name="SetGoal_TitleInputError" xml:space="preserve">
+    <value>Input Error</value>
+  </data>
+  <data name="SetGoal_LabelLearningTarget" xml:space="preserve">
+    <value>Learning Goal</value>
+  </data>
+  <data name="Reminder_EditorSelectValidTime" xml:space="preserve">
+    <value>Please select a valid reminder time.</value>
+  </data>
+  <data name="AddTask_SourceRule" xml:space="preserve">
+    <value>Rule</value>
+  </data>
+  <data name="ReminderSettings_ValidationInterval" xml:space="preserve">
+    <value>Check interval must be between 1 and 60 minutes.</value>
+  </data>
+  <data name="ReminderSettings_Help3" xml:space="preserve">
+    <value>- Task stale threshold: task is stale if not updated beyond this many days</value>
+  </data>
+  <data name="AddTask_ButtonSubmitClarified" xml:space="preserve">
+    <value>Submit Clarified Task</value>
+  </data>
+  <data name="DraftViewer_ButtonClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="AddTask_SuggestionFormat" xml:space="preserve">
+    <value>AI suggested quadrant ({0}): {1}</value>
+  </data>
+  <data name="DraftViewer_NoDraftToClear" xml:space="preserve">
+    <value>No drafts to clear.</value>
+  </data>
+  <data name="ReminderSettings_QuietEndLabel" xml:space="preserve">
+    <value>Quiet hours end:</value>
+  </data>
+  <data name="AddTask_SourceDefault" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="DraftViewer_ColTask" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="ReminderSettings_GroupProactiveControl" xml:space="preserve">
+    <value>Proactive Assistance Controls</value>
+  </data>
+  <data name="KnowledgeSync_PassiveMessageFormat" xml:space="preserve">
+    <value>Added {0} high-confidence tasks; {1} moved to draft box.</value>
+  </data>
+  <data name="ReminderSettings_MetricHitRate" xml:space="preserve">
+    <value>Suggestion hit rate:</value>
+  </data>
+  <data name="AddTask_LabelDescription" xml:space="preserve">
+    <value>Task Description:</value>
+  </data>
+  <data name="AddTask_LabelList" xml:space="preserve">
+    <value>Add to List:</value>
+  </data>
+  <data name="ReminderSettings_FirstWarningLabel" xml:space="preserve">
+    <value>First reminder after:</value>
+  </data>
+  <data name="ReminderSettings_OutcomeFormat" xml:space="preserve">
+    <value>shown:{0} / accepted:{1} / deferred:{2} / rejected:{3}</value>
+  </data>
+  <data name="AddTask_ReminderTime" xml:space="preserve">
+    <value>Reminder Time:</value>
+  </data>
+  <data name="KnowledgeSync_ResultTitle" xml:space="preserve">
+    <value>Knowledge Sync Result</value>
+  </data>
+  <data name="ReminderSettings_LlmSkillAssistEnabled" xml:space="preserve">
+    <value>Enable LLM skill suggestions</value>
+  </data>
+  <data name="AddTask_LlmConfigIssueTitle" xml:space="preserve">
+    <value>LLM Configuration Issue</value>
+  </data>
+  <data name="AddTask_TitleValidationError" xml:space="preserve">
+    <value>Validation Error</value>
+  </data>
+  <data name="AddTask_ErrorEmptyDescription" xml:space="preserve">
+    <value>Task description cannot be empty.</value>
+  </data>
+  <data name="DraftViewer_ConfirmClearAllFormat" xml:space="preserve">
+    <value>Clear all {0} drafts?</value>
+  </data>
+  <data name="ReminderSettings_ActionSplit20" xml:space="preserve">
+    <value>20-minute chunk</value>
+  </data>
+  <data name="ReminderSettings_ValidationSecondWarning" xml:space="preserve">
+    <value>Second reminder must be greater than first reminder and no more than 60 days.</value>
+  </data>
+  <data name="ReminderSettings_UnitHourRange" xml:space="preserve">
+    <value>hour (0-23)</value>
+  </data>
+  <data name="DraftViewer_Header" xml:space="preserve">
+    <value>Task Drafts</value>
+  </data>
+  <data name="AddTask_ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ReminderSettings_UnitTimes" xml:space="preserve">
+    <value>times</value>
+  </data>
+  <data name="ReminderSettings_GroupHelp" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="DraftViewer_ColQuadrant" xml:space="preserve">
+    <value>Quadrant</value>
+  </data>
+  <data name="Reminder_EditorCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ReminderSettings_StuckNudgesEnabled" xml:space="preserve">
+    <value>Enable stuck-task nudges</value>
+  </data>
+  <data name="Reminder_EditorEnable" xml:space="preserve">
+    <value>Enable reminder</value>
+  </data>
+  <data name="DraftViewer_ButtonIgnore" xml:space="preserve">
+    <value>Ignore</value>
+  </data>
+  <data name="ReminderSettings_MaxWarningsLabel" xml:space="preserve">
+    <value>Max reminders:</value>
+  </data>
+  <data name="SetGoal_ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Reminder_EditorSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="ReminderSettings_GroupMetrics" xml:space="preserve">
+    <value>Proactive Metrics (Read-only)</value>
+  </data>
+  <data name="SetGoal_TypeNormal" xml:space="preserve">
+    <value>General Goal</value>
+  </data>
+  <data name="ReminderSettings_MinutesFormat" xml:space="preserve">
+    <value>{0} min</value>
+  </data>
+  <data name="SetGoal_LabelDescription" xml:space="preserve">
+    <value>Goal Description</value>
+  </data>
+  <data name="ReminderSettings_CheckIntervalLabel" xml:space="preserve">
+    <value>Check interval:</value>
+  </data>
+  <data name="ReminderSettings_TitleValidation" xml:space="preserve">
+    <value>Settings Error</value>
+  </data>
+  <data name="DraftViewer_SelectOneFirst" xml:space="preserve">
+    <value>Please select one draft first.</value>
+  </data>
+  <data name="DraftViewer_ConfirmIgnoreFormat" xml:space="preserve">
+    <value>Ignore draft "{0}"?</value>
+  </data>
+  <data name="ReminderSettings_WindowTitle" xml:space="preserve">
+    <value>Task Reminder Settings</value>
+  </data>
+  <data name="DraftViewer_ColPriority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="DraftViewer_Description" xml:space="preserve">
+    <value>These are potential tasks recognized automatically from voice input. If a time is detected, "Reminder Time" will be shown and carried into the task when added.</value>
+  </data>
+  <data name="ReminderSettings_ActionStart10" xml:space="preserve">
+    <value>10-minute minimum action</value>
+  </data>
+  <data name="ReminderSettings_ValidationMaxWarnings" xml:space="preserve">
+    <value>Max reminders must be between 1 and 10.</value>
+  </data>
+  <data name="ReminderSettings_ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ReminderSettings_ValidationQuietHours" xml:space="preserve">
+    <value>Quiet hours must be within 0-23.</value>
+  </data>
+  <data name="ReminderSettings_SaveSuccess" xml:space="preserve">
+    <value>Settings saved successfully. They take effect after restarting the app.</value>
+  </data>
+  <data name="ReminderSettings_MetricInterruption" xml:space="preserve">
+    <value>Interruption index:</value>
+  </data>
+  <data name="SetGoal_PlaceholderDescription" xml:space="preserve">
+    <value>e.g. Prepare for exam math, learn Python programming...</value>
+  </data>
+  <data name="KnowledgeSync_PassiveTitle" xml:space="preserve">
+    <value>Notes tasks synced automatically</value>
+  </data>
+  <data name="SetGoal_NoActiveGoal" xml:space="preserve">
+    <value>There is no active long-term goal. Please create one first.</value>
+  </data>
+  <data name="DraftViewer_ButtonAddSelected" xml:space="preserve">
+    <value>Add Selected</value>
+  </data>
+  <data name="ReminderSettings_QuietStartLabel" xml:space="preserve">
+    <value>Quiet hours start:</value>
+  </data>
+  <data name="ReminderSettings_StaleThresholdLabel" xml:space="preserve">
+    <value>Task stale threshold:</value>
+  </data>
+  <data name="ReminderSettings_Help5" xml:space="preserve">
+    <value>- Check interval: how often the system checks reminder-eligible tasks</value>
+  </data>
+  <data name="Reminder_EditorSelectDate" xml:space="preserve">
+    <value>Please select a reminder date.</value>
+  </data>
+  <data name="Reminder_EditUpdatedTitle" xml:space="preserve">
+    <value>Reminder Updated</value>
+  </data>
+  <data name="DraftViewer_ColCount" xml:space="preserve">
+    <value>Detections</value>
+  </data>
+  <data name="ReminderSettings_ActionPauseSwitch" xml:space="preserve">
+    <value>Pause and switch</value>
+  </data>
+  <data name="KnowledgeSync_FailedFormat" xml:space="preserve">
+    <value>Knowledge sync failed: {0}</value>
+  </data>
+  <data name="DraftViewer_ButtonAddAll" xml:space="preserve">
+    <value>Add All</value>
+  </data>
+  <data name="Reminder_EditUpdatedCleared" xml:space="preserve">
+    <value>Reminder time cleared</value>
+  </data>
+  <data name="ReminderSettings_MetricRecommendedStuck" xml:space="preserve">
+    <value>Recommended stuck threshold:</value>
+  </data>
+  <data name="AddTask_WindowTitle" xml:space="preserve">
+    <value>Add Task</value>
+  </data>
+  <data name="DraftViewer_CountFormat" xml:space="preserve">
+    <value>({0})</value>
+  </data>
+  <data name="ReminderSettings_PerDayFormat" xml:space="preserve">
+    <value>{0} /day</value>
+  </data>
+  <data name="AddTask_ReminderDate" xml:space="preserve">
+    <value>Reminder Date:</value>
+  </data>
+  <data name="KnowledgeSync_NotInitialized" xml:space="preserve">
+    <value>Knowledge sync is not initialized. Please check configuration.</value>
+  </data>
+  <data name="DraftViewer_ButtonClear" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
+  <data name="Reminder_EditConfirmClearFormat" xml:space="preserve">
+    <value>Clear reminder time for "{0}"?</value>
+  </data>
+  <data name="AddTask_ButtonAdd" xml:space="preserve">
+    <value>Add Task</value>
+  </data>
+  <data name="ReminderSettings_Help4" xml:space="preserve">
+    <value>- Max reminders: once reached, the system asks to move or complete the task</value>
+  </data>
+  <data name="ReminderSettings_TitleSaveSuccess" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="Reminder_EditConfirmTitle" xml:space="preserve">
+    <value>Confirm Reminder Time</value>
+  </data>
+  <data name="ReminderSettings_TitleSaveFailed" xml:space="preserve">
+    <value>Save Failed</value>
+  </data>
+  <data name="ReminderSettings_UnitMinutes" xml:space="preserve">
+    <value>min</value>
+  </data>
+  <data name="SetGoal_WindowTitle" xml:space="preserve">
+    <value>Set Long-Term Goal</value>
+  </data>
+  <data name="ReminderSettings_OutcomeDefault" xml:space="preserve">
+    <value>shown:0 / accepted:0 / deferred:0 / rejected:0</value>
+  </data>
 </root>

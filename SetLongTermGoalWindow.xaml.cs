@@ -12,6 +12,7 @@ namespace TimeTask
         public SetLongTermGoalWindow()
         {
             InitializeComponent();
+            UpdateUI();
         }
 
         private void GoalType_Checked(object sender, RoutedEventArgs e)
@@ -32,11 +33,11 @@ namespace TimeTask
 
             if (isLearningPlan)
             {
-                GoalDescriptionLabel.Text = "📝 学习目标";
+                GoalDescriptionLabel.Text = I18n.T("SetGoal_LabelLearningTarget");
             }
             else
             {
-                GoalDescriptionLabel.Text = "📝 目标描述";
+                GoalDescriptionLabel.Text = I18n.T("SetGoal_LabelDescription");
             }
         }
 
@@ -44,7 +45,7 @@ namespace TimeTask
         {
             if (string.IsNullOrWhiteSpace(GoalDescriptionTextBox.Text) || string.IsNullOrWhiteSpace(DurationTextBox.Text))
             {
-                MessageBox.Show("请输入目标描述和时长", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SetGoal_MessageFillRequired"), I18n.T("SetGoal_TitleInputError"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 

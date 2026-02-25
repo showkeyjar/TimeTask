@@ -1,7 +1,8 @@
 <Window x:Class="TimeTask.ReminderSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="任务提醒设置" Height="760" Width="520"
+        xmlns:local="clr-namespace:TimeTask"
+        Title="{local:Loc Key=ReminderSettings_WindowTitle}" Height="760" Width="520"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#F5F5F5">
@@ -54,7 +55,7 @@
         
         <!-- 标题 -->
         <TextBlock Grid.Row="0" 
-                   Text="⚙️ 任务提醒设置" 
+                   Text="{local:Loc Key=ReminderSettings_Header}" 
                    FontSize="18" 
                    FontWeight="Bold" 
                    Foreground="#333"
@@ -66,7 +67,7 @@
                 <!-- 提醒频率设置 -->
                 <Border Style="{StaticResource SettingGroupStyle}">
                     <StackPanel>
-                        <TextBlock Text="📅 提醒频率设置" 
+                        <TextBlock Text="{local:Loc Key=ReminderSettings_GroupFrequency}"
                                    FontWeight="Bold" 
                                    FontSize="14" 
                                    Foreground="#333"
@@ -85,7 +86,7 @@
                             </Grid.RowDefinitions>
                             
                             <TextBlock Grid.Row="0" Grid.Column="0" 
-                                       Text="第一次提醒间隔:" 
+                                       Text="{local:Loc Key=ReminderSettings_FirstWarningLabel}" 
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox x:Name="FirstWarningDaysTextBox" 
@@ -94,12 +95,12 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="0" Grid.Column="2" 
-                                       Text="天" 
+                                       Text="{local:Loc Key=ReminderSettings_UnitDay}" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                             
                             <TextBlock Grid.Row="1" Grid.Column="0" 
-                                       Text="第二次提醒间隔:" 
+                                       Text="{local:Loc Key=ReminderSettings_SecondWarningLabel}" 
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox x:Name="SecondWarningDaysTextBox" 
@@ -108,12 +109,12 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="1" Grid.Column="2" 
-                                       Text="天" 
+                                       Text="{local:Loc Key=ReminderSettings_UnitDay}" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                             
                             <TextBlock Grid.Row="2" Grid.Column="0" 
-                                       Text="任务过期阈值:" 
+                                       Text="{local:Loc Key=ReminderSettings_StaleThresholdLabel}" 
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox x:Name="StaleTaskThresholdDaysTextBox" 
@@ -122,7 +123,7 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="2" Grid.Column="2" 
-                                       Text="天" 
+                                       Text="{local:Loc Key=ReminderSettings_UnitDay}" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                         </Grid>
@@ -132,7 +133,7 @@
                 <!-- 提醒行为设置 -->
                 <Border Style="{StaticResource SettingGroupStyle}">
                     <StackPanel>
-                        <TextBlock Text="🔔 提醒行为设置" 
+                        <TextBlock Text="{local:Loc Key=ReminderSettings_GroupBehavior}" 
                                    FontWeight="Bold" 
                                    FontSize="14" 
                                    Foreground="#333"
@@ -150,7 +151,7 @@
                             </Grid.RowDefinitions>
                             
                             <TextBlock Grid.Row="0" Grid.Column="0" 
-                                       Text="最大提醒次数:" 
+                                       Text="{local:Loc Key=ReminderSettings_MaxWarningsLabel}" 
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox x:Name="MaxInactiveWarningsTextBox" 
@@ -159,12 +160,12 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="0" Grid.Column="2" 
-                                       Text="次" 
+                                       Text="{local:Loc Key=ReminderSettings_UnitTimes}" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                             
                             <TextBlock Grid.Row="1" Grid.Column="0" 
-                                       Text="检查间隔:" 
+                                       Text="{local:Loc Key=ReminderSettings_CheckIntervalLabel}" 
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox x:Name="ReminderCheckIntervalTextBox" 
@@ -173,7 +174,7 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="1" Grid.Column="2" 
-                                       Text="分钟" 
+                                       Text="{local:Loc Key=ReminderSettings_UnitMinutes}" 
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                         </Grid>
@@ -183,22 +184,22 @@
                 <!-- 主动协同控制 -->
                 <Border Style="{StaticResource SettingGroupStyle}">
                     <StackPanel>
-                        <TextBlock Text="🤖 主动协同控制"
+                        <TextBlock Text="{local:Loc Key=ReminderSettings_GroupProactiveControl}"
                                    FontWeight="Bold"
                                    FontSize="14"
                                    Foreground="#333"
                                    Margin="0,0,0,10"/>
 
-                        <CheckBox Content="启用主动协同（总开关）"
+                        <CheckBox Content="{local:Loc Key=ReminderSettings_ProactiveEnabled}"
                                   IsChecked="{Binding ProactiveAssistEnabled}"
                                   Margin="0,4"/>
-                        <CheckBox Content="启用行为学习（本地画像）"
+                        <CheckBox Content="{local:Loc Key=ReminderSettings_BehaviorLearningEnabled}"
                                   IsChecked="{Binding BehaviorLearningEnabled}"
                                   Margin="0,4"/>
-                        <CheckBox Content="启用卡点轻提醒"
+                        <CheckBox Content="{local:Loc Key=ReminderSettings_StuckNudgesEnabled}"
                                   IsChecked="{Binding StuckNudgesEnabled}"
                                   Margin="0,4"/>
-                        <CheckBox Content="启用LLM技能建议"
+                        <CheckBox Content="{local:Loc Key=ReminderSettings_LlmSkillAssistEnabled}"
                                   IsChecked="{Binding LlmSkillAssistEnabled}"
                                   Margin="0,4,0,10"/>
 
@@ -214,7 +215,7 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0"
-                                       Text="安静时段开始:"
+                                       Text="{local:Loc Key=ReminderSettings_QuietStartLabel}"
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox Grid.Row="0" Grid.Column="1"
@@ -222,12 +223,12 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="0" Grid.Column="2"
-                                       Text="点(0-23)"
+                                       Text="{local:Loc Key=ReminderSettings_UnitHourRange}"
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0"
-                                       Text="安静时段结束:"
+                                       Text="{local:Loc Key=ReminderSettings_QuietEndLabel}"
                                        VerticalAlignment="Center"
                                        Margin="0,5"/>
                             <TextBox Grid.Row="1" Grid.Column="1"
@@ -235,7 +236,7 @@
                                      Margin="5"
                                      Padding="5"/>
                             <TextBlock Grid.Row="1" Grid.Column="2"
-                                       Text="点(0-23)"
+                                       Text="{local:Loc Key=ReminderSettings_UnitHourRange}"
                                        VerticalAlignment="Center"
                                        Margin="5,0"/>
                         </Grid>
@@ -245,7 +246,7 @@
                 <!-- 主动协同指标 -->
                 <Border Style="{StaticResource SettingGroupStyle}">
                     <StackPanel>
-                        <TextBlock Text="📈 主动协同指标（只读）"
+                        <TextBlock Text="{local:Loc Key=ReminderSettings_GroupMetrics}"
                                    FontWeight="Bold"
                                    FontSize="14"
                                    Foreground="#333"
@@ -266,25 +267,25 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="统计窗口:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricWindow}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MetricsWindowLabel}" Margin="0,4" FontWeight="SemiBold"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="建议命中率:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricHitRate}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SuggestionHitRateText}" Margin="0,4" FontWeight="SemiBold"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="过度打扰指数:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricInterruption}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding InterruptionIndexText}" Margin="0,4" FontWeight="SemiBold"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="最有效动作类型:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricTopAction}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TopEffectiveActionText}" Margin="0,4" FontWeight="SemiBold"/>
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="建议反馈计数:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricOutcome}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SuggestionOutcomeText}" Margin="0,4" TextWrapping="Wrap"/>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="推荐卡点阈值:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricRecommendedStuck}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding RecommendedStuckThresholdText}" Margin="0,4" FontWeight="SemiBold"/>
 
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="推荐每日上限:" Margin="0,4" Foreground="#555"/>
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="{local:Loc Key=ReminderSettings_MetricRecommendedDaily}" Margin="0,4" Foreground="#555"/>
                             <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding RecommendedDailyNudgeLimitText}" Margin="0,4" FontWeight="SemiBold"/>
                         </Grid>
                     </StackPanel>
@@ -293,7 +294,7 @@
                 <!-- 说明信息 -->
                 <Border Style="{StaticResource SettingGroupStyle}">
                     <StackPanel>
-                        <TextBlock Text="💡 设置说明" 
+                        <TextBlock Text="{local:Loc Key=ReminderSettings_GroupHelp}" 
                                    FontWeight="Bold" 
                                    FontSize="14" 
                                    Foreground="#333"
@@ -303,11 +304,11 @@
                                    FontSize="12" 
                                    Foreground="#666"
                                    LineHeight="18">
-                            <Run Text="• 第一次提醒间隔: 任务创建后多少天开始第一次提醒"/><LineBreak/>
-                            <Run Text="• 第二次提醒间隔: 第一次提醒后多少天进行第二次提醒"/><LineBreak/>
-                            <Run Text="• 任务过期阈值: 超过多少天未更新的任务被视为过期"/><LineBreak/>
-                            <Run Text="• 最大提醒次数: 达到此次数后将询问是否移动或完成任务"/><LineBreak/>
-                            <Run Text="• 检查间隔: 系统多久检查一次是否有需要提醒的任务"/>
+                            <Run Text="{local:Loc Key=ReminderSettings_Help1}"/><LineBreak/>
+                            <Run Text="{local:Loc Key=ReminderSettings_Help2}"/><LineBreak/>
+                            <Run Text="{local:Loc Key=ReminderSettings_Help3}"/><LineBreak/>
+                            <Run Text="{local:Loc Key=ReminderSettings_Help4}"/><LineBreak/>
+                            <Run Text="{local:Loc Key=ReminderSettings_Help5}"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -320,18 +321,18 @@
                     HorizontalAlignment="Right"
                     Margin="0,15,0,0">
             <Button x:Name="SaveButton" 
-                    Content="保存设置" 
+                    Content="{local:Loc Key=ReminderSettings_ButtonSave}" 
                     Style="{StaticResource ModernButtonStyle}"
                     Click="SaveButton_Click"/>
             
             <Button x:Name="CancelButton" 
-                    Content="取消" 
+                    Content="{local:Loc Key=ReminderSettings_ButtonCancel}" 
                     Background="#F44336"
                     Style="{StaticResource ModernButtonStyle}"
                     Click="CancelButton_Click"/>
             
             <Button x:Name="ResetButton" 
-                    Content="恢复默认" 
+                    Content="{local:Loc Key=ReminderSettings_ButtonReset}" 
                     Background="#FF9800"
                     Style="{StaticResource ModernButtonStyle}"
                     Click="ResetButton_Click"/>

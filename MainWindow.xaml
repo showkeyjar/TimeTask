@@ -12,6 +12,7 @@
         <local:TaskWithReminderIndicatorConverter x:Key="TaskReminderConverter"/>
         <!-- Converter to check if a value is greater than a parameter -->
         <local:IsGreaterThanConverter x:Key="IsGreaterThanConverter" />
+        <local:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibilityConverter" />
         <Style TargetType="DataGridRow" x:Key="StickyNoteRowStyle">
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown"/>
             <EventSetter Event="PreviewMouseMove" Handler="DataGridRow_PreviewMouseMove"/>
@@ -44,6 +45,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <SelectiveScrollingGrid Grid.Column="0">
                                     <SelectiveScrollingGrid.ColumnDefinitions>
@@ -58,8 +61,10 @@
                                     <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1" SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" Visibility="{TemplateBinding DetailsVisibility}"/>
                                     <DataGridRowHeader Grid.RowSpan="2" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"/>
                                 </SelectiveScrollingGrid>
-                                <Button x:Name="PART_ReminderButton" Grid.Column="1" Content="⏰" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="EditReminderTime_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_EditReminderTime}"/>
-                                <Button x:Name="PART_DeleteButton" Grid.Column="2" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray"/>
+                                <Button x:Name="PART_ReminderButton" Grid.Column="1" Content="⏰" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="EditReminderTime_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_EditReminderTime}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+                                <Button x:Name="PART_DecomposeButton" Grid.Column="2" Content="🧩" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="QuickDecomposeTask_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_QuickDecompose}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+                                <Button x:Name="PART_ThinkingButton" Grid.Column="3" Content="🧠" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="ToolQuickAction_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_ThinkingTools}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+                                <Button x:Name="PART_DeleteButton" Grid.Column="4" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -130,34 +135,6 @@
                         <TextBlock x:Name="LongTermGoalBadge" Text="0" Foreground="White" FontSize="10" FontWeight="Bold"/>
                     </Border>
                 </StackPanel>
-            </Button>
-
-            <Button x:Name="LongTermGoalButton"
-                    Content="{local:Loc Key=Button_SetLongTermGoal}"
-                    Width="Auto"
-                    Height="30"
-                    Margin="0,0,5,0"
-                    Padding="10,0"
-                    FontSize="14"
-                    ToolTip="{local:Loc Key=Tooltip_SetLongTermGoal}"
-                    Click="LongTermGoalButton_Click">
-                <Button.Resources>
-                    <Style TargetType="Border">
-                        <Setter Property="CornerRadius" Value="15"/>
-                    </Style>
-                </Button.Resources>
-                <Button.Style>
-                    <Style TargetType="Button">
-                        <Setter Property="Background" Value="#DDDDDD"/>
-                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
-                        <Setter Property="Foreground" Value="#333333"/>
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#EEEEEE"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
             </Button>
 
             <Button x:Name="SettingsButton"

@@ -50,10 +50,10 @@ namespace TimeTask
         {
             // Populate ComboBox
             ListSelectorComboBox.ItemsSource = new List<string> {
-                "重要且紧急", // Important & Urgent
-                "重要不紧急", // Important & Not Urgent
-                "不重要但紧急", // Not Important & Urgent
-                "不重要不紧急"  // Not Important & Not Urgent
+                I18n.T("Quadrant_ImportantUrgent"),
+                I18n.T("Quadrant_ImportantNotUrgent"),
+                I18n.T("Quadrant_NotImportantUrgent"),
+                I18n.T("Quadrant_NotImportantNotUrgent")
             };
             ListSelectorComboBox.SelectedIndex = 0; // Default to "重要且紧急"
 
@@ -98,7 +98,16 @@ namespace TimeTask
                     { "重要不紧急", 1 },
                     { "不重要但紧急", 2 },
                     { "不重要紧急", 2 }, // 兼容不同表述
-                    { "不重要不紧急", 3 }
+                    { "不重要不紧急", 3 },
+                    { "Important & Urgent", 0 },
+                    { "Important & Not Urgent", 1 },
+                    { "Not Important but Urgent", 2 },
+                    { "Not Important & Urgent", 2 },
+                    { "Not Important & Not Urgent", 3 },
+                    { I18n.T("Quadrant_ImportantUrgent"), 0 },
+                    { I18n.T("Quadrant_ImportantNotUrgent"), 1 },
+                    { I18n.T("Quadrant_NotImportantUrgent"), 2 },
+                    { I18n.T("Quadrant_NotImportantNotUrgent"), 3 }
                 };
 
                 if (quadrantMap.TryGetValue(quadrant, out int index))
@@ -122,7 +131,7 @@ namespace TimeTask
             ClarificationBorder.Visibility = Visibility.Collapsed; // Changed
             // ClarificationPromptText.Visibility = Visibility.Collapsed; // Old
             // ResetClarificationButton.Visibility = Visibility.Collapsed; // Old
-            AddTaskButton.Content = "Add Task";
+            AddTaskButton.Content = I18n.T("AddTask_ButtonAdd");
             _isClarificationRound = false;
             TaskDescriptionTextBox.Focus(); // Set focus back to the textbox
         }
@@ -135,13 +144,13 @@ namespace TimeTask
 
             if (string.IsNullOrWhiteSpace(currentTaskDescription))
             {
-                MessageBox.Show("Task description cannot be empty.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.T("AddTask_ErrorEmptyDescription"), I18n.T("AddTask_TitleValidationError"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             if (SelectedListIndex < 0)
             {
-                MessageBox.Show("Please select a list.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.T("AddTask_ErrorSelectList"), I18n.T("AddTask_TitleValidationError"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -161,8 +170,8 @@ namespace TimeTask
                     // string configErrorSubstring is now defined at the beginning of the method
                     if (!_isLlmConfigErrorNotified && question != null && question.Contains(configErrorSubstring))
                     {
-                        MessageBox.Show("The AI assistant features may be limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
-                                        "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show(I18n.T("AddTask_LlmConfigIssueText"),
+                                        I18n.T("AddTask_LlmConfigIssueTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                         _isLlmConfigErrorNotified = true;
                     }
 
@@ -172,7 +181,7 @@ namespace TimeTask
                         ClarificationBorder.Visibility = Visibility.Visible; // Changed
                         // ClarificationPromptText.Visibility = Visibility.Visible; // Old
                         // ResetClarificationButton.Visibility = Visibility.Visible; // Old
-                        AddTaskButton.Content = "Submit Clarified Task";
+                        AddTaskButton.Content = I18n.T("AddTask_ButtonSubmitClarified");
                         _isClarificationRound = true;
                         TaskDescriptionTextBox.Focus(); // Focus on textbox for user to edit
                         return; // Wait for user to clarify
@@ -191,8 +200,8 @@ namespace TimeTask
                     ((llmImportance != null && llmImportance.Contains(configErrorSubstring)) ||
                      (llmUrgency != null && llmUrgency.Contains(configErrorSubstring))))
                 {
-                    MessageBox.Show("The AI assistant features may be limited due to a configuration issue (e.g., missing or placeholder API key). Please check the application's setup if you expect full AI functionality.",
-                                    "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(I18n.T("AddTask_LlmConfigIssueText"),
+                                    I18n.T("AddTask_LlmConfigIssueTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     _isLlmConfigErrorNotified = true;
                 }
 
@@ -204,13 +213,13 @@ namespace TimeTask
                 if (suggestedIndex != -1 && ListSelectorComboBox.SelectedItem != null)
                 {
                     string label = ListSelectorComboBox.SelectedItem as string;
-                    LlmSuggestionText.Text = $"AI建议象限（{sourceTag}）: {label}";
+                    LlmSuggestionText.Text = I18n.Tf("AddTask_SuggestionFormat", sourceTag, label);
                     LlmSuggestionText.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     // Handle cases where suggestion is ambiguous or mapping fails
-                    LlmSuggestionText.Text = "AI建议暂不可用，请手动选择象限。";
+                    LlmSuggestionText.Text = I18n.T("AddTask_SuggestionUnavailable");
                     LlmSuggestionText.Visibility = Visibility.Collapsed; // Or Visible with a different message
                 }
                 // --- End LLM Suggestion Logic ---
@@ -262,7 +271,7 @@ namespace TimeTask
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("AddTask_ErrorOccurredFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                 // Consider how to handle state if error occurs mid-process
                 // For now, re-enable buttons and let user retry or cancel
             }
@@ -338,16 +347,16 @@ namespace TimeTask
 
             if (llmValid)
             {
-                return (llmImportance, llmUrgency, "LLM");
+                return (llmImportance, llmUrgency, I18n.T("AddTask_SourceLlm"));
             }
 
             bool ruleValid = IsKnownPriority(ruleImportance) && IsKnownPriority(ruleUrgency);
             if (ruleValid)
             {
-                return (ruleImportance, ruleUrgency, "规则");
+                return (ruleImportance, ruleUrgency, I18n.T("AddTask_SourceRule"));
             }
 
-            return ("Medium", "Low", "默认");
+            return ("Medium", "Low", I18n.T("AddTask_SourceDefault"));
         }
 
         private static bool ContainsDummy(string value)

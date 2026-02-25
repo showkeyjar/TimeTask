@@ -1729,7 +1729,7 @@ namespace TimeTask
             }
             else
             {
-                MessageBox.Show("当前没有活跃的长期目标，请先创建一个长期目标。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("SetGoal_NoActiveGoal"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -1966,45 +1966,42 @@ namespace TimeTask
         {
             try
             {
-                var (decompositionStatus, subTaskStrings) = await _llmService.DecomposeTaskAsync(task.Task);
-                
-                if (decompositionStatus == DecompositionStatus.NeedsDecomposition && subTaskStrings != null && subTaskStrings.Any())
+                // Show decomposition UI first, then load decomposition results asynchronously inside.
+                var quadrantSelector = new SmartQuadrantSelectorWindow(task.Task, _llmService, loadFromParentTask: true)
                 {
-                    // Use smart quadrant selector
-                    var quadrantSelector = new SmartQuadrantSelectorWindow(subTaskStrings, _llmService)
-                    {
-                        Owner = this
-                    };
-                    
-                    if (quadrantSelector.ShowDialog() == true)
-                    {
-                        await AddSubTasksToQuadrants(quadrantSelector.TaskQuadrantAssignments, task);
-                        
-                        // Mark original task as decomposed
-                        task.IsActive = false;
-                        task.CompletionStatus = "Decomposed";
-                        task.LastModifiedDate = DateTime.Now;
-                        task.LastProgressDate = DateTime.Now;
-                        task.LastInteractionDate = DateTime.Now;
-                        task.InactiveWarningCount = 0;
-                        task.ReminderSnoozeUntil = null;
-                        TrackTaskInteraction(task, "progress");
-                        
-                        MessageBox.Show(this, $"任务已成功分解为 {subTaskStrings.Count} 个子任务并分配到相应象限。", 
-                                      "任务分解完成", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
+                    Owner = this
+                };
+
+                if (quadrantSelector.ShowDialog() == true)
+                {
+                    await AddSubTasksToQuadrants(quadrantSelector.TaskQuadrantAssignments, task);
+
+                    // Mark original task as decomposed
+                    task.IsActive = false;
+                    task.CompletionStatus = "Decomposed";
+                    task.LastModifiedDate = DateTime.Now;
+                    task.LastProgressDate = DateTime.Now;
+                    task.LastInteractionDate = DateTime.Now;
+                    task.InactiveWarningCount = 0;
+                    task.ReminderSnoozeUntil = null;
+                    TrackTaskInteraction(task, "progress");
+
+                    MessageBox.Show(this, I18n.Tf("Message_DecomposeSuccessFormat", quadrantSelector.LoadedSubTaskCount),
+                                  I18n.T("Title_DecomposeDone"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show(this, $"无法自动分解任务 '{task.Task}'。状态: {decompositionStatus}。", 
-                                  "分解结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    if (!quadrantSelector.LoadSucceeded && !string.IsNullOrWhiteSpace(quadrantSelector.LoadErrorMessage))
+                    {
+                        MessageBox.Show(this, quadrantSelector.LoadErrorMessage, I18n.T("Title_DecomposeResult"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error handling task decomposition: {ex.Message}");
                 string friendlyError = GetFriendlyErrorMessage(ex.Message);
-                MessageBox.Show(this, friendlyError, "任务分解错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, friendlyError, I18n.T("Title_DecomposeError"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
@@ -2891,7 +2888,7 @@ namespace TimeTask
             {
                 if (showSummary)
                 {
-                    MessageBox.Show("知识同步尚未初始化，请检查配置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(I18n.T("KnowledgeSync_NotInitialized"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 return;
             }
@@ -2926,7 +2923,7 @@ namespace TimeTask
                     {
                         summary += Environment.NewLine + string.Join(Environment.NewLine, result.Errors.Take(3));
                     }
-                    MessageBox.Show(summary, "知识同步结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(summary, I18n.T("KnowledgeSync_ResultTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else if (_knowledgeSyncService.Options.SmartNotifyEnabled &&
                     result.AutoImported > 0 &&
@@ -2934,8 +2931,8 @@ namespace TimeTask
                     CanRunProactiveAssist(DateTime.Now))
                 {
                     ShowPassiveNotification(
-                        "笔记任务已自动同步",
-                        $"新增 {result.AutoImported} 条高置信任务；另有 {Math.Max(0, result.DraftsAdded - result.AutoImported)} 条进入草稿箱。",
+                        I18n.T("KnowledgeSync_PassiveTitle"),
+                        I18n.Tf("KnowledgeSync_PassiveMessageFormat", result.AutoImported, Math.Max(0, result.DraftsAdded - result.AutoImported)),
                         System.Windows.Forms.ToolTipIcon.Info);
                 }
             }
@@ -2944,7 +2941,7 @@ namespace TimeTask
                 Console.WriteLine($"Knowledge sync run failed: {ex.Message}");
                 if (showSummary)
                 {
-                    MessageBox.Show($"知识同步失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(I18n.Tf("KnowledgeSync_FailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             finally
@@ -3249,7 +3246,7 @@ namespace TimeTask
             var sourceGrid = FindSourceGridForTask(task);
             if (sourceGrid == null)
             {
-                MessageBox.Show("未找到任务所在象限，无法更新提醒时间。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("Message_TaskQuadrantNotFound"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -3258,6 +3255,162 @@ namespace TimeTask
                 update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
                 RefreshDataGrid(sourceGrid);
             }
+        }
+
+        public async void QuickDecomposeTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn) || !(btn.DataContext is ItemGrid task))
+            {
+                return;
+            }
+
+            await HandleTaskDecomposition(task);
+            var sourceGrid = FindSourceGridForTask(task);
+            if (sourceGrid != null)
+            {
+                update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
+                RefreshDataGrid(sourceGrid);
+            }
+        }
+
+        public void ToolQuickAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn) || !(btn.DataContext is ItemGrid task))
+            {
+                return;
+            }
+
+            var sourceGrid = FindSourceGridForTask(task);
+            if (sourceGrid == null)
+            {
+                MessageBox.Show(I18n.T("Message_TaskQuadrantNotFound"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
+            var enabled = SkillManagementService.LoadEnabledSkillIds();
+            var recommendations = ThinkingToolAdvisor.RecommendForTask(task.Task, task.Importance, task.Urgency, inactiveDuration, 6)
+                .Where(r => enabled.Contains(r.SkillId))
+                .Take(5)
+                .ToList();
+            if (recommendations == null || recommendations.Count == 0)
+            {
+                MessageBox.Show(I18n.T("Message_NoThinkingToolSuggestion"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var menu = new ContextMenu();
+            foreach (var recommendation in recommendations)
+            {
+                var item = new MenuItem
+                {
+                    Header = recommendation.Title,
+                    ToolTip = $"{recommendation.Why}\n{I18n.T("ThinkingTool_NextStepLabel")} {recommendation.NextStep}"
+                };
+                item.Click += async (_, __) => await ExecuteThinkingToolForTaskAsync(task, sourceGrid, recommendation);
+                menu.Items.Add(item);
+            }
+
+            menu.PlacementTarget = btn;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
+        private async Task ExecuteThinkingToolForTaskAsync(ItemGrid task, DataGrid sourceGrid, ThinkingToolRecommendation recommendation)
+        {
+            if (task == null || sourceGrid == null || recommendation == null)
+            {
+                return;
+            }
+
+            string skillId = recommendation.SkillId?.Trim().ToLowerInvariant() ?? string.Empty;
+            TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
+            var report = ThinkingToolAdvisor.AnalyzeTask(task.Task, task.Importance, task.Urgency, inactiveDuration, skillId);
+            var analysisWindow = new ThinkingToolAnalysisWindow(report)
+            {
+                Owner = this
+            };
+            bool? confirmed = analysisWindow.ShowDialog();
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var selectedActions = analysisWindow.SelectedActions ?? new List<ThinkingToolActionItem>();
+            RecordSuggestionShownProfile(skillId);
+
+            switch (skillId)
+            {
+                case "decompose":
+                    await HandleTaskDecomposition(task);
+                    AddThinkingActionTasks(task, sourceGrid, recommendation.Title, selectedActions);
+                    RecordSuggestionFeedbackProfile(skillId, "accepted");
+                    break;
+                case "focus_sprint":
+                    string sprintText = selectedActions.FirstOrDefault()?.Text ?? recommendation.NextStep;
+                    ShowFriendlyReminder(task, sprintText);
+                    AddThinkingActionTasks(task, sourceGrid, recommendation.Title, selectedActions.Skip(1).ToList());
+                    RecordSuggestionFeedbackProfile(skillId, "accepted");
+                    break;
+                default:
+                    AddThinkingActionTasks(task, sourceGrid, recommendation.Title, selectedActions);
+                    RecordSuggestionFeedbackProfile(skillId, "accepted");
+                    break;
+            }
+        }
+
+        private void AddThinkingActionTasks(ItemGrid parentTask, DataGrid sourceGrid, string toolTitle, List<ThinkingToolActionItem> actions)
+        {
+            if (!(sourceGrid.ItemsSource is List<ItemGrid> items) || parentTask == null || actions == null || actions.Count == 0)
+            {
+                return;
+            }
+
+            var now = DateTime.Now;
+            int created = 0;
+            foreach (var action in actions.Where(a => a != null && !string.IsNullOrWhiteSpace(a.Text)))
+            {
+                string description = $"[{toolTitle}] {action.Text}";
+                bool exists = items.Any(t => string.Equals(t.Task, description, StringComparison.OrdinalIgnoreCase) && t.IsActive);
+                if (exists)
+                {
+                    continue;
+                }
+
+                var newTask = new ItemGrid
+                {
+                    Task = description,
+                    Importance = parentTask.Importance,
+                    Urgency = parentTask.Urgency,
+                    IsActive = true,
+                    CreatedDate = now,
+                    LastModifiedDate = now,
+                    LastProgressDate = now,
+                    LastInteractionDate = now,
+                    LongTermGoalId = parentTask.LongTermGoalId,
+                    IsActiveInQuadrant = true,
+                    InactiveWarningCount = 0
+                };
+
+                items.Add(newTask);
+                TrackTaskInteraction(newTask, "progress");
+                created++;
+            }
+
+            if (created == 0)
+            {
+                ShowPassiveNotification(I18n.T("ThinkingTool_ActionExistsTitle"), I18n.T("ThinkingTool_ActionExistsText"), System.Windows.Forms.ToolTipIcon.Info);
+                return;
+            }
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                items[i].Score = items.Count - i;
+            }
+
+            update_csv(sourceGrid, GetQuadrantNumber(sourceGrid.Name));
+            RefreshDataGrid(sourceGrid);
+            ShowPassiveNotification(I18n.T("ThinkingTool_ActionCreatedTitle"), I18n.Tf("ThinkingTool_ActionCreatedFormat", toolTitle, created), System.Windows.Forms.ToolTipIcon.Info);
         }
 
         private bool HandleDueReminderDecision(ItemGrid task, TaskReminderResult result, DateTime now)
@@ -3329,9 +3482,9 @@ namespace TimeTask
             if (!_nonBlockingInteractionEnabled)
             {
                 string confirmText = selected.HasValue
-                    ? $"将“{task.Task}”的提醒时间设为 {selected.Value:yyyy-MM-dd HH:mm}，确认吗？"
-                    : $"将“{task.Task}”的提醒时间清空，确认吗？";
-                if (MessageBox.Show(confirmText, "确认提醒时间", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                    ? I18n.Tf("Reminder_EditConfirmSetFormat", task.Task, selected.Value.ToString("yyyy-MM-dd HH:mm"))
+                    : I18n.Tf("Reminder_EditConfirmClearFormat", task.Task);
+                if (MessageBox.Show(confirmText, I18n.T("Reminder_EditConfirmTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
                     return false;
                 }
@@ -3346,9 +3499,9 @@ namespace TimeTask
             if (_nonBlockingInteractionEnabled)
             {
                 string msg = selected.HasValue
-                    ? $"已更新提醒时间：{selected.Value:yyyy-MM-dd HH:mm}"
-                    : "已清空提醒时间";
-                ShowPassiveNotification("提醒时间已更新", msg, System.Windows.Forms.ToolTipIcon.Info);
+                    ? I18n.Tf("Reminder_EditUpdatedSetFormat", selected.Value.ToString("yyyy-MM-dd HH:mm"))
+                    : I18n.T("Reminder_EditUpdatedCleared");
+                ShowPassiveNotification(I18n.T("Reminder_EditUpdatedTitle"), msg, System.Windows.Forms.ToolTipIcon.Info);
             }
             return true;
         }
@@ -3393,7 +3546,10 @@ namespace TimeTask
                 // Check if the edited column is the "Task" column.
                 // Using HeaderText assumes the XAML <DataGridTemplateColumn Header="Task" ... />
                 // For DataGridTemplateColumn, e.Column.Header is correct.
-                if (e.Column.Header != null && e.Column.Header.ToString() == "Task")
+                string headerText = e.Column.Header?.ToString();
+                bool isTaskColumn = string.Equals(headerText, "Task", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(headerText, I18n.T("Task_Header"), StringComparison.OrdinalIgnoreCase);
+                if (isTaskColumn)
                 {
                     var item = e.Row.Item as ItemGrid;
                     if (item != null && e.EditingElement is TextBox textBox)
@@ -3643,7 +3799,7 @@ namespace TimeTask
 
             public ReminderTimeEditorWindow(DateTime? currentReminder)
             {
-                Title = "编辑提醒时间";
+                Title = I18n.T("Reminder_EditorWindowTitle");
                 Width = 320;
                 Height = 240;
                 WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -3653,14 +3809,14 @@ namespace TimeTask
                 var panel = new StackPanel { Margin = new Thickness(16) };
                 panel.Children.Add(new TextBlock
                 {
-                    Text = "请设置提醒日期与时间",
+                    Text = I18n.T("Reminder_EditorInstruction"),
                     Margin = new Thickness(0, 0, 0, 10),
                     FontWeight = FontWeights.SemiBold
                 });
 
                 _enableCheckBox = new CheckBox
                 {
-                    Content = "启用提醒",
+                    Content = I18n.T("Reminder_EditorEnable"),
                     IsChecked = currentReminder.HasValue,
                     Margin = new Thickness(0, 0, 0, 8)
                 };
@@ -3686,8 +3842,8 @@ namespace TimeTask
                 panel.Children.Add(timePanel);
 
                 var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-                var ok = new Button { Content = "保存", Width = 70, Margin = new Thickness(0, 0, 8, 0) };
-                var cancel = new Button { Content = "取消", Width = 70 };
+                var ok = new Button { Content = I18n.T("Reminder_EditorSave"), Width = 70, Margin = new Thickness(0, 0, 8, 0) };
+                var cancel = new Button { Content = I18n.T("Reminder_EditorCancel"), Width = 70 };
                 ok.Click += Ok_Click;
                 cancel.Click += (s, e) => { DialogResult = false; Close(); };
                 buttonPanel.Children.Add(ok);
@@ -3720,14 +3876,14 @@ namespace TimeTask
 
                 if (!_datePicker.SelectedDate.HasValue)
                 {
-                    MessageBox.Show("请选择提醒日期。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(I18n.T("Reminder_EditorSelectDate"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (!int.TryParse(_hourCombo.SelectedItem?.ToString(), out int hour) ||
                     !int.TryParse(_minuteCombo.SelectedItem?.ToString(), out int minute))
                 {
-                    MessageBox.Show("请选择有效的提醒时间。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(I18n.T("Reminder_EditorSelectValidTime"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -3807,7 +3963,10 @@ namespace TimeTask
             // Check if the click originated from utility buttons first.
             Button sourceButton = e.OriginalSource as Button ?? FindParent<Button>(e.OriginalSource as DependencyObject);
             if (sourceButton != null &&
-                (sourceButton.Name == "PART_DeleteButton" || sourceButton.Name == "PART_ReminderButton"))
+                (sourceButton.Name == "PART_DeleteButton"
+                 || sourceButton.Name == "PART_ReminderButton"
+                 || sourceButton.Name == "PART_DecomposeButton"
+                 || sourceButton.Name == "PART_ThinkingButton"))
             {
                 // Let utility button handle its click, don't start drag.
                 _dragStartPoint = null; // Ensure no drag starts
@@ -4227,6 +4386,14 @@ namespace TimeTask
             };
             reminderSettingsItem.Click += (s, e) => OpenReminderSettings();
             contextMenu.Items.Add(reminderSettingsItem);
+
+            var longTermGoalItem = new MenuItem
+            {
+                Header = I18n.T("Button_SetLongTermGoal"),
+                ToolTip = I18n.T("Tooltip_SetLongTermGoal")
+            };
+            longTermGoalItem.Click += (s, e) => LongTermGoalButton_Click(s, e);
+            contextMenu.Items.Add(longTermGoalItem);
 
             var skillManagementItem = new MenuItem
             {
@@ -4890,7 +5057,9 @@ namespace TimeTask
 
         private void ShowAbout()
         {
-            MessageBox.Show(I18n.T("About_Text"), I18n.T("Title_About"), MessageBoxButton.OK, MessageBoxImage.Information);
+            Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0, 0);
+            string displayVersion = version.Build > 0 ? version.ToString(3) : version.ToString(2);
+            MessageBox.Show(I18n.Tf("About_Text", displayVersion), I18n.T("Title_About"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }
@@ -5065,6 +5234,20 @@ namespace TimeTask
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public class NonEmptyStringToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var text = value as string;
+            return string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
         }
     }
 }

@@ -306,7 +306,7 @@
   <data name="About_Text" xml:space="preserve">
     <value>TimeTask - 智能任务管理系统
 
-版本: 1.0
+版本: {0}
 功能:
 - 任务四象限管理
 - 长期目标设定
@@ -331,5 +331,833 @@
   </data>
   <data name="App_VoiceInitFailedTitle" xml:space="preserve">
     <value>语音功能不可用</value>
+  </data>
+  <data name="Tooltip_QuickDecompose" xml:space="preserve">
+    <value>快速拆解任务</value>
+  </data>
+  <data name="Tooltip_ThinkingTools" xml:space="preserve">
+    <value>思维工具分析</value>
+  </data>
+  <data name="Message_TaskQuadrantNotFound" xml:space="preserve">
+    <value>未找到任务所在象限，无法执行该操作。</value>
+  </data>
+  <data name="Message_NoThinkingToolSuggestion" xml:space="preserve">
+    <value>当前任务暂无可用思维工具建议。</value>
+  </data>
+  <data name="ThinkingTool_NextStepLabel" xml:space="preserve">
+    <value>下一步：</value>
+  </data>
+  <data name="ThinkingTool_ActionExistsTitle" xml:space="preserve">
+    <value>思维工具建议</value>
+  </data>
+  <data name="ThinkingTool_ActionExistsText" xml:space="preserve">
+    <value>同类行动任务已存在，已跳过重复创建。</value>
+  </data>
+  <data name="ThinkingTool_ActionCreatedTitle" xml:space="preserve">
+    <value>已创建行动任务</value>
+  </data>
+  <data name="ThinkingTool_ActionCreatedFormat" xml:space="preserve">
+    <value>{0}：已创建 {1} 条行动任务。</value>
+  </data>
+  <data name="Button_SelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="Button_DeselectAll" xml:space="preserve">
+    <value>全不选</value>
+  </data>
+  <data name="Button_Import" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="Button_Export" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="Button_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Button_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Button_Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="SkillWindow_Title" xml:space="preserve">
+    <value>思维工具管理</value>
+  </data>
+  <data name="SkillWindow_Intro" xml:space="preserve">
+    <value>管理思维工具：可启用/停用，并查看最近30天触达与反馈。</value>
+  </data>
+  <data name="SkillWindow_HowTo1" xml:space="preserve">
+    <value>使用方法：</value>
+  </data>
+  <data name="SkillWindow_HowTo2" xml:space="preserve">
+    <value>1. 勾选要启用的工具（会出现在任务提醒与任务行“🧠”按钮中）。</value>
+  </data>
+  <data name="SkillWindow_HowTo3" xml:space="preserve">
+    <value>2. 点击“保存”立即生效。</value>
+  </data>
+  <data name="SkillWindow_HowTo4" xml:space="preserve">
+    <value>3. 可按“适用场景”快速判断何时使用该工具。</value>
+  </data>
+  <data name="SkillWindow_HowTo5" xml:space="preserve">
+    <value>小提示：先保留默认启用，再根据反馈数据精简。</value>
+  </data>
+  <data name="SkillWindow_FirstHint" xml:space="preserve">
+    <value>提示：在任务卡片右上角点击“🧠”即可立刻对该任务应用思维工具。</value>
+  </data>
+  <data name="Skill_Column_Enable" xml:space="preserve">
+    <value>启用</value>
+  </data>
+  <data name="Skill_Column_Name" xml:space="preserve">
+    <value>工具</value>
+  </data>
+  <data name="Skill_Column_Description" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="Skill_Column_Scenario" xml:space="preserve">
+    <value>适用场景</value>
+  </data>
+  <data name="Skill_Column_Shown30d" xml:space="preserve">
+    <value>触达(30天)</value>
+  </data>
+  <data name="Skill_Column_Accepted" xml:space="preserve">
+    <value>采纳</value>
+  </data>
+  <data name="Skill_Column_Deferred" xml:space="preserve">
+    <value>稍后</value>
+  </data>
+  <data name="Skill_Column_Rejected" xml:space="preserve">
+    <value>忽略</value>
+  </data>
+  <data name="Skill_Message_ImportParseFailed" xml:space="preserve">
+    <value>导入失败：文件内容无法解析。</value>
+  </data>
+  <data name="Skill_Message_Imported" xml:space="preserve">
+    <value>思维工具设置已导入。</value>
+  </data>
+  <data name="Skill_Message_ImportFailedFormat" xml:space="preserve">
+    <value>导入失败：{0}</value>
+  </data>
+  <data name="Skill_Message_Exported" xml:space="preserve">
+    <value>思维工具设置已导出。</value>
+  </data>
+  <data name="Skill_Message_ExportFailedFormat" xml:space="preserve">
+    <value>导出失败：{0}</value>
+  </data>
+  <data name="Skill_Message_Saved" xml:space="preserve">
+    <value>思维工具设置已保存，任务提醒与任务行分析将立即使用新配置。</value>
+  </data>
+  <data name="Skill_Message_SaveFailedFormat" xml:space="preserve">
+    <value>保存失败：{0}</value>
+  </data>
+  <data name="Strategy_Window_Title" xml:space="preserve">
+    <value>策略导航面板</value>
+  </data>
+  <data name="Strategy_Header" xml:space="preserve">
+    <value>人生策略与周导航</value>
+  </data>
+  <data name="Strategy_LastUpdatedDefault" xml:space="preserve">
+    <value>最后更新：-</value>
+  </data>
+  <data name="Strategy_LastUpdatedFormat" xml:space="preserve">
+    <value>最后更新：{0:yyyy-MM-dd HH:mm}</value>
+  </data>
+  <data name="Strategy_Profile" xml:space="preserve">
+    <value>用户画像</value>
+  </data>
+  <data name="Strategy_Strengths" xml:space="preserve">
+    <value>优势</value>
+  </data>
+  <data name="Strategy_Risks" xml:space="preserve">
+    <value>风险触发点</value>
+  </data>
+  <data name="Strategy_PeakHours" xml:space="preserve">
+    <value>高效时段</value>
+  </data>
+  <data name="Strategy_GoalHierarchy" xml:space="preserve">
+    <value>目标层级导航</value>
+  </data>
+  <data name="Strategy_YearThemes" xml:space="preserve">
+    <value>年度主题</value>
+  </data>
+  <data name="Strategy_QuarterMilestones" xml:space="preserve">
+    <value>季度里程碑</value>
+  </data>
+  <data name="Strategy_WeekCommitments" xml:space="preserve">
+    <value>本周承诺动作</value>
+  </data>
+  <data name="Strategy_DecisionReview" xml:space="preserve">
+    <value>任务取舍与周复盘</value>
+  </data>
+  <data name="Strategy_Column_Task" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="Strategy_Column_Score" xml:space="preserve">
+    <value>评分</value>
+  </data>
+  <data name="Strategy_Column_Reason" xml:space="preserve">
+    <value>理由</value>
+  </data>
+  <data name="Strategy_WeeklySuggestion" xml:space="preserve">
+    <value>本周策略建议</value>
+  </data>
+  <data name="Strategy_ThinkingTools" xml:space="preserve">
+    <value>思维工具建议</value>
+  </data>
+  <data name="Strategy_StatusLoadedDefault" xml:space="preserve">
+    <value>已加载策略数据</value>
+  </data>
+  <data name="Strategy_StatusLoadedFormat" xml:space="preserve">
+    <value>已加载：{0:yyyy-MM-dd HH:mm:ss}</value>
+  </data>
+  <data name="Strategy_StatusLoadFailedFormat" xml:space="preserve">
+    <value>加载失败：{0}</value>
+  </data>
+  <data name="Strategy_NoProfileData" xml:space="preserve">
+    <value>暂无画像数据，等待系统完成策略周期。</value>
+  </data>
+  <data name="Strategy_ProfileHeadlineFormat" xml:space="preserve">
+    <value>执行可靠度 {0:P0}，打断敏感度 {1:P0}，活跃任务 {2}。</value>
+  </data>
+  <data name="Strategy_None" xml:space="preserve">
+    <value>暂无</value>
+  </data>
+  <data name="Strategy_NoGoalHierarchyData" xml:space="preserve">
+    <value>暂无目标层级数据。</value>
+  </data>
+  <data name="Strategy_NoActiveGoal" xml:space="preserve">
+    <value>当前无活跃长期目标。</value>
+  </data>
+  <data name="Strategy_ThinkingToolHintWaiting" xml:space="preserve">
+    <value>暂无建议。可先完成一次任务评分后查看。</value>
+  </data>
+  <data name="Strategy_NoSuggestion" xml:space="preserve">
+    <value>暂无建议。</value>
+  </data>
+  <data name="Strategy_NoWeeklyReview" xml:space="preserve">
+    <value>暂无周复盘。</value>
+  </data>
+  <data name="Strategy_WeeklyReviewReadFailed" xml:space="preserve">
+    <value>周复盘文件读取失败。</value>
+  </data>
+  <data name="Strategy_PeriodFormat" xml:space="preserve">
+    <value>周期：{0:yyyy-MM-dd} ~ {1:yyyy-MM-dd}</value>
+  </data>
+  <data name="Strategy_ActiveStuckFormat" xml:space="preserve">
+    <value>活跃任务：{0}，卡住任务：{1}</value>
+  </data>
+  <data name="Strategy_NextWeekPlanHeader" xml:space="preserve">
+    <value>下周策略：</value>
+  </data>
+  <data name="TaskReminder_WindowTitle" xml:space="preserve">
+    <value>任务提醒</value>
+  </data>
+  <data name="TaskReminder_Header" xml:space="preserve">
+    <value>📋 任务提醒</value>
+  </data>
+  <data name="TaskReminder_LabelTask" xml:space="preserve">
+    <value>任务内容:</value>
+  </data>
+  <data name="TaskReminder_LabelInactive" xml:space="preserve">
+    <value>未更新时间:</value>
+  </data>
+  <data name="TaskReminder_LabelSuggestions" xml:space="preserve">
+    <value>建议操作:</value>
+  </data>
+  <data name="TaskReminder_ButtonComplete" xml:space="preserve">
+    <value>✓ 标记完成</value>
+  </data>
+  <data name="TaskReminder_ButtonUpdate" xml:space="preserve">
+    <value>✏️ 更新任务</value>
+  </data>
+  <data name="TaskReminder_ButtonDecompose" xml:space="preserve">
+    <value>🔄 分解任务</value>
+  </data>
+  <data name="TaskReminder_ButtonSnooze" xml:space="preserve">
+    <value>⏰ 稍后提醒</value>
+  </data>
+  <data name="TaskReminder_ButtonClose" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="TaskReminder_DueMessageFormat" xml:space="preserve">
+    <value>任务已到提醒时间（{0:yyyy-MM-dd HH:mm}）。请选择下一步操作。</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionConfirm" xml:space="preserve">
+    <value>确认提醒：本次提醒完成并清除提醒时间</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionPostpone" xml:space="preserve">
+    <value>延后30分钟：保持任务提醒并自动顺延</value>
+  </data>
+  <data name="TaskReminder_DueSuggestionEdit" xml:space="preserve">
+    <value>编辑时间：重新设置提醒时间，避免误触发</value>
+  </data>
+  <data name="TaskReminder_InactiveWeeksFormat" xml:space="preserve">
+    <value>{0} 周未更新</value>
+  </data>
+  <data name="TaskReminder_InactiveDaysFormat" xml:space="preserve">
+    <value>{0} 天未更新</value>
+  </data>
+  <data name="TaskReminder_InactiveHoursFormat" xml:space="preserve">
+    <value>{0} 小时未更新</value>
+  </data>
+  <data name="TaskReminder_InactiveLessThanHour" xml:space="preserve">
+    <value>不到1小时未更新</value>
+  </data>
+  <data name="TaskReminder_DueHeader" xml:space="preserve">
+    <value>⏰ 定时提醒确认</value>
+  </data>
+  <data name="TaskReminder_DueOriginalTimeLabel" xml:space="preserve">
+    <value>原定提醒时间:</value>
+  </data>
+  <data name="TaskReminder_DueButtonConfirm" xml:space="preserve">
+    <value>✓ 确认提醒</value>
+  </data>
+  <data name="TaskReminder_DueButtonPostpone" xml:space="preserve">
+    <value>⏱ 延后30分钟</value>
+  </data>
+  <data name="TaskReminder_DueButtonEdit" xml:space="preserve">
+    <value>🗓 编辑时间</value>
+  </data>
+  <data name="ThinkingAnalysis_WindowTitle" xml:space="preserve">
+    <value>思维工具分析</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupDiagnosis" xml:space="preserve">
+    <value>诊断与假设</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupDecision" xml:space="preserve">
+    <value>决策规则与风险</value>
+  </data>
+  <data name="ThinkingAnalysis_GroupActions" xml:space="preserve">
+    <value>可执行行动（可勾选后写回任务）</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnSelected" xml:space="preserve">
+    <value>选中</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnPriority" xml:space="preserve">
+    <value>优先级</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnAction" xml:space="preserve">
+    <value>行动</value>
+  </data>
+  <data name="ThinkingAnalysis_ColumnRationale" xml:space="preserve">
+    <value>理由</value>
+  </data>
+  <data name="ThinkingAnalysis_ButtonCreateSelected" xml:space="preserve">
+    <value>创建选中行动任务</value>
+  </data>
+  <data name="ThinkingAnalysis_ButtonCreateFirst" xml:space="preserve">
+    <value>仅创建首个行动</value>
+  </data>
+  <data name="ThinkingAnalysis_TitleFormat" xml:space="preserve">
+    <value>{0} 分析</value>
+  </data>
+  <data name="ThinkingAnalysis_TaskFormat" xml:space="preserve">
+    <value>任务：{0}</value>
+  </data>
+  <data name="ThinkingAnalysis_WhyFormat" xml:space="preserve">
+    <value>为何使用：{0}</value>
+  </data>
+  <data name="ThinkingAnalysis_DiagnosticFormat" xml:space="preserve">
+    <value>诊断：{0}</value>
+  </data>
+  <data name="ThinkingAnalysis_HypothesisFormat" xml:space="preserve">
+    <value>假设：{0}</value>
+  </data>
+  <data name="ThinkingAnalysis_DecisionRuleFormat" xml:space="preserve">
+    <value>决策规则：{0}</value>
+  </data>
+  <data name="ThinkingAnalysis_ReviewPromptFormat" xml:space="preserve">
+    <value>复盘问题：{0}</value>
+  </data>
+  <data name="SmartQuadrant_Title" xml:space="preserve">
+    <value>智能象限分配</value>
+  </data>
+  <data name="SmartQuadrant_Header" xml:space="preserve">
+    <value>🎯 智能象限分配</value>
+  </data>
+  <data name="SmartQuadrant_Description" xml:space="preserve">
+    <value>请为每个子任务选择合适的象限。系统会先展示界面并异步完成智能推荐。</value>
+  </data>
+  <data name="SmartQuadrant_ActionNow" xml:space="preserve">
+    <value>立即处理</value>
+  </data>
+  <data name="SmartQuadrant_PlanIt" xml:space="preserve">
+    <value>计划安排</value>
+  </data>
+  <data name="SmartQuadrant_Delegate" xml:space="preserve">
+    <value>委托他人</value>
+  </data>
+  <data name="SmartQuadrant_Later" xml:space="preserve">
+    <value>有空再做</value>
+  </data>
+  <data name="SmartQuadrant_Confirm" xml:space="preserve">
+    <value>确认分配</value>
+  </data>
+  <data name="SmartQuadrant_LoadingDecompose" xml:space="preserve">
+    <value>正在拆解任务，请稍候...</value>
+  </data>
+  <data name="SmartQuadrant_LoadingRecommend" xml:space="preserve">
+    <value>正在为子任务计算象限推荐...</value>
+  </data>
+  <data name="SmartQuadrant_LoadDone" xml:space="preserve">
+    <value>子任务已加载，可调整象限后确认。</value>
+  </data>
+  <data name="SmartQuadrant_NoTaskLoaded" xml:space="preserve">
+    <value>未加载到可分配子任务。</value>
+  </data>
+  <data name="SmartQuadrant_InvalidInput" xml:space="preserve">
+    <value>输入无效，无法进行智能分解。</value>
+  </data>
+  <data name="SmartQuadrant_NoDecomposeResultFormat" xml:space="preserve">
+    <value>无法自动分解当前任务。状态：{0}</value>
+  </data>
+  <data name="SmartQuadrant_LoadFailedFormat" xml:space="preserve">
+    <value>分解加载失败：{0}</value>
+  </data>
+  <data name="SmartQuadrant_AiSuggestFormat" xml:space="preserve">
+    <value>AI推荐: {0} ({1}重要性, {2}紧急性)</value>
+  </data>
+  <data name="SmartQuadrant_AiSuggestFallbackFormat" xml:space="preserve">
+    <value>AI推荐: {0} (默认推荐)</value>
+  </data>
+  <data name="SmartQuadrant_UnknownQuadrant" xml:space="preserve">
+    <value>未知象限</value>
+  </data>
+  <data name="SmartQuadrant_AssignAll" xml:space="preserve">
+    <value>请为所有子任务选择象限。</value>
+  </data>
+  <data name="Title_DecomposeDone" xml:space="preserve">
+    <value>任务分解完成</value>
+  </data>
+  <data name="Title_DecomposeResult" xml:space="preserve">
+    <value>分解结果</value>
+  </data>
+  <data name="Title_DecomposeError" xml:space="preserve">
+    <value>任务分解错误</value>
+  </data>
+  <data name="Message_DecomposeSuccessFormat" xml:space="preserve">
+    <value>任务已成功分解为 {0} 个子任务并分配到相应象限。</value>
+  </data>
+  <data name="Priority_High" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Priority_Medium" xml:space="preserve">
+    <value>中</value>
+  </data>
+  <data name="Priority_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Priority_Unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="Title_Confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="SetGoal_WindowTitle" xml:space="preserve">
+    <value>设定长期目标</value>
+  </data>
+  <data name="SetGoal_TypeTitle" xml:space="preserve">
+    <value>选择目标类型</value>
+  </data>
+  <data name="SetGoal_TypeNormal" xml:space="preserve">
+    <value>普通目标</value>
+  </data>
+  <data name="SetGoal_TypeLearning" xml:space="preserve">
+    <value>学习计划</value>
+  </data>
+  <data name="SetGoal_LabelDescription" xml:space="preserve">
+    <value>目标描述</value>
+  </data>
+  <data name="SetGoal_LabelLearningTarget" xml:space="preserve">
+    <value>学习目标</value>
+  </data>
+  <data name="SetGoal_PlaceholderDescription" xml:space="preserve">
+    <value>例如：准备考研数学、学习Python编程...</value>
+  </data>
+  <data name="SetGoal_LabelDuration" xml:space="preserve">
+    <value>预计时长</value>
+  </data>
+  <data name="SetGoal_PlaceholderDuration" xml:space="preserve">
+    <value>例如：3个月、半年、1年...</value>
+  </data>
+  <data name="SetGoal_ButtonCreate" xml:space="preserve">
+    <value>创建目标</value>
+  </data>
+  <data name="SetGoal_ButtonCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="SetGoal_MessageFillRequired" xml:space="preserve">
+    <value>请输入目标描述和时长</value>
+  </data>
+  <data name="SetGoal_TitleInputError" xml:space="preserve">
+    <value>输入错误</value>
+  </data>
+  <data name="SetGoal_NoActiveGoal" xml:space="preserve">
+    <value>当前没有活跃的长期目标，请先创建一个长期目标。</value>
+  </data>
+  <data name="AddTask_WindowTitle" xml:space="preserve">
+    <value>添加任务</value>
+  </data>
+  <data name="AddTask_LabelDescription" xml:space="preserve">
+    <value>任务描述：</value>
+  </data>
+  <data name="AddTask_ButtonResetClarification" xml:space="preserve">
+    <value>编辑原任务 / 重置</value>
+  </data>
+  <data name="AddTask_LabelList" xml:space="preserve">
+    <value>添加到列表：</value>
+  </data>
+  <data name="AddTask_EnableReminder" xml:space="preserve">
+    <value>设置提醒</value>
+  </data>
+  <data name="AddTask_ReminderDate" xml:space="preserve">
+    <value>提醒日期：</value>
+  </data>
+  <data name="AddTask_ReminderTime" xml:space="preserve">
+    <value>提醒时间：</value>
+  </data>
+  <data name="AddTask_ButtonAdd" xml:space="preserve">
+    <value>添加任务</value>
+  </data>
+  <data name="AddTask_ButtonCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="AddTask_ButtonSubmitClarified" xml:space="preserve">
+    <value>提交澄清后的任务</value>
+  </data>
+  <data name="AddTask_ErrorEmptyDescription" xml:space="preserve">
+    <value>任务描述不能为空。</value>
+  </data>
+  <data name="AddTask_ErrorSelectList" xml:space="preserve">
+    <value>请选择一个列表。</value>
+  </data>
+  <data name="AddTask_TitleValidationError" xml:space="preserve">
+    <value>校验错误</value>
+  </data>
+  <data name="AddTask_LlmConfigIssueTitle" xml:space="preserve">
+    <value>LLM 配置问题</value>
+  </data>
+  <data name="AddTask_LlmConfigIssueText" xml:space="preserve">
+    <value>AI 助手功能受配置限制（例如 API Key 缺失或仍为占位值）。如需完整 AI 能力，请检查应用配置。</value>
+  </data>
+  <data name="AddTask_SuggestionFormat" xml:space="preserve">
+    <value>AI建议象限（{0}）: {1}</value>
+  </data>
+  <data name="AddTask_SuggestionUnavailable" xml:space="preserve">
+    <value>AI建议暂不可用，请手动选择象限。</value>
+  </data>
+  <data name="AddTask_ErrorOccurredFormat" xml:space="preserve">
+    <value>发生错误：{0}</value>
+  </data>
+  <data name="AddTask_SourceLlm" xml:space="preserve">
+    <value>LLM</value>
+  </data>
+  <data name="AddTask_SourceRule" xml:space="preserve">
+    <value>规则</value>
+  </data>
+  <data name="AddTask_SourceDefault" xml:space="preserve">
+    <value>默认</value>
+  </data>
+  <data name="ReminderSettings_WindowTitle" xml:space="preserve">
+    <value>任务提醒设置</value>
+  </data>
+  <data name="ReminderSettings_Header" xml:space="preserve">
+    <value>任务提醒设置</value>
+  </data>
+  <data name="ReminderSettings_GroupFrequency" xml:space="preserve">
+    <value>提醒频率设置</value>
+  </data>
+  <data name="ReminderSettings_FirstWarningLabel" xml:space="preserve">
+    <value>第一次提醒间隔:</value>
+  </data>
+  <data name="ReminderSettings_SecondWarningLabel" xml:space="preserve">
+    <value>第二次提醒间隔:</value>
+  </data>
+  <data name="ReminderSettings_StaleThresholdLabel" xml:space="preserve">
+    <value>任务过期阈值:</value>
+  </data>
+  <data name="ReminderSettings_GroupBehavior" xml:space="preserve">
+    <value>提醒行为设置</value>
+  </data>
+  <data name="ReminderSettings_MaxWarningsLabel" xml:space="preserve">
+    <value>最大提醒次数:</value>
+  </data>
+  <data name="ReminderSettings_CheckIntervalLabel" xml:space="preserve">
+    <value>检查间隔:</value>
+  </data>
+  <data name="ReminderSettings_GroupProactiveControl" xml:space="preserve">
+    <value>主动协同控制</value>
+  </data>
+  <data name="ReminderSettings_ProactiveEnabled" xml:space="preserve">
+    <value>启用主动协同（总开关）</value>
+  </data>
+  <data name="ReminderSettings_BehaviorLearningEnabled" xml:space="preserve">
+    <value>启用行为学习（本地画像）</value>
+  </data>
+  <data name="ReminderSettings_StuckNudgesEnabled" xml:space="preserve">
+    <value>启用卡点轻提醒</value>
+  </data>
+  <data name="ReminderSettings_LlmSkillAssistEnabled" xml:space="preserve">
+    <value>启用LLM技能建议</value>
+  </data>
+  <data name="ReminderSettings_QuietStartLabel" xml:space="preserve">
+    <value>安静时段开始:</value>
+  </data>
+  <data name="ReminderSettings_QuietEndLabel" xml:space="preserve">
+    <value>安静时段结束:</value>
+  </data>
+  <data name="ReminderSettings_GroupMetrics" xml:space="preserve">
+    <value>主动协同指标（只读）</value>
+  </data>
+  <data name="ReminderSettings_MetricWindow" xml:space="preserve">
+    <value>统计窗口:</value>
+  </data>
+  <data name="ReminderSettings_MetricHitRate" xml:space="preserve">
+    <value>建议命中率:</value>
+  </data>
+  <data name="ReminderSettings_MetricInterruption" xml:space="preserve">
+    <value>过度打扰指数:</value>
+  </data>
+  <data name="ReminderSettings_MetricTopAction" xml:space="preserve">
+    <value>最有效动作类型:</value>
+  </data>
+  <data name="ReminderSettings_MetricOutcome" xml:space="preserve">
+    <value>建议反馈计数:</value>
+  </data>
+  <data name="ReminderSettings_MetricRecommendedStuck" xml:space="preserve">
+    <value>推荐卡点阈值:</value>
+  </data>
+  <data name="ReminderSettings_MetricRecommendedDaily" xml:space="preserve">
+    <value>推荐每日上限:</value>
+  </data>
+  <data name="ReminderSettings_GroupHelp" xml:space="preserve">
+    <value>设置说明</value>
+  </data>
+  <data name="ReminderSettings_Help1" xml:space="preserve">
+    <value>• 第一次提醒间隔: 任务创建后多少天开始第一次提醒</value>
+  </data>
+  <data name="ReminderSettings_Help2" xml:space="preserve">
+    <value>• 第二次提醒间隔: 第一次提醒后多少天进行第二次提醒</value>
+  </data>
+  <data name="ReminderSettings_Help3" xml:space="preserve">
+    <value>• 任务过期阈值: 超过多少天未更新的任务被视为过期</value>
+  </data>
+  <data name="ReminderSettings_Help4" xml:space="preserve">
+    <value>• 最大提醒次数: 达到此次数后将询问是否移动或完成任务</value>
+  </data>
+  <data name="ReminderSettings_Help5" xml:space="preserve">
+    <value>• 检查间隔: 系统多久检查一次是否有需要提醒的任务</value>
+  </data>
+  <data name="ReminderSettings_ButtonSave" xml:space="preserve">
+    <value>保存设置</value>
+  </data>
+  <data name="ReminderSettings_ButtonCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ReminderSettings_ButtonReset" xml:space="preserve">
+    <value>恢复默认</value>
+  </data>
+  <data name="ReminderSettings_UnitDay" xml:space="preserve">
+    <value>天</value>
+  </data>
+  <data name="ReminderSettings_UnitTimes" xml:space="preserve">
+    <value>次</value>
+  </data>
+  <data name="ReminderSettings_UnitMinutes" xml:space="preserve">
+    <value>分钟</value>
+  </data>
+  <data name="ReminderSettings_UnitHourRange" xml:space="preserve">
+    <value>点(0-23)</value>
+  </data>
+  <data name="ReminderSettings_MetricsWindowFormat" xml:space="preserve">
+    <value>最近{0}天</value>
+  </data>
+  <data name="ReminderSettings_OutcomeDefault" xml:space="preserve">
+    <value>shown:0 / accepted:0 / deferred:0 / rejected:0</value>
+  </data>
+  <data name="ReminderSettings_OutcomeFormat" xml:space="preserve">
+    <value>shown:{0} / accepted:{1} / deferred:{2} / rejected:{3}</value>
+  </data>
+  <data name="ReminderSettings_MinutesFormat" xml:space="preserve">
+    <value>{0} 分钟</value>
+  </data>
+  <data name="ReminderSettings_PerDayFormat" xml:space="preserve">
+    <value>{0} 次/天</value>
+  </data>
+  <data name="ReminderSettings_ActionStart10" xml:space="preserve">
+    <value>10分钟最小动作</value>
+  </data>
+  <data name="ReminderSettings_ActionSplit20" xml:space="preserve">
+    <value>20分钟切块</value>
+  </data>
+  <data name="ReminderSettings_ActionDelegate" xml:space="preserve">
+    <value>委托/降优先级</value>
+  </data>
+  <data name="ReminderSettings_ActionPauseSwitch" xml:space="preserve">
+    <value>暂停并切换</value>
+  </data>
+  <data name="ReminderSettings_ActionDecisionNow" xml:space="preserve">
+    <value>立即做决定</value>
+  </data>
+  <data name="ReminderSettings_ActionFallback" xml:space="preserve">
+    <value>最小下一步</value>
+  </data>
+  <data name="ReminderSettings_SaveSuccess" xml:space="preserve">
+    <value>设置已保存成功！重启应用程序后生效。</value>
+  </data>
+  <data name="ReminderSettings_TitleSaveSuccess" xml:space="preserve">
+    <value>保存成功</value>
+  </data>
+  <data name="ReminderSettings_SaveFailed" xml:space="preserve">
+    <value>保存设置时发生错误，请重试。</value>
+  </data>
+  <data name="ReminderSettings_TitleSaveFailed" xml:space="preserve">
+    <value>保存失败</value>
+  </data>
+  <data name="ReminderSettings_TitleValidation" xml:space="preserve">
+    <value>设置错误</value>
+  </data>
+  <data name="ReminderSettings_ValidationFirstWarning" xml:space="preserve">
+    <value>第一次提醒间隔必须在1-30天之间。</value>
+  </data>
+  <data name="ReminderSettings_ValidationSecondWarning" xml:space="preserve">
+    <value>第二次提醒间隔必须大于第一次提醒间隔且不超过60天。</value>
+  </data>
+  <data name="ReminderSettings_ValidationStaleThreshold" xml:space="preserve">
+    <value>任务过期阈值必须大于第二次提醒间隔且不超过365天。</value>
+  </data>
+  <data name="ReminderSettings_ValidationMaxWarnings" xml:space="preserve">
+    <value>最大提醒次数必须在1-10次之间。</value>
+  </data>
+  <data name="ReminderSettings_ValidationInterval" xml:space="preserve">
+    <value>检查间隔必须在1-60分钟之间。</value>
+  </data>
+  <data name="ReminderSettings_ValidationQuietHours" xml:space="preserve">
+    <value>安静时段必须在0-23点之间。</value>
+  </data>
+  <data name="ReminderSettings_ResetConfirm" xml:space="preserve">
+    <value>确定要恢复默认设置吗？</value>
+  </data>
+  <data name="ReminderSettings_TitleResetConfirm" xml:space="preserve">
+    <value>确认重置</value>
+  </data>
+  <data name="DraftViewer_WindowTitle" xml:space="preserve">
+    <value>任务草稿</value>
+  </data>
+  <data name="DraftViewer_Header" xml:space="preserve">
+    <value>任务草稿</value>
+  </data>
+  <data name="DraftViewer_Description" xml:space="preserve">
+    <value>这些是系统通过监听您的语音自动识别的潜在任务。若识别到时间，系统会显示“提醒时间”并在加入任务后自动带入提醒。</value>
+  </data>
+  <data name="DraftViewer_ColDetectedAt" xml:space="preserve">
+    <value>检测时间</value>
+  </data>
+  <data name="DraftViewer_ColTask" xml:space="preserve">
+    <value>任务描述</value>
+  </data>
+  <data name="DraftViewer_ColQuadrant" xml:space="preserve">
+    <value>象限</value>
+  </data>
+  <data name="DraftViewer_ColPriority" xml:space="preserve">
+    <value>优先级</value>
+  </data>
+  <data name="DraftViewer_ColReminder" xml:space="preserve">
+    <value>提醒时间</value>
+  </data>
+  <data name="DraftViewer_ColCount" xml:space="preserve">
+    <value>检测次数</value>
+  </data>
+  <data name="DraftViewer_ButtonAddSelected" xml:space="preserve">
+    <value>添加选中</value>
+  </data>
+  <data name="DraftViewer_ButtonAddAll" xml:space="preserve">
+    <value>一键添加全部</value>
+  </data>
+  <data name="DraftViewer_ButtonIgnore" xml:space="preserve">
+    <value>忽略</value>
+  </data>
+  <data name="DraftViewer_ButtonClear" xml:space="preserve">
+    <value>清空所有</value>
+  </data>
+  <data name="DraftViewer_ButtonClose" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="DraftViewer_CountFormat" xml:space="preserve">
+    <value>({0} 个)</value>
+  </data>
+  <data name="DraftViewer_SelectDraftFirst" xml:space="preserve">
+    <value>请先选择草稿</value>
+  </data>
+  <data name="DraftViewer_NoDraftToAdd" xml:space="preserve">
+    <value>没有草稿可添加</value>
+  </data>
+  <data name="DraftViewer_ConfirmAddAllFormat" xml:space="preserve">
+    <value>确定要添加全部 {0} 个草稿吗？</value>
+  </data>
+  <data name="DraftViewer_SelectOneFirst" xml:space="preserve">
+    <value>请先选择一个草稿</value>
+  </data>
+  <data name="DraftViewer_ConfirmIgnoreFormat" xml:space="preserve">
+    <value>确定要忽略草稿 "{0}" 吗？</value>
+  </data>
+  <data name="DraftViewer_NoDraftToClear" xml:space="preserve">
+    <value>没有草稿需要清空</value>
+  </data>
+  <data name="DraftViewer_ConfirmClearAllFormat" xml:space="preserve">
+    <value>确定要清空所有 {0} 个草稿吗？</value>
+  </data>
+  <data name="KnowledgeSync_NotInitialized" xml:space="preserve">
+    <value>知识同步尚未初始化，请检查配置。</value>
+  </data>
+  <data name="KnowledgeSync_ResultTitle" xml:space="preserve">
+    <value>知识同步结果</value>
+  </data>
+  <data name="KnowledgeSync_PassiveTitle" xml:space="preserve">
+    <value>笔记任务已自动同步</value>
+  </data>
+  <data name="KnowledgeSync_PassiveMessageFormat" xml:space="preserve">
+    <value>新增 {0} 条高置信任务；另有 {1} 条进入草稿箱。</value>
+  </data>
+  <data name="KnowledgeSync_FailedFormat" xml:space="preserve">
+    <value>知识同步失败: {0}</value>
+  </data>
+  <data name="Reminder_EditConfirmSetFormat" xml:space="preserve">
+    <value>将“{0}”的提醒时间设为 {1}，确认吗？</value>
+  </data>
+  <data name="Reminder_EditConfirmClearFormat" xml:space="preserve">
+    <value>将“{0}”的提醒时间清空，确认吗？</value>
+  </data>
+  <data name="Reminder_EditConfirmTitle" xml:space="preserve">
+    <value>确认提醒时间</value>
+  </data>
+  <data name="Reminder_EditUpdatedSetFormat" xml:space="preserve">
+    <value>已更新提醒时间：{0}</value>
+  </data>
+  <data name="Reminder_EditUpdatedCleared" xml:space="preserve">
+    <value>已清空提醒时间</value>
+  </data>
+  <data name="Reminder_EditUpdatedTitle" xml:space="preserve">
+    <value>提醒时间已更新</value>
+  </data>
+  <data name="Reminder_EditorWindowTitle" xml:space="preserve">
+    <value>编辑提醒时间</value>
+  </data>
+  <data name="Reminder_EditorInstruction" xml:space="preserve">
+    <value>请设置提醒日期与时间</value>
+  </data>
+  <data name="Reminder_EditorEnable" xml:space="preserve">
+    <value>启用提醒</value>
+  </data>
+  <data name="Reminder_EditorSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Reminder_EditorCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Reminder_EditorSelectDate" xml:space="preserve">
+    <value>请选择提醒日期。</value>
+  </data>
+  <data name="Reminder_EditorSelectValidTime" xml:space="preserve">
+    <value>请选择有效的提醒时间。</value>
   </data>
 </root>

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d"
-        Title="任务草稿" Height="500" Width="700"
+        Title="{local:Loc Key=DraftViewer_WindowTitle}" Height="500" Width="700"
         WindowStartupLocation="CenterOwner">
     <Grid>
         <Grid.RowDefinitions>
@@ -18,14 +18,14 @@
         <Border Background="#FF3B5998" Grid.Row="0">
             <StackPanel Margin="15,10" Orientation="Horizontal">
                 <TextBlock Text="📋 " FontSize="20"/>
-                <TextBlock Text="任务草稿" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Text="{local:Loc Key=DraftViewer_Header}" FontSize="18" FontWeight="Bold" Foreground="White"/>
                 <TextBlock x:Name="DraftCountText" Margin="15,0,0,0" FontSize="14" Foreground="White" VerticalAlignment="Center"/>
             </StackPanel>
         </Border>
 
         <!-- 说明文字 -->
         <TextBlock Grid.Row="1" Margin="15,10" TextWrapping="Wrap" Foreground="Gray">
-            这些是系统通过监听您的语音自动识别的潜在任务。若识别到时间，系统会显示“提醒时间”并在加入任务后自动带入提醒。
+            <Run Text="{local:Loc Key=DraftViewer_Description}"/>
         </TextBlock>
 
         <!-- 草稿列表 -->
@@ -37,22 +37,22 @@
                   SelectionUnit="FullRow"
                   RowHeight="60">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="检测时间" Width="120" Binding="{Binding LastDetected, StringFormat='HH:mm:ss'}"/>
-                <DataGridTextColumn Header="任务描述" Width="*" Binding="{Binding CleanedText}"/>
-                <DataGridTextColumn Header="象限" Width="100" Binding="{Binding EstimatedQuadrant}"/>
-                <DataGridTextColumn Header="优先级" Width="80" Binding="{Binding Importance}"/>
-                <DataGridTextColumn Header="提醒时间" Width="140" Binding="{Binding ReminderTime, StringFormat='yyyy-MM-dd HH:mm'}"/>
-                <DataGridTextColumn Header="检测次数" Width="80" Binding="{Binding DetectionCount}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColDetectedAt}" Width="120" Binding="{Binding LastDetected, StringFormat='HH:mm:ss'}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColTask}" Width="*" Binding="{Binding CleanedText}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColQuadrant}" Width="100" Binding="{Binding EstimatedQuadrant}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColPriority}" Width="80" Binding="{Binding Importance}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColReminder}" Width="140" Binding="{Binding ReminderTime, StringFormat='yyyy-MM-dd HH:mm'}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ColCount}" Width="80" Binding="{Binding DetectionCount}"/>
             </DataGrid.Columns>
         </DataGrid>
 
         <!-- 按钮栏 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="15">
-            <Button x:Name="AddToTaskButton" Content="添加选中" Width="100" Height="35" Margin="0,0,10,0" Click="AddToTaskButton_Click"/>
-            <Button x:Name="AddAllButton" Content="一键添加全部" Width="120" Height="35" Margin="0,0,10,0" Click="AddAllButton_Click"/>
-            <Button x:Name="IgnoreButton" Content="忽略" Width="80" Height="35" Margin="0,0,10,0" Click="IgnoreButton_Click"/>
-            <Button x:Name="ClearAllButton" Content="清空所有" Width="80" Height="35" Margin="0,0,10,0" Click="ClearAllButton_Click"/>
-            <Button x:Name="CloseButton" Content="关闭" Width="80" Height="35" Click="CloseButton_Click"/>
+            <Button x:Name="AddToTaskButton" Content="{local:Loc Key=DraftViewer_ButtonAddSelected}" Width="100" Height="35" Margin="0,0,10,0" Click="AddToTaskButton_Click"/>
+            <Button x:Name="AddAllButton" Content="{local:Loc Key=DraftViewer_ButtonAddAll}" Width="120" Height="35" Margin="0,0,10,0" Click="AddAllButton_Click"/>
+            <Button x:Name="IgnoreButton" Content="{local:Loc Key=DraftViewer_ButtonIgnore}" Width="80" Height="35" Margin="0,0,10,0" Click="IgnoreButton_Click"/>
+            <Button x:Name="ClearAllButton" Content="{local:Loc Key=DraftViewer_ButtonClear}" Width="80" Height="35" Margin="0,0,10,0" Click="ClearAllButton_Click"/>
+            <Button x:Name="CloseButton" Content="{local:Loc Key=DraftViewer_ButtonClose}" Width="80" Height="35" Click="CloseButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>
