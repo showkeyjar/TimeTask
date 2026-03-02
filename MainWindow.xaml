@@ -229,7 +229,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
-                <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
+                <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
@@ -335,7 +335,7 @@
                         </Grid>
                     </Button>
                 </Grid>
-                <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
+                <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
@@ -378,7 +378,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
-                <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
+                <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>
@@ -421,7 +421,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
-                <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask">
+                <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
                             <DataGridTemplateColumn.CellTemplate>

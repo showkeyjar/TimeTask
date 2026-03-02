@@ -524,29 +524,29 @@ namespace TimeTask
 
         public void DataGrid_MouseDoubleClick_AddTask(object sender, MouseButtonEventArgs e)
         {
-            DataGrid dataGrid = sender as DataGrid;
-            if (dataGrid == null) return;
+            if (!(sender is DataGrid dataGrid)) return;
 
-            // Check if the double-click was on an empty area
             var hitTestResult = VisualTreeHelper.HitTest(dataGrid, e.GetPosition(dataGrid));
-            if (hitTestResult != null)
+            if (hitTestResult?.VisualHit == null)
             {
-                var visualHit = hitTestResult.VisualHit;
-                while (visualHit != null && visualHit != dataGrid)
-                {
-                    if (visualHit is DataGridRow || visualHit is System.Windows.Controls.Primitives.DataGridColumnHeader || visualHit is DataGridCell)
-                    {
-                        return; // Click was on a row, header, or cell, not empty space
-                    }
-                    visualHit = VisualTreeHelper.GetParent(visualHit);
-                }
-            }
-            else
-            {
-                // Should not happen if click is within the DataGrid bounds
                 return;
             }
 
+            var visualHit = hitTestResult.VisualHit;
+            while (visualHit != null && visualHit != dataGrid)
+            {
+                if (visualHit is DataGridRow || visualHit is System.Windows.Controls.Primitives.DataGridColumnHeader || visualHit is DataGridCell)
+                {
+                    return;
+                }
+                visualHit = VisualTreeHelper.GetParent(visualHit);
+            }
+
+            TryOpenAddTaskDialogForDataGrid(dataGrid);
+        }
+
+        private void TryOpenAddTaskDialogForDataGrid(DataGrid dataGrid)
+        {
             int quadrantIndex = -1;
             switch (dataGrid.Name)
             {
@@ -615,6 +615,7 @@ namespace TimeTask
                 }
             }
         }
+
 
 
 
@@ -3585,6 +3586,48 @@ namespace TimeTask
                 }
             }
         }
+
+        private void DataGrid_PreviewMouseLeftButtonDown_BeginEdit(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is DataGrid dataGrid) || !(e.OriginalSource is DependencyObject source))
+            {
+                return;
+            }
+
+            if (FindParent<Button>(source) != null)
+            {
+                return;
+            }
+
+            var row = FindParent<DataGridRow>(source);
+            if (row == null)
+            {
+                var columnHeader = FindParent<System.Windows.Controls.Primitives.DataGridColumnHeader>(source);
+                var scrollBar = FindParent<System.Windows.Controls.Primitives.ScrollBar>(source);
+                if (columnHeader == null && scrollBar == null)
+                {
+                    TryOpenAddTaskDialogForDataGrid(dataGrid);
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            if (row.Item == CollectionView.NewItemPlaceholder)
+            {
+                return;
+            }
+
+            var cell = FindParent<DataGridCell>(source);
+            if (cell == null || cell.IsEditing || cell.IsReadOnly)
+            {
+                return;
+            }
+
+            dataGrid.SelectedItem = row.Item;
+            dataGrid.CurrentCell = new DataGridCellInfo(cell);
+            dataGrid.BeginEdit(e);
+        }
+
 
         internal void update_csv(DataGrid dgv, string number, string basePath = null) { // Added basePath for testing flexibility
             if (dgv == null) return; // Simplified for testing if dgv is null
