@@ -208,19 +208,21 @@ namespace TimeTask
                 // --- LLM Suggestion Logic ---
                 var (finalImportanceByAi, finalUrgencyByAi, sourceTag) = MergePriority(llmImportance, llmUrgency, ruleImportance, ruleUrgency);
                 int suggestedIndex = GetIndexFromPriority(finalImportanceByAi, finalUrgencyByAi);
-                ListSelectorComboBox.SelectedIndex = suggestedIndex;
-
-                if (suggestedIndex != -1 && ListSelectorComboBox.SelectedItem != null)
+                if (suggestedIndex >= 0)
                 {
-                    string label = ListSelectorComboBox.SelectedItem as string;
+                    ListSelectorComboBox.SelectedIndex = suggestedIndex;
+                }
+
+                if (suggestedIndex != -1 && suggestedIndex < ListSelectorComboBox.Items.Count)
+                {
+                    string label = ListSelectorComboBox.Items[suggestedIndex] as string;
                     LlmSuggestionText.Text = I18n.Tf("AddTask_SuggestionFormat", sourceTag, label);
                     LlmSuggestionText.Visibility = Visibility.Visible;
                 }
                 else
                 {
-                    // Handle cases where suggestion is ambiguous or mapping fails
                     LlmSuggestionText.Text = I18n.T("AddTask_SuggestionUnavailable");
-                    LlmSuggestionText.Visibility = Visibility.Collapsed; // Or Visible with a different message
+                    LlmSuggestionText.Visibility = Visibility.Collapsed;
                 }
                 // --- End LLM Suggestion Logic ---
 
@@ -282,21 +284,62 @@ namespace TimeTask
             }
         }
 
-        // Helper method to map LLM priority to ComboBox index
+        // Helper method to map priority to ComboBox index
         public static int GetIndexFromPriority(string importance, string urgency)
         {
-            // Normalize inputs to lower case for robust comparison
-            importance = importance?.ToLowerInvariant() ?? "unknown";
-            urgency = urgency?.ToLowerInvariant() ?? "unknown";
+            string imp = NormalizeImportanceToken(importance);
+            string urg = NormalizeUrgencyToken(urgency);
 
-            if (importance == "high" && urgency == "high") return 0; // Important & Urgent
-            if (importance == "high" && urgency == "low") return 1;  // Important & Not Urgent
-            if (importance == "low" && urgency == "high") return 2;  // Not Important & Urgent
-            if (importance == "low" && urgency == "low") return 3;   // Not Important & Not Urgent
+            if (imp == "high" && urg == "high") return 0; // Important & Urgent
+            if (imp == "high" && urg == "low") return 1;  // Important & Not Urgent
+            if (imp == "low" && urg == "high") return 2;  // Not Important & Urgent
+            if (imp == "low" && urg == "low") return 3;   // Not Important & Not Urgent
 
-            // Default or fallback for Medium/Unknown - could be -1 to indicate no selection
-            // Or a specific category like "Important & Urgent"
-            return 1; // 对未知结果偏向“重要不紧急”，降低默认紧急打扰
+            return -1;
+        }
+
+        private static string NormalizeImportanceToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "unknown";
+
+            string v = value.Trim().ToLowerInvariant();
+
+            if (v == "high" || v == "高" || v == "重要" || v == "high importance")
+                return "high";
+
+            if (v == "low" || v == "低" || v == "不重要" || v == "low importance")
+                return "low";
+
+            if (v.Contains("important") && !v.Contains("not important"))
+                return "high";
+
+            if (v.Contains("not important"))
+                return "low";
+
+            return "unknown";
+        }
+
+        private static string NormalizeUrgencyToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "unknown";
+
+            string v = value.Trim().ToLowerInvariant();
+
+            if (v == "high" || v == "高" || v == "紧急" || v == "urgent" || v == "high urgency")
+                return "high";
+
+            if (v == "low" || v == "低" || v == "不紧急" || v == "not urgent" || v == "low urgency")
+                return "low";
+
+            if (v.Contains("not urgent") || v.Contains("不紧急"))
+                return "low";
+
+            if (v.Contains("urgent") || (v.Contains("紧急") && !v.Contains("不紧急")))
+                return "high";
+
+            return "unknown";
         }
 
         // Helper method to map ComboBox index back to Importance/Urgency strings

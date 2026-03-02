@@ -3602,15 +3602,9 @@ namespace TimeTask
             var row = FindParent<DataGridRow>(source);
             if (row == null)
             {
-                var columnHeader = FindParent<System.Windows.Controls.Primitives.DataGridColumnHeader>(source);
-                var scrollBar = FindParent<System.Windows.Controls.Primitives.ScrollBar>(source);
-                if (columnHeader == null && scrollBar == null)
-                {
-                    TryOpenAddTaskDialogForDataGrid(dataGrid);
-                    e.Handled = true;
-                }
                 return;
             }
+
 
             if (row.Item == CollectionView.NewItemPlaceholder)
             {
@@ -4740,10 +4734,30 @@ namespace TimeTask
             }
         }
         
+        private void TrySetDialogOwner(Window dialog)
+        {
+            if (dialog == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (this.IsLoaded && this.IsVisible)
+                {
+                    dialog.Owner = this;
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Skip setting dialog owner: {ex.Message}");
+            }
+        }
+
         private void OpenLlmSettings()
         {
             LlmSettingsWindow settingsWindow = new LlmSettingsWindow();
-            settingsWindow.Owner = this; // Set the owner for proper modal behavior and centering
+            TrySetDialogOwner(settingsWindow); // Set owner only when current window is visible and valid
 
             // ShowDialog returns a nullable bool (bool?). True if OK/Save, False if Cancel, Null if just closed.
             bool? dialogResult = settingsWindow.ShowDialog();
@@ -4777,10 +4791,8 @@ namespace TimeTask
 
         private async void LongTermGoalButton_Click(object sender, RoutedEventArgs e)
         {
-            SetLongTermGoalWindow goalDialog = new SetLongTermGoalWindow
-            {
-                Owner = this
-            };
+            SetLongTermGoalWindow goalDialog = new SetLongTermGoalWindow();
+            TrySetDialogOwner(goalDialog);
 
             if (goalDialog.ShowDialog() == true)
             {
@@ -4826,10 +4838,8 @@ namespace TimeTask
                 return;
             }
 
-            ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks)
-            {
-                Owner = this
-            };
+            ConfirmGoalTasksWindow confirmDialog = new ConfirmGoalTasksWindow(proposedTasks);
+            TrySetDialogOwner(confirmDialog);
 
             if (confirmDialog.ShowDialog() == true && confirmDialog.SelectedTasks.Any())
             {
