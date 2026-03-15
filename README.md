@@ -1,6 +1,6 @@
-# TimeTask
+# QuestOS / 命途OS
 
-A Windows desktop task manager built around the Eisenhower Matrix (Important/Urgent), with reminders, long-term planning, voice capture, and optional AI assistance.
+A Windows desktop life-progress system built around the Eisenhower Matrix, long-term quests, reminders, voice capture, and AI-guided execution.
 
 [![Release](https://img.shields.io/github/v/release/showkeyjar/TimeTask)](https://github.com/showkeyjar/TimeTask/releases/latest)
 [![License](https://img.shields.io/github/license/showkeyjar/TimeTask)](https://github.com/showkeyjar/TimeTask/blob/HEAD/LICENSE)

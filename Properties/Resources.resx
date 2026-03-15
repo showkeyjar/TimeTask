@@ -115,7 +115,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Window_Main_Title" xml:space="preserve">
-    <value>时间管理</value>
+    <value>命途OS</value>
   </data>
   <data name="Tooltip_EditReminderTime" xml:space="preserve">
     <value>编辑提醒时间</value>
@@ -152,6 +152,144 @@
   </data>
   <data name="Task_Header" xml:space="preserve">
     <value>任务</value>
+  </data>
+  <data name="FocusBoard_PrimaryTitle" xml:space="preserve">
+    <value>现在最该做</value>
+  </data>
+  <data name="FocusBoard_ReminderTitle" xml:space="preserve">
+    <value>最近提醒</value>
+  </data>
+  <data name="FocusBoard_StuckTitle" xml:space="preserve">
+    <value>卡住最久</value>
+  </data>
+  <data name="FocusBoard_ButtonLocate" xml:space="preserve">
+    <value>定位任务</value>
+  </data>
+  <data name="FocusBoard_Empty" xml:space="preserve">
+    <value>暂无任务</value>
+  </data>
+  <data name="FocusBoard_PrimaryEmpty" xml:space="preserve">
+    <value>当前没有需要优先推进的任务</value>
+  </data>
+  <data name="FocusBoard_ReminderEmpty" xml:space="preserve">
+    <value>近期没有设置提醒的任务</value>
+  </data>
+  <data name="FocusBoard_StuckEmpty" xml:space="preserve">
+    <value>还没有长期未推进的任务</value>
+  </data>
+  <data name="FocusBoard_EmptyMeta" xml:space="preserve">
+    <value>保持这个状态就很好。</value>
+  </data>
+  <data name="FocusBoard_PrimaryMetaFormat" xml:space="preserve">
+    <value>位于“{0}”象限，可作为当前默认聚焦项。</value>
+  </data>
+  <data name="FocusBoard_PrimaryMetaWithReminderFormat" xml:space="preserve">
+    <value>位于“{0}”象限，提醒时间 {1:MM-dd HH:mm}。</value>
+  </data>
+  <data name="FocusBoard_ReminderMetaFormat" xml:space="preserve">
+    <value>{0:MM-dd HH:mm} 提醒，距离现在还有 {1}。</value>
+  </data>
+  <data name="FocusBoard_StuckMetaFormat" xml:space="preserve">
+    <value>距离上次推进已过去 {0}。</value>
+  </data>
+  <data name="FocusBoard_DurationDaysFormat" xml:space="preserve">
+    <value>{0}天</value>
+  </data>
+  <data name="FocusBoard_DurationHoursFormat" xml:space="preserve">
+    <value>{0}小时</value>
+  </data>
+  <data name="FocusBoard_DurationMinutesFormat" xml:space="preserve">
+    <value>{0}分钟</value>
+  </data>
+  <data name="SystemPanel_Title" xml:space="preserve">
+    <value>命途OS</value>
+  </data>
+  <data name="SystemPanel_LevelFormat" xml:space="preserve">
+    <value>Lv.{0}</value>
+  </data>
+  <data name="SystemPanel_XpFormat" xml:space="preserve">
+    <value>推进情况：{0}/{1}</value>
+  </data>
+  <data name="SystemPanel_StageDefault" xml:space="preserve">
+    <value>正在整理你当前最值得推进的事情…</value>
+  </data>
+  <data name="SystemPanel_StageDefaultFormat" xml:space="preserve">
+    <value>你现在有 {1} 个进行中的任务</value>
+  </data>
+  <data name="SystemPanel_StageGoalFormat" xml:space="preserve">
+    <value>你正在推进主线目标</value>
+  </data>
+  <data name="SystemPanel_NarrativeDefault" xml:space="preserve">
+    <value>先把当前节奏稳住，再增加新任务。</value>
+  </data>
+  <data name="SystemPanel_NarrativeQuest" xml:space="preserve">
+    <value>先保证主线持续前进，比做更多支线更重要。</value>
+  </data>
+  <data name="SystemPanel_NarrativeBattle" xml:space="preserve">
+    <value>现在是关键阶段，优先做最重要的那件事。</value>
+  </data>
+  <data name="SystemPanel_NarrativeStuck" xml:space="preserve">
+    <value>有任务卡住了，先清掉阻塞点。</value>
+  </data>
+  <data name="SystemPanel_QuestFormat" xml:space="preserve">
+    <value>当前主线：{0}</value>
+  </data>
+  <data name="SystemPanel_QuestEmpty" xml:space="preserve">
+    <value>尚未设定主线任务</value>
+  </data>
+  <data name="SystemPanel_SkillFormat" xml:space="preserve">
+    <value>下一步建议：{0}</value>
+  </data>
+  <data name="SystemPanel_SkillFallback" xml:space="preserve">
+    <value>先想清楚再做</value>
+  </data>
+  <data name="SystemPanel_SkillTreeTitle" xml:space="preserve">
+    <value>你最近常用的方法</value>
+  </data>
+  <data name="SystemPanel_SkillNodeLevelFormat" xml:space="preserve">
+    <value>熟悉度 {0}</value>
+  </data>
+  <data name="SystemPanel_SkillNodeEquipped" xml:space="preserve">
+    <value>系统觉得你现在最适合先用这个</value>
+  </data>
+  <data name="SystemPanel_SkillNodeAcceptedFormat" xml:space="preserve">
+    <value>你最近用了 {0} 次</value>
+  </data>
+  <data name="SystemPanel_SkillNodeSeenFormat" xml:space="preserve">
+    <value>系统最近提醒过你 {0} 次</value>
+  </data>
+  <data name="SystemPanel_SkillNodeGoalLinked" xml:space="preserve">
+    <value>这和你当前主线关系很大</value>
+  </data>
+  <data name="SystemPanel_SkillNodeHot" xml:space="preserve">
+    <value>按你现在的情况，建议先试这个</value>
+  </data>
+  <data name="SystemPanel_SkillNodeLocked" xml:space="preserve">
+    <value>你还不常用它，需要时可以试试</value>
+  </data>
+  <data name="SystemPanel_NoSkillContext" xml:space="preserve">
+    <value>现在还没有特别适合用这个方法的任务。</value>
+  </data>
+  <data name="SystemPanel_SkillNodeNextStepFallback" xml:space="preserve">
+    <value>先把这件事缩小成一个立刻能开始的小动作。</value>
+  </data>
+  <data name="SystemPanel_ButtonExpand" xml:space="preserve">
+    <value>详细</value>
+  </data>
+  <data name="SystemPanel_ButtonCompact" xml:space="preserve">
+    <value>收起</value>
+  </data>
+  <data name="SystemPanel_TickerDefault" xml:space="preserve">
+    <value>先推进主线，减少频繁切换任务。</value>
+  </data>
+  <data name="SystemPanel_TickerPrimaryFormat" xml:space="preserve">
+    <value>现在最值得推进：{0}</value>
+  </data>
+  <data name="SystemPanel_TickerReminderFormat" xml:space="preserve">
+    <value>最近会提醒你：{0}</value>
+  </data>
+  <data name="SystemPanel_TickerStuckFormat" xml:space="preserve">
+    <value>这件事卡住最久：{0}</value>
   </data>
   <data name="Tooltip_VoiceStatus" xml:space="preserve">
     <value>语音监听状态</value>
@@ -304,7 +442,7 @@
     <value>导出失败: {0}</value>
   </data>
   <data name="About_Text" xml:space="preserve">
-    <value>TimeTask - 智能任务管理系统
+    <value>命途OS - 人生任务系统
 
 版本: {0}
 功能:
@@ -314,10 +452,10 @@
 - AI智能分解
 - 数据导入/导出
 
-© 2024 TimeTask Team</value>
+© 2024 QuestOS Team</value>
   </data>
   <data name="Title_About" xml:space="preserve">
-    <value>关于 TimeTask</value>
+    <value>关于 命途OS</value>
   </data>
   <data name="App_ApiKeyWarningText" xml:space="preserve">
     <value>OpenAI API Key 未配置或仍为占位值。智能建议、自动分类等依赖 LLM 的功能可能无法正常工作。请参阅 README.md 在 App.config 中完成配置。</value>
@@ -856,6 +994,33 @@
   </data>
   <data name="AddTask_SourceDefault" xml:space="preserve">
     <value>默认</value>
+  </data>
+  <data name="AddTask_SmartAssistantTitle" xml:space="preserve">
+    <value>智能录入助手</value>
+  </data>
+  <data name="AddTask_SmartTaskSignalStrongFormat" xml:space="preserve">
+    <value>任务识别：高置信度（{0}%），系统已按任务方式理解这段输入。</value>
+  </data>
+  <data name="AddTask_SmartTaskSignalWeakFormat" xml:space="preserve">
+    <value>任务识别：低置信度（{0}%），建议补充动作或截止时间，让任务更清晰。</value>
+  </data>
+  <data name="AddTask_SmartQuadrantFormat" xml:space="preserve">
+    <value>推荐象限：{0}</value>
+  </data>
+  <data name="AddTask_SmartQuadrantUnavailable" xml:space="preserve">
+    <value>暂无法判断</value>
+  </data>
+  <data name="AddTask_SmartReminderDetectedFormat" xml:space="preserve">
+    <value>识别到提醒时间：{0}，已自动填入。</value>
+  </data>
+  <data name="AddTask_SmartReminderNone" xml:space="preserve">
+    <value>未识别到明确提醒时间，可继续手动设置。</value>
+  </data>
+  <data name="AddTask_SmartPreviewFormat" xml:space="preserve">
+    <value>预览：将添加到“{0}”，并在 {1} 提醒。</value>
+  </data>
+  <data name="AddTask_SmartPreviewNoReminderFormat" xml:space="preserve">
+    <value>预览：将添加到“{0}”，暂不设置提醒。</value>
   </data>
   <data name="ReminderSettings_WindowTitle" xml:space="preserve">
     <value>任务提醒设置</value>

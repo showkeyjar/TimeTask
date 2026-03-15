@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Window_Main_Title" xml:space="preserve">
-    <value>Time Management</value>
+    <value>QuestOS</value>
   </data>
   <data name="Tooltip_EditReminderTime" xml:space="preserve">
     <value>Edit reminder time</value>
@@ -50,6 +50,144 @@
   </data>
   <data name="Task_Header" xml:space="preserve">
     <value>Task</value>
+  </data>
+  <data name="FocusBoard_PrimaryTitle" xml:space="preserve">
+    <value>Do This Next</value>
+  </data>
+  <data name="FocusBoard_ReminderTitle" xml:space="preserve">
+    <value>Upcoming Reminder</value>
+  </data>
+  <data name="FocusBoard_StuckTitle" xml:space="preserve">
+    <value>Most Stuck</value>
+  </data>
+  <data name="FocusBoard_ButtonLocate" xml:space="preserve">
+    <value>Locate</value>
+  </data>
+  <data name="FocusBoard_Empty" xml:space="preserve">
+    <value>No task yet</value>
+  </data>
+  <data name="FocusBoard_PrimaryEmpty" xml:space="preserve">
+    <value>No task needs priority attention right now</value>
+  </data>
+  <data name="FocusBoard_ReminderEmpty" xml:space="preserve">
+    <value>No upcoming reminders</value>
+  </data>
+  <data name="FocusBoard_StuckEmpty" xml:space="preserve">
+    <value>No long-stalled task found</value>
+  </data>
+  <data name="FocusBoard_EmptyMeta" xml:space="preserve">
+    <value>Keeping it this way is a good sign.</value>
+  </data>
+  <data name="FocusBoard_PrimaryMetaFormat" xml:space="preserve">
+    <value>In "{0}", a solid default focus for now.</value>
+  </data>
+  <data name="FocusBoard_PrimaryMetaWithReminderFormat" xml:space="preserve">
+    <value>In "{0}", reminder at {1:MM-dd HH:mm}.</value>
+  </data>
+  <data name="FocusBoard_ReminderMetaFormat" xml:space="preserve">
+    <value>Reminder at {0:MM-dd HH:mm}, in {1}.</value>
+  </data>
+  <data name="FocusBoard_StuckMetaFormat" xml:space="preserve">
+    <value>No progress for {0}.</value>
+  </data>
+  <data name="FocusBoard_DurationDaysFormat" xml:space="preserve">
+    <value>{0} day(s)</value>
+  </data>
+  <data name="FocusBoard_DurationHoursFormat" xml:space="preserve">
+    <value>{0} hour(s)</value>
+  </data>
+  <data name="FocusBoard_DurationMinutesFormat" xml:space="preserve">
+    <value>{0} minute(s)</value>
+  </data>
+  <data name="SystemPanel_Title" xml:space="preserve">
+    <value>QuestOS</value>
+  </data>
+  <data name="SystemPanel_LevelFormat" xml:space="preserve">
+    <value>Lv.{0}</value>
+  </data>
+  <data name="SystemPanel_XpFormat" xml:space="preserve">
+    <value>Progress: {0}/{1}</value>
+  </data>
+  <data name="SystemPanel_StageDefault" xml:space="preserve">
+    <value>Sorting out what matters most right now...</value>
+  </data>
+  <data name="SystemPanel_StageDefaultFormat" xml:space="preserve">
+    <value>You currently have {1} active tasks</value>
+  </data>
+  <data name="SystemPanel_StageGoalFormat" xml:space="preserve">
+    <value>You are currently pushing a main quest</value>
+  </data>
+  <data name="SystemPanel_NarrativeDefault" xml:space="preserve">
+    <value>Keep a steady rhythm before taking on more.</value>
+  </data>
+  <data name="SystemPanel_NarrativeQuest" xml:space="preserve">
+    <value>Keep the main quest moving before adding side work.</value>
+  </data>
+  <data name="SystemPanel_NarrativeBattle" xml:space="preserve">
+    <value>Critical phase. Do the most important thing first.</value>
+  </data>
+  <data name="SystemPanel_NarrativeStuck" xml:space="preserve">
+    <value>Something is stuck. Clear blockers first.</value>
+  </data>
+  <data name="SystemPanel_QuestFormat" xml:space="preserve">
+    <value>Current main quest: {0}</value>
+  </data>
+  <data name="SystemPanel_QuestEmpty" xml:space="preserve">
+    <value>No main quest defined yet</value>
+  </data>
+  <data name="SystemPanel_SkillFormat" xml:space="preserve">
+    <value>Next suggestion: {0}</value>
+  </data>
+  <data name="SystemPanel_SkillFallback" xml:space="preserve">
+    <value>Get clear before you act</value>
+  </data>
+  <data name="SystemPanel_SkillTreeTitle" xml:space="preserve">
+    <value>Methods you use often</value>
+  </data>
+  <data name="SystemPanel_SkillNodeLevelFormat" xml:space="preserve">
+    <value>Familiarity {0}</value>
+  </data>
+  <data name="SystemPanel_SkillNodeEquipped" xml:space="preserve">
+    <value>The system thinks this fits your current situation best.</value>
+  </data>
+  <data name="SystemPanel_SkillNodeAcceptedFormat" xml:space="preserve">
+    <value>You used this {0} time(s) recently</value>
+  </data>
+  <data name="SystemPanel_SkillNodeSeenFormat" xml:space="preserve">
+    <value>The system suggested this {0} time(s) recently</value>
+  </data>
+  <data name="SystemPanel_SkillNodeGoalLinked" xml:space="preserve">
+    <value>This is strongly related to your current main quest</value>
+  </data>
+  <data name="SystemPanel_SkillNodeHot" xml:space="preserve">
+    <value>This is worth trying first in your current situation</value>
+  </data>
+  <data name="SystemPanel_SkillNodeLocked" xml:space="preserve">
+    <value>You do not use this often yet, but it may help</value>
+  </data>
+  <data name="SystemPanel_NoSkillContext" xml:space="preserve">
+    <value>There is no active task that clearly fits this method yet.</value>
+  </data>
+  <data name="SystemPanel_SkillNodeNextStepFallback" xml:space="preserve">
+    <value>Turn this into one very small next step you can start now.</value>
+  </data>
+  <data name="SystemPanel_ButtonExpand" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="SystemPanel_ButtonCompact" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="SystemPanel_TickerDefault" xml:space="preserve">
+    <value>Keep the main quest moving and avoid constant switching.</value>
+  </data>
+  <data name="SystemPanel_TickerPrimaryFormat" xml:space="preserve">
+    <value>Best thing to push now: {0}</value>
+  </data>
+  <data name="SystemPanel_TickerReminderFormat" xml:space="preserve">
+    <value>Upcoming reminder: {0}</value>
+  </data>
+  <data name="SystemPanel_TickerStuckFormat" xml:space="preserve">
+    <value>Most stuck task: {0}</value>
   </data>
   <data name="Tooltip_VoiceStatus" xml:space="preserve">
     <value>Voice listener status</value>
@@ -202,7 +340,7 @@
     <value>Export failed: {0}</value>
   </data>
   <data name="About_Text" xml:space="preserve">
-    <value>TimeTask - Intelligent Task Manager
+    <value>QuestOS - Life Progress System
 
 Version: {0}
 Features:
@@ -212,10 +350,10 @@ Features:
 - AI-assisted decomposition
 - Data import/export
 
-(c) 2024 TimeTask Team</value>
+(c) 2024 QuestOS Team</value>
   </data>
   <data name="Title_About" xml:space="preserve">
-    <value>About TimeTask</value>
+    <value>About QuestOS</value>
   </data>
   <data name="App_ApiKeyWarningText" xml:space="preserve">
     <value>The OpenAI API key is missing or still using a placeholder. LLM-powered features may not work as expected. Please configure it in App.config as described in README.md.</value>
@@ -1057,5 +1195,32 @@ Please check logs: {0}</value>
   </data>
   <data name="ReminderSettings_OutcomeDefault" xml:space="preserve">
     <value>shown:0 / accepted:0 / deferred:0 / rejected:0</value>
+  </data>
+  <data name="AddTask_SmartAssistantTitle" xml:space="preserve">
+    <value>Smart Capture Assistant</value>
+  </data>
+  <data name="AddTask_SmartTaskSignalStrongFormat" xml:space="preserve">
+    <value>Task detection: high confidence ({0}%). This input looks like a concrete task.</value>
+  </data>
+  <data name="AddTask_SmartTaskSignalWeakFormat" xml:space="preserve">
+    <value>Task detection: low confidence ({0}%). Adding an action or due time would make it clearer.</value>
+  </data>
+  <data name="AddTask_SmartQuadrantFormat" xml:space="preserve">
+    <value>Suggested quadrant: {0}</value>
+  </data>
+  <data name="AddTask_SmartQuadrantUnavailable" xml:space="preserve">
+    <value>Not enough signal yet</value>
+  </data>
+  <data name="AddTask_SmartReminderDetectedFormat" xml:space="preserve">
+    <value>Detected reminder time: {0}. Filled in automatically.</value>
+  </data>
+  <data name="AddTask_SmartReminderNone" xml:space="preserve">
+    <value>No clear reminder time detected yet. You can still set one manually.</value>
+  </data>
+  <data name="AddTask_SmartPreviewFormat" xml:space="preserve">
+    <value>Preview: this will be added to "{0}" with a reminder at {1}.</value>
+  </data>
+  <data name="AddTask_SmartPreviewNoReminderFormat" xml:space="preserve">
+    <value>Preview: this will be added to "{0}" without a reminder.</value>
   </data>
 </root>

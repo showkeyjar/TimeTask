@@ -60,34 +60,44 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="{local:Loc Key=AddTask_LabelDescription}" FontWeight="SemiBold"/>
-        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60" BorderBrush="#CCCCCC" BorderThickness="1"/>
+        <TextBox Grid.Row="1" Name="TaskDescriptionTextBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,5,0,10" MinHeight="60" BorderBrush="#CCCCCC" BorderThickness="1" TextChanged="TaskDescriptionTextBox_TextChanged"/>
 
-        <Border Grid.Row="2" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
+        <Border Grid.Row="2" Name="SmartAssistantBorder" Background="#FFF6F2D8" BorderBrush="#E2C46E" BorderThickness="1" Padding="8" Margin="0,0,0,10" CornerRadius="6" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Text="{local:Loc Key=AddTask_SmartAssistantTitle}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <TextBlock Name="SmartTaskSignalText" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                <TextBlock Name="SmartQuadrantSuggestionText" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                <TextBlock Name="SmartReminderSuggestionText" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                <TextBlock Name="SmartPreviewText" TextWrapping="Wrap" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Name="ClarificationBorder" BorderBrush="OrangeRed" BorderThickness="1" Padding="5" Margin="0,0,0,10" Visibility="Collapsed">
             <StackPanel>
                 <TextBlock Name="ClarificationPromptText" TextWrapping="Wrap" Foreground="OrangeRed" FontStyle="Italic" Margin="0,0,0,5" Visibility="Visible"/>
                 <Button Name="ResetClarificationButton" Content="{local:Loc Key=AddTask_ButtonResetClarification}" HorizontalAlignment="Left" Margin="0,5,0,0" Visibility="Visible" Click="ResetClarificationButton_Click"/>
             </StackPanel>
         </Border>
         
-        <TextBlock Grid.Row="3" Text="{local:Loc Key=AddTask_LabelList}" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <TextBlock Grid.Row="4" Name="LlmSuggestionText" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
+        <TextBlock Grid.Row="4" Text="{local:Loc Key=AddTask_LabelList}" FontWeight="SemiBold" Margin="0,0,0,5"/>
+        <TextBlock Grid.Row="5" Name="LlmSuggestionText" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,5" Visibility="Collapsed"/>
 
-        <CheckBox Grid.Row="5" Name="EnableReminderCheckBox" Content="{local:Loc Key=AddTask_EnableReminder}" Margin="0,5,0,5" IsChecked="False"/>
+        <CheckBox Grid.Row="6" Name="EnableReminderCheckBox" Content="{local:Loc Key=AddTask_EnableReminder}" Margin="0,5,0,5" IsChecked="False" Checked="ReminderInput_Changed" Unchecked="ReminderInput_Changed"/>
 
-        <StackPanel Grid.Row="6" Name="ReminderControlsPanel" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsChecked, ElementName=EnableReminderCheckBox, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <StackPanel Grid.Row="7" Name="ReminderControlsPanel" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsChecked, ElementName=EnableReminderCheckBox, Converter={StaticResource BooleanToVisibilityConverter}}">
             <TextBlock Text="{local:Loc Key=AddTask_ReminderDate}" Margin="0,0,0,2"/>
-            <DatePicker Name="ReminderDatePicker" Margin="0,0,0,5"/>
+            <DatePicker Name="ReminderDatePicker" Margin="0,0,0,5" SelectedDateChanged="ReminderInput_Changed"/>
             <TextBlock Text="{local:Loc Key=AddTask_ReminderTime}" Margin="0,0,0,2"/>
             <StackPanel Orientation="Horizontal">
-                <ComboBox Name="ReminderHourComboBox" Width="50" Margin="0,0,5,0"/>
+                <ComboBox Name="ReminderHourComboBox" Width="50" Margin="0,0,5,0" SelectionChanged="ReminderInput_Changed"/>
                 <TextBlock Text=":" VerticalAlignment="Center"/>
-                <ComboBox Name="ReminderMinuteComboBox" Width="50" Margin="5,0,0,0"/>
+                <ComboBox Name="ReminderMinuteComboBox" Width="50" Margin="5,0,0,0" SelectionChanged="ReminderInput_Changed"/>
             </StackPanel>
         </StackPanel>
 
-        <ComboBox Grid.Row="7" Name="ListSelectorComboBox" Margin="0,0,0,15"/>
+        <ComboBox Grid.Row="8" Name="ListSelectorComboBox" Margin="0,0,0,15" SelectionChanged="ListSelectorComboBox_SelectionChanged"/>
 
-        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="AddTaskButton" Content="{local:Loc Key=AddTask_ButtonAdd}" Width="150" Margin="0,0,10,0" Click="AddTaskButton_Click">
                 <Button.Resources>
                     <Style TargetType="Border">

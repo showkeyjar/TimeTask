@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeTask"
         mc:Ignorable="d" AllowsTransparency="True" WindowStyle="None" 
-        Title="{local:Loc Key=Window_Main_Title}" Width="810" Height="630" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
+        Title="{local:Loc Key=Window_Main_Title}" Width="810" Height="720" MouseLeftButtonDown="Window_MouseLeftButtonDown" Loaded="Window_Loaded"
         LocationChanged="location_Save"
         Background="Transparent" ShowInTaskbar="False">
     <Window.Resources>
@@ -90,18 +90,74 @@
         </Style>
 
     </Window.Resources>
-    <Grid x:Name="TaskGrid" Width="780" Height="630">
+    <Grid x:Name="TaskGrid" Width="780" Height="720">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>    <!-- Row 0 for Quadrant 1 & 2 (combines old Row 0 and 1) -->
-            <RowDefinition Height="*"/>    <!-- Row 1 for Quadrant 3 & 4 (combines old Row 2 and 3) -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Settings Button -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="100" Margin="0,10,10,0">
+            <Button x:Name="VoiceStatusButton"
+                    Width="Auto"
+                    Height="30"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Padding="10,0"
+                    Margin="0,0,10,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False"
+                    ToolTip="{local:Loc Key=Tooltip_VoiceStatus}">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#DDDDDD"/>
+                        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+                        <Setter Property="Foreground" Value="#888888"/>
+                    </Style>
+                </Button.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="VoiceStatusIcon"
+                               Text="👂"
+                               Grid.Column="0"
+                               Margin="0,0,5,0"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <ScaleTransform x:Name="VoiceStatusScale" ScaleX="1" ScaleY="1"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <TextBlock x:Name="VoiceStatusText"
+                               Grid.Column="1"
+                               Text="{local:Loc Key=Voice_TextUnknown}"
+                               VerticalAlignment="Center"
+                               Foreground="#666666"/>
+                    <Ellipse x:Name="VoiceStatusDot"
+                             Grid.Column="2"
+                             Width="7"
+                             Height="7"
+                             Fill="#888888"
+                             VerticalAlignment="Center"
+                             Margin="6,0,0,0"/>
+                </Grid>
+            </Button>
+
             <!-- Active Long-Term Goal Display -->
             <Button x:Name="ActiveLongTermGoalDisplay"
                     Visibility="Collapsed"
@@ -212,8 +268,130 @@
 
         </StackPanel>
 
+        <Border x:Name="SystemPanelRoot" Grid.Row="0" Grid.ColumnSpan="2" Background="#F7F1D8" CornerRadius="10" Padding="12" Margin="5,48,5,0" BorderBrush="#E0CC88" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid x:Name="SystemPanelTopGrid" Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="SystemSummaryColumn" Width="2.4*"/>
+                        <ColumnDefinition x:Name="SystemSkillColumn" Width="1.4*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel x:Name="SystemSummarySection" Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="{local:Loc Key=SystemPanel_Title}" FontSize="16" FontWeight="Bold" Foreground="#6B4A00"/>
+                        <TextBlock x:Name="SystemStageText" Text="{local:Loc Key=SystemPanel_StageDefault}" Margin="0,4,0,0" FontWeight="SemiBold" Foreground="#4E4E4E" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="SystemNarrativeText" Text="{local:Loc Key=SystemPanel_NarrativeDefault}" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#666666" MaxHeight="36"/>
+                        <WrapPanel Margin="0,8,0,0">
+                            <Border Background="#FFF8E7" BorderBrush="#E7D08E" BorderThickness="1" CornerRadius="14" Padding="10,4" Margin="0,0,8,6">
+                                <TextBlock x:Name="SystemLevelText" Text="Lv.1" FontWeight="Bold" Foreground="#7A4E00"/>
+                            </Border>
+                            <Border Background="#FFF8E7" BorderBrush="#E7D08E" BorderThickness="1" CornerRadius="14" Padding="10,4" Margin="0,0,8,6">
+                                <TextBlock x:Name="SystemXpText" Foreground="#6E6E6E"/>
+                            </Border>
+                            <Border Background="#EEF5FF" BorderBrush="#C7DAF5" BorderThickness="1" CornerRadius="14" Padding="10,4" Margin="0,0,8,6">
+                                <TextBlock x:Name="SystemQuestText" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/>
+                            </Border>
+                            <Border Background="#EEF8EE" BorderBrush="#CBE3CB" BorderThickness="1" CornerRadius="14" Padding="10,4" Margin="0,0,0,6">
+                                <TextBlock x:Name="SystemSkillText" Foreground="#4E6A3C" TextTrimming="CharacterEllipsis" MaxWidth="240"/>
+                            </Border>
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" x:Name="SystemSkillTreeSection">
+                        <TextBlock Text="{local:Loc Key=SystemPanel_SkillTreeTitle}" FontWeight="Bold" Foreground="#7A4E00" Margin="0,0,0,6"/>
+                        <UniformGrid Columns="2" Rows="2">
+                            <Border x:Name="SkillTreeCard1" Background="#FFF4D6" BorderBrush="#E9D39A" BorderThickness="1" CornerRadius="16" Padding="8,6" Margin="0,0,6,6" Cursor="Hand" MouseLeftButtonUp="SkillTreeCard_Click">
+                                <StackPanel>
+                                    <TextBlock x:Name="SkillTreeName1" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="SkillTreeLevel1" Margin="0,2,0,0" Foreground="#6E6E6E" FontSize="11"/>
+                                    <TextBlock x:Name="SkillTreeMeta1" Margin="0,1,0,0" Foreground="#7A6A44" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="10"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="SkillTreeCard2" Background="#EEF5FF" BorderBrush="#C7DAF5" BorderThickness="1" CornerRadius="16" Padding="8,6" Margin="0,0,0,6" Cursor="Hand" MouseLeftButtonUp="SkillTreeCard_Click">
+                                <StackPanel>
+                                    <TextBlock x:Name="SkillTreeName2" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="SkillTreeLevel2" Margin="0,2,0,0" Foreground="#6E6E6E" FontSize="11"/>
+                                    <TextBlock x:Name="SkillTreeMeta2" Margin="0,1,0,0" Foreground="#4E6582" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="10"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="SkillTreeCard3" Background="#EEF8EE" BorderBrush="#CBE3CB" BorderThickness="1" CornerRadius="16" Padding="8,6" Margin="0,0,6,0" Cursor="Hand" MouseLeftButtonUp="SkillTreeCard_Click">
+                                <StackPanel>
+                                    <TextBlock x:Name="SkillTreeName3" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="SkillTreeLevel3" Margin="0,2,0,0" Foreground="#6E6E6E" FontSize="11"/>
+                                    <TextBlock x:Name="SkillTreeMeta3" Margin="0,1,0,0" Foreground="#54704C" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="10"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="SkillTreeCard4" Background="#F4F0FA" BorderBrush="#DDD0F0" BorderThickness="1" CornerRadius="16" Padding="8,6" Cursor="Hand" MouseLeftButtonUp="SkillTreeCard_Click">
+                                <StackPanel>
+                                    <TextBlock x:Name="SkillTreeName4" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="SkillTreeLevel4" Margin="0,2,0,0" Foreground="#6E6E6E" FontSize="11"/>
+                                    <TextBlock x:Name="SkillTreeMeta4" Margin="0,1,0,0" Foreground="#6A5883" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="10"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+
+                    <Button x:Name="SystemPanelToggleButton"
+                            Grid.Column="2"
+                            Width="64"
+                            Height="28"
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Top"
+                            Content="{local:Loc Key=SystemPanel_ButtonExpand}"
+                            Click="SystemPanelToggleButton_Click"/>
+                </Grid>
+
+                <Border x:Name="SystemTickerBanner" Grid.Row="1" Background="#FFF8E7" BorderBrush="#E7D08E" BorderThickness="1" CornerRadius="16" Padding="10,6" Margin="0,0,0,8">
+                    <TextBlock x:Name="SystemTickerText"
+                               Text="{local:Loc Key=SystemPanel_TickerDefault}"
+                               TextWrapping="Wrap"
+                               Foreground="#6A5A33"/>
+                </Border>
+
+                <Grid x:Name="FocusBoardDetailSection" Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Background="#FFF8E7" CornerRadius="8" Padding="10" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="{local:Loc Key=FocusBoard_PrimaryTitle}" FontWeight="Bold" Foreground="#7A4E00" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="PrimaryFocusTaskText" Text="{local:Loc Key=FocusBoard_Empty}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,3"/>
+                        <TextBlock x:Name="PrimaryFocusMetaText" TextWrapping="Wrap" Foreground="#6E6E6E" Margin="0,0,0,8"/>
+                        <Button x:Name="PrimaryFocusButton" Content="{local:Loc Key=FocusBoard_ButtonLocate}" Width="88" HorizontalAlignment="Left" Click="PrimaryFocusButton_Click" IsEnabled="False"/>
+                    </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Background="#EEF7FF" CornerRadius="8" Padding="10" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="{local:Loc Key=FocusBoard_ReminderTitle}" FontWeight="Bold" Foreground="#165A8A" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="ReminderFocusTaskText" Text="{local:Loc Key=FocusBoard_Empty}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,3"/>
+                        <TextBlock x:Name="ReminderFocusMetaText" TextWrapping="Wrap" Foreground="#6E6E6E" Margin="0,0,0,8"/>
+                        <Button x:Name="ReminderFocusButton" Content="{local:Loc Key=FocusBoard_ButtonLocate}" Width="88" HorizontalAlignment="Left" Click="ReminderFocusButton_Click" IsEnabled="False"/>
+                    </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Background="#F2F8EE" CornerRadius="8" Padding="10">
+                    <StackPanel>
+                        <TextBlock Text="{local:Loc Key=FocusBoard_StuckTitle}" FontWeight="Bold" Foreground="#3E6B2A" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="StuckFocusTaskText" Text="{local:Loc Key=FocusBoard_Empty}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,3"/>
+                        <TextBlock x:Name="StuckFocusMetaText" TextWrapping="Wrap" Foreground="#6E6E6E" Margin="0,0,0,8"/>
+                        <Button x:Name="StuckFocusButton" Content="{local:Loc Key=FocusBoard_ButtonLocate}" Width="88" HorizontalAlignment="Left" Click="StuckFocusButton_Click" IsEnabled="False"/>
+                    </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+
         <!-- Quadrant 1: Important & Urgent -->
-        <Border Grid.Row="0" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="1" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -221,6 +399,9 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
                     <Label Content="{local:Loc Key=Quadrant_ImportantUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
+                        <TextBlock x:Name="Quadrant1CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                    </Border>
                     <Button x:Name="AddUrgentImportantTaskButton" Content="+" Tag="0" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAFFDADA" BorderBrush="#88FFDADA" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
@@ -256,7 +437,7 @@
         </Border>
 
         <!-- Quadrant 2: Important & Not Urgent -->
-        <Border Grid.Row="0" Grid.Column="1" Background="#33D4E8FF" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="1" Grid.Column="1" Background="#33D4E8FF" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -266,10 +447,12 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Label Content="{local:Loc Key=Quadrant_ImportantNotUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                        <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
+                            <TextBlock x:Name="Quadrant2CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                        </Border>
                         <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
                             <Button.Resources>
                                 <Style TargetType="Border">
@@ -278,62 +461,6 @@
                             </Button.Resources>
                         </Button>
                     </StackPanel>
-
-                    <Button x:Name="VoiceStatusButton"
-                            Grid.Column="2"
-                            Width="Auto"
-                            Height="26"
-                            FontSize="12"
-                            FontWeight="SemiBold"
-                            Padding="8,0"
-                            Margin="0,0,4,0"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            IsHitTestVisible="False"
-                            ToolTip="{local:Loc Key=Tooltip_VoiceStatus}">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="13"/>
-                            </Style>
-                        </Button.Resources>
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#DDDDDD"/>
-                                <Setter Property="BorderBrush" Value="#AAAAAA"/>
-                                <Setter Property="Foreground" Value="#888888"/>
-                            </Style>
-                        </Button.Style>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="VoiceStatusIcon"
-                                       Text="👂"
-                                       Grid.Column="0"
-                                       Margin="0,0,5,0"
-                                       HorizontalAlignment="Left"
-                                       VerticalAlignment="Center"
-                                       RenderTransformOrigin="0.5,0.5">
-                                <TextBlock.RenderTransform>
-                                    <ScaleTransform x:Name="VoiceStatusScale" ScaleX="1" ScaleY="1"/>
-                                </TextBlock.RenderTransform>
-                            </TextBlock>
-                            <TextBlock x:Name="VoiceStatusText"
-                                       Grid.Column="1"
-                                        Text="{local:Loc Key=Voice_TextUnknown}"
-                                       VerticalAlignment="Center"
-                                       Foreground="#666666"/>
-                            <Ellipse x:Name="VoiceStatusDot"
-                                     Grid.Column="2"
-                                     Width="7"
-                                     Height="7"
-                                     Fill="#888888"
-                                     VerticalAlignment="Center"
-                                     Margin="6,0,0,0"/>
-                        </Grid>
-                    </Button>
                 </Grid>
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
@@ -362,7 +489,7 @@
         </Border>
 
         <!-- Quadrant 3: Not Important & Urgent -->
-        <Border Grid.Row="1" Grid.Column="0" Background="#33D9FFD9" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="2" Grid.Column="0" Background="#33D9FFD9" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -370,6 +497,9 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
                     <Label Content="{local:Loc Key=Quadrant_NotImportantUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
+                        <TextBlock x:Name="Quadrant3CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                    </Border>
                     <Button x:Name="AddNotImportantUrgentTaskButton" Content="+" Tag="2" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD9FFD9" BorderBrush="#88D9FFD9" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
@@ -405,7 +535,7 @@
         </Border>
 
         <!-- Quadrant 4: Not Important & Not Urgent -->
-        <Border Grid.Row="1" Grid.Column="1" Background="#33E0E0E0" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="2" Grid.Column="1" Background="#33E0E0E0" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -413,6 +543,9 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
                     <Label Content="{local:Loc Key=Quadrant_NotImportantNotUrgent}" HorizontalAlignment="Left" Margin="5,0,0,0" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White" />
+                    <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
+                        <TextBlock x:Name="Quadrant4CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                    </Border>
                     <Button x:Name="AddNotImportantNotUrgentTaskButton" Content="+" Tag="3" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAE0E0E0" BorderBrush="#88E0E0E0" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">

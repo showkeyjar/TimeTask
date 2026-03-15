@@ -82,7 +82,7 @@ namespace TimeTask
                         TriggerCondition = "complex_task_detected",
                         RecommendedSkills = new List<string> { "decompose" },
                         Priority = 85,
-                        AutoActivate = true,
+                        AutoActivate = false,
                         IsCompleted = false
                     },
                     new OnboardingScenario
@@ -141,9 +141,11 @@ namespace TimeTask
                 {
                     case "first_task":
                     case "long_term_goal_intro":
-                    case "skill_decompose_intro":
                     case "skill_focus_sprint_intro":
                         scenario.AutoActivate = true;
+                        break;
+                    case "skill_decompose_intro":
+                        scenario.AutoActivate = false;
                         break;
                     default:
                         scenario.AutoActivate = false;

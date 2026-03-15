@@ -185,12 +185,12 @@ namespace TimeTask.Tests
         [TestMethod]
         public void AddTaskWindow_GetIndexFromPriority_MediumOrUnknown_ReturnsDefaultIndex()
         {
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority("Medium", "High")); // Default to 0
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority("High", "Medium"));
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority("Unknown", "Low"));
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority("High", "Unknown"));
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority("gibberish", "High"));
-            Assert.AreEqual(0, AddTaskWindow.GetIndexFromPriority(null, "High"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority("Medium", "High"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority("High", "Medium"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority("Unknown", "Low"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority("High", "Unknown"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority("gibberish", "High"));
+            Assert.AreEqual(-1, AddTaskWindow.GetIndexFromPriority(null, "High"));
         }
 
         [TestMethod]
@@ -219,6 +219,119 @@ namespace TimeTask.Tests
             var (impNeg, urgNeg) = AddTaskWindow.GetPriorityFromIndex(-1); // Invalid index
             Assert.AreEqual("Medium", impNeg); // Default
             Assert.AreEqual("Medium", urgNeg); // Default
+        }
+
+        [TestMethod]
+        public void AddTaskWindow_AnalyzeDraftInput_DetectsReminderAndQuadrant()
+        {
+            DateTime now = new DateTime(2026, 3, 15, 9, 0, 0);
+            var suggestion = AddTaskWindow.AnalyzeDraftInput("提醒我明天下午3点给客户提交周报", now);
+
+            Assert.IsTrue(suggestion.IsPotentialTask);
+            Assert.AreEqual("High", suggestion.Importance);
+            Assert.AreEqual("Low", suggestion.Urgency);
+            Assert.AreEqual(1, suggestion.SuggestedQuadrantIndex);
+            Assert.AreEqual(new DateTime(2026, 3, 16, 15, 0, 0), suggestion.SuggestedReminderTime);
+        }
+
+        [TestMethod]
+        public void AddTaskWindow_AnalyzeDraftInput_EmptyInput_ReturnsNoSuggestion()
+        {
+            DateTime now = new DateTime(2026, 3, 15, 9, 0, 0);
+            var suggestion = AddTaskWindow.AnalyzeDraftInput("   ", now);
+
+            Assert.IsFalse(suggestion.IsPotentialTask);
+            Assert.IsNull(suggestion.SuggestedReminderTime);
+            Assert.AreEqual(-1, suggestion.SuggestedQuadrantIndex);
+            Assert.AreEqual(string.Empty, suggestion.NormalizedDescription);
+        }
+
+        [TestMethod]
+        public void MainWindow_BuildFocusBoardSnapshot_PicksExpectedTasks()
+        {
+            DateTime now = new DateTime(2026, 3, 15, 9, 0, 0);
+            var tasks = new List<ItemGrid>
+            {
+                new ItemGrid
+                {
+                    Task = "今天修复生产问题",
+                    Importance = "High",
+                    Urgency = "High",
+                    IsActive = true,
+                    Score = 8,
+                    LastProgressDate = now.AddHours(-2)
+                },
+                new ItemGrid
+                {
+                    Task = "明天早上提交周报",
+                    Importance = "High",
+                    Urgency = "Low",
+                    IsActive = true,
+                    Score = 6,
+                    ReminderTime = now.AddMinutes(20),
+                    LastProgressDate = now.AddHours(-1)
+                },
+                new ItemGrid
+                {
+                    Task = "整理知识库",
+                    Importance = "Low",
+                    Urgency = "Low",
+                    IsActive = true,
+                    Score = 3,
+                    LastProgressDate = now.AddDays(-4)
+                }
+            };
+
+            var snapshot = MainWindow.BuildFocusBoardSnapshot(tasks, now);
+
+            Assert.AreEqual("今天修复生产问题", snapshot.PrimaryTask.Task);
+            Assert.AreEqual("明天早上提交周报", snapshot.ReminderTask.Task);
+            Assert.AreEqual("整理知识库", snapshot.StuckTask.Task);
+        }
+
+        [TestMethod]
+        public void MainWindow_BuildSystemProgressSnapshot_GeneratesQuestAndSkill()
+        {
+            DateTime now = new DateTime(2026, 3, 15, 9, 0, 0);
+            var tasks = new List<ItemGrid>
+            {
+                new ItemGrid
+                {
+                    Task = "完成系统首页重构",
+                    Importance = "High",
+                    Urgency = "High",
+                    IsActive = true,
+                    LastProgressDate = now.AddHours(-1)
+                },
+                new ItemGrid
+                {
+                    Task = "梳理长期目标映射",
+                    Importance = "High",
+                    Urgency = "Low",
+                    IsActive = false,
+                    LastProgressDate = now.AddDays(-2)
+                }
+            };
+            var goal = new LongTermGoal
+            {
+                Description = "打造人生系统首页",
+                IsActive = true
+            };
+            var metrics = new UserProfileMetrics
+            {
+                SuggestionsAccepted = 3
+            };
+
+            var snapshot = MainWindow.BuildSystemProgressSnapshot(tasks, goal, metrics, now);
+
+            Assert.IsTrue(snapshot.Level >= 1);
+            Assert.IsTrue(snapshot.Experience > 0);
+            StringAssert.Contains(snapshot.ActiveQuestText, "打造人生系统首页");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.RecommendedSkillText));
+            Assert.IsTrue(snapshot.SkillNodes.Count > 0);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.SkillNodes[0].Title));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.SkillNodes[0].MetaText));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.SkillNodes[0].ToolTipText));
         }
 
         // Tests for DecompositionResultWindow helpers (similar to AddTaskWindow)

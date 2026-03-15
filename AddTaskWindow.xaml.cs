@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input; // Required for MouseButtonEventArgs, MouseButtonState
+using System.Windows.Controls;
 using System.Threading.Tasks; // For async operations
 
 namespace TimeTask
@@ -9,12 +11,28 @@ namespace TimeTask
     // Removed duplicate namespace declaration
     public partial class AddTaskWindow : Window
     {
+        public sealed class DraftSmartSuggestion
+        {
+            public string NormalizedDescription { get; set; }
+            public double TaskLikelihoodScore { get; set; }
+            public bool IsPotentialTask { get; set; }
+            public string Importance { get; set; }
+            public string Urgency { get; set; }
+            public int SuggestedQuadrantIndex { get; set; } = -1;
+            public DateTime? SuggestedReminderTime { get; set; }
+        }
+
         private LlmService _llmService;
         private DatabaseService _databaseService;
         private bool _isClarificationRound = false; // State for clarification
         private string _originalTaskDescription = string.Empty; // To store original task if clarification is needed
         private bool _isLlmConfigErrorNotified = false; // Flag to track if user has been notified of LLM config error
         private readonly IntentRecognizer _intentRecognizer = new IntentRecognizer();
+        private bool _reminderEditedByUser;
+        private bool _quadrantEditedByUser;
+        private bool _isUpdatingReminderControls;
+        private bool _isUpdatingQuadrantSelection;
+        private bool _autoReminderApplied;
 
         public string TaskDescription { get; private set; }
         public int SelectedListIndex { get; private set; } // 0-indexed
@@ -75,6 +93,8 @@ namespace TimeTask
             ReminderDatePicker.SelectedDate = DateTime.Today;
             ReminderHourComboBox.SelectedIndex = 0; // Default to "00"
             ReminderMinuteComboBox.SelectedIndex = 0; // Default to "00"
+
+            RefreshSmartAssistant();
         }
 
         /// <summary>
@@ -112,9 +132,12 @@ namespace TimeTask
 
                 if (quadrantMap.TryGetValue(quadrant, out int index))
                 {
+                    _quadrantEditedByUser = false;
                     ListSelectorComboBox.SelectedIndex = index;
                 }
             }
+
+            RefreshSmartAssistant();
         }
 
         // Removed older synchronous AddTaskButton_Click method. The async version below is used.
@@ -408,6 +431,40 @@ namespace TimeTask
                    value.IndexOf("dummy response", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        public static DraftSmartSuggestion AnalyzeDraftInput(string rawText, DateTime now)
+        {
+            var recognizer = new IntentRecognizer();
+            var parser = new VoiceReminderTimeParser();
+            string normalized = string.IsNullOrWhiteSpace(rawText) ? string.Empty : rawText.Trim();
+            string extracted = recognizer.ExtractTaskDescription(normalized);
+            if (!string.IsNullOrWhiteSpace(extracted))
+            {
+                normalized = extracted.Trim();
+            }
+
+            var suggestion = new DraftSmartSuggestion
+            {
+                NormalizedDescription = normalized,
+                TaskLikelihoodScore = recognizer.ScoreTaskLikelihood(rawText),
+                IsPotentialTask = recognizer.IsPotentialTask(rawText)
+            };
+
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                var (importance, urgency) = recognizer.EstimatePriority(normalized);
+                suggestion.Importance = importance;
+                suggestion.Urgency = urgency;
+                suggestion.SuggestedQuadrantIndex = GetIndexFromPriority(importance, urgency);
+            }
+
+            if (parser.TryParse(rawText, now, out DateTime reminderTime))
+            {
+                suggestion.SuggestedReminderTime = reminderTime;
+            }
+
+            return suggestion;
+        }
+
         private string NormalizeTaskText(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw))
@@ -421,6 +478,153 @@ namespace TimeTask
             }
 
             return trimmed;
+        }
+
+        private void TaskDescriptionTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            RefreshSmartAssistant();
+        }
+
+        private void ReminderInput_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_isUpdatingReminderControls)
+            {
+                _reminderEditedByUser = true;
+            }
+
+            UpdatePreviewSummary();
+        }
+
+        private void ListSelectorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isUpdatingQuadrantSelection)
+            {
+                _quadrantEditedByUser = true;
+            }
+
+            UpdatePreviewSummary();
+        }
+
+        private void RefreshSmartAssistant()
+        {
+            var suggestion = AnalyzeDraftInput(TaskDescriptionTextBox.Text, DateTime.Now);
+            if (string.IsNullOrWhiteSpace(suggestion.NormalizedDescription))
+            {
+                SmartAssistantBorder.Visibility = Visibility.Collapsed;
+                if (_autoReminderApplied && !_reminderEditedByUser)
+                {
+                    ApplyReminderTime(null);
+                    _autoReminderApplied = false;
+                }
+
+                return;
+            }
+
+            SmartAssistantBorder.Visibility = Visibility.Visible;
+            SmartTaskSignalText.Text = suggestion.IsPotentialTask
+                ? I18n.Tf("AddTask_SmartTaskSignalStrongFormat", Math.Round(suggestion.TaskLikelihoodScore * 100))
+                : I18n.Tf("AddTask_SmartTaskSignalWeakFormat", Math.Round(suggestion.TaskLikelihoodScore * 100));
+
+            string quadrantLabel = suggestion.SuggestedQuadrantIndex >= 0 && suggestion.SuggestedQuadrantIndex < ListSelectorComboBox.Items.Count
+                ? ListSelectorComboBox.Items[suggestion.SuggestedQuadrantIndex] as string
+                : I18n.T("AddTask_SmartQuadrantUnavailable");
+            SmartQuadrantSuggestionText.Text = I18n.Tf("AddTask_SmartQuadrantFormat", quadrantLabel);
+
+            if (suggestion.SuggestedReminderTime.HasValue)
+            {
+                SmartReminderSuggestionText.Text = I18n.Tf(
+                    "AddTask_SmartReminderDetectedFormat",
+                    suggestion.SuggestedReminderTime.Value.ToString("yyyy-MM-dd HH:mm", I18n.CurrentCulture));
+
+                if (!_reminderEditedByUser)
+                {
+                    ApplyReminderTime(suggestion.SuggestedReminderTime);
+                    _autoReminderApplied = true;
+                }
+            }
+            else
+            {
+                SmartReminderSuggestionText.Text = I18n.T("AddTask_SmartReminderNone");
+                if (_autoReminderApplied && !_reminderEditedByUser)
+                {
+                    ApplyReminderTime(null);
+                    _autoReminderApplied = false;
+                }
+            }
+
+            if (suggestion.SuggestedQuadrantIndex >= 0 && !_quadrantEditedByUser)
+            {
+                _isUpdatingQuadrantSelection = true;
+                try
+                {
+                    ListSelectorComboBox.SelectedIndex = suggestion.SuggestedQuadrantIndex;
+                }
+                finally
+                {
+                    _isUpdatingQuadrantSelection = false;
+                }
+            }
+
+            UpdatePreviewSummary();
+        }
+
+        private void ApplyReminderTime(DateTime? reminderTime)
+        {
+            _isUpdatingReminderControls = true;
+            try
+            {
+                if (reminderTime.HasValue)
+                {
+                    EnableReminderCheckBox.IsChecked = true;
+                    ReminderDatePicker.SelectedDate = reminderTime.Value.Date;
+                    ReminderHourComboBox.SelectedItem = reminderTime.Value.Hour.ToString("D2", CultureInfo.InvariantCulture);
+                    ReminderMinuteComboBox.SelectedItem = reminderTime.Value.Minute.ToString("D2", CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    EnableReminderCheckBox.IsChecked = false;
+                    ReminderDatePicker.SelectedDate = DateTime.Today;
+                    ReminderHourComboBox.SelectedIndex = 0;
+                    ReminderMinuteComboBox.SelectedIndex = 0;
+                }
+            }
+            finally
+            {
+                _isUpdatingReminderControls = false;
+            }
+        }
+
+        private void UpdatePreviewSummary()
+        {
+            string quadrantText = ListSelectorComboBox.SelectedItem as string ?? I18n.T("AddTask_SmartQuadrantUnavailable");
+            DateTime? selectedReminder = GetReminderTimeFromControls();
+
+            SmartPreviewText.Text = selectedReminder.HasValue
+                ? I18n.Tf("AddTask_SmartPreviewFormat", quadrantText, selectedReminder.Value.ToString("yyyy-MM-dd HH:mm", I18n.CurrentCulture))
+                : I18n.Tf("AddTask_SmartPreviewNoReminderFormat", quadrantText);
+        }
+
+        private DateTime? GetReminderTimeFromControls()
+        {
+            if (EnableReminderCheckBox.IsChecked != true || !ReminderDatePicker.SelectedDate.HasValue)
+            {
+                return null;
+            }
+
+            int hour = 0;
+            int minute = 0;
+            if (ReminderHourComboBox.SelectedItem != null)
+            {
+                int.TryParse(ReminderHourComboBox.SelectedItem.ToString(), out hour);
+            }
+
+            if (ReminderMinuteComboBox.SelectedItem != null)
+            {
+                int.TryParse(ReminderMinuteComboBox.SelectedItem.ToString(), out minute);
+            }
+
+            DateTime date = ReminderDatePicker.SelectedDate.Value;
+            return new DateTime(date.Year, date.Month, date.Day, hour, minute, 0);
         }
     }
 } // Closing brace for namespace TimeTask

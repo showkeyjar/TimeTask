@@ -318,6 +318,37 @@ namespace TimeTask
 // Removed redundant nested namespace TimeTask
     public partial class MainWindow : Window
     {
+        public sealed class FocusBoardSnapshot
+        {
+            public ItemGrid PrimaryTask { get; set; }
+            public string PrimaryMeta { get; set; }
+            public ItemGrid ReminderTask { get; set; }
+            public string ReminderMeta { get; set; }
+            public ItemGrid StuckTask { get; set; }
+            public string StuckMeta { get; set; }
+        }
+
+        public sealed class SystemProgressSnapshot
+        {
+            public int Level { get; set; }
+            public int Experience { get; set; }
+            public int NextLevelExperience { get; set; }
+            public string StageText { get; set; }
+            public string NarrativeText { get; set; }
+            public string ActiveQuestText { get; set; }
+            public string RecommendedSkillText { get; set; }
+            public List<SystemSkillNodeSnapshot> SkillNodes { get; set; } = new List<SystemSkillNodeSnapshot>();
+        }
+
+        public sealed class SystemSkillNodeSnapshot
+        {
+            public string SkillId { get; set; }
+            public string Title { get; set; }
+            public int Level { get; set; }
+            public string MetaText { get; set; }
+            public string ToolTipText { get; set; }
+        }
+
         private LlmService _llmService;
         private bool _llmConfigErrorDetectedInLoad = false; // Flag for LLM config error during load
         // Configurable timeout settings with defaults
@@ -357,6 +388,14 @@ namespace TimeTask
         private int _stuckNudgesShownToday = 0;
         private DateTime _stuckNudgeCounterDate = DateTime.Today;
         private DateTime _lastStuckNudgeAt = DateTime.MinValue;
+        private ItemGrid _primaryFocusTask;
+        private ItemGrid _reminderFocusTask;
+        private ItemGrid _stuckFocusTask;
+        private readonly Dictionary<Border, SystemSkillNodeSnapshot> _skillTreeNodeMap = new Dictionary<Border, SystemSkillNodeSnapshot>();
+        private readonly List<string> _systemTickerMessages = new List<string>();
+        private System.Windows.Threading.DispatcherTimer _systemTickerTimer;
+        private int _systemTickerIndex;
+        private bool _isSystemPanelCompactMode = true;
 
         private DatabaseService _databaseService;
         private System.Windows.Threading.DispatcherTimer _syncTimer;
@@ -645,6 +684,8 @@ namespace TimeTask
             this.Top = normalizedPosition.Y;
             
             loadDataGridView();
+            UpdateFocusBoard();
+            InitializeSystemPanelBehavior();
 
             // Attach CellEditEnding event handler to all DataGrids
             task1.CellEditEnding += DataGrid_CellEditEnding;
@@ -682,7 +723,25 @@ namespace TimeTask
                 return;
             }
 
+            UpdateFocusBoard();
+            ApplySystemPanelMode();
             UpdateVoiceStatusUi(VoiceListenerStatusCenter.Current);
+        }
+
+        private void InitializeSystemPanelBehavior()
+        {
+            try
+            {
+                _systemTickerTimer = new System.Windows.Threading.DispatcherTimer();
+                _systemTickerTimer.Interval = TimeSpan.FromSeconds(7);
+                _systemTickerTimer.Tick += SystemTickerTimer_Tick;
+                _systemTickerTimer.Start();
+                ApplySystemPanelMode();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"System panel behavior init failed: {ex.Message}");
+            }
         }
 
         private void InitializeVoiceStatusIndicator()
@@ -901,6 +960,13 @@ namespace TimeTask
                     _voiceStatusAnimTimer.Stop();
                     _voiceStatusAnimTimer.Tick -= VoiceStatusAnimTimer_Tick;
                     _voiceStatusAnimTimer = null;
+                }
+
+                if (_systemTickerTimer != null)
+                {
+                    _systemTickerTimer.Stop();
+                    _systemTickerTimer.Tick -= SystemTickerTimer_Tick;
+                    _systemTickerTimer = null;
                 }
 
                 if (_conversationIdleTimer != null)
@@ -1238,6 +1304,296 @@ namespace TimeTask
             }
         }
 
+        public static FocusBoardSnapshot BuildFocusBoardSnapshot(IEnumerable<ItemGrid> sourceTasks, DateTime now)
+        {
+            var tasks = (sourceTasks ?? Enumerable.Empty<ItemGrid>())
+                .Where(t => t != null && t.IsActive && !string.IsNullOrWhiteSpace(t.Task))
+                .ToList();
+
+            var snapshot = new FocusBoardSnapshot();
+            if (tasks.Count == 0)
+            {
+                return snapshot;
+            }
+
+            ItemGrid primary = tasks
+                .OrderByDescending(t => string.Equals(t.Importance, "High", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(t => string.Equals(t.Urgency, "High", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(t => t.ReminderTime.HasValue && t.ReminderTime.Value <= now.AddHours(6))
+                .ThenByDescending(t => t.InactiveWarningCount)
+                .ThenByDescending(t => t.Score)
+                .ThenBy(t => t.ReminderTime ?? DateTime.MaxValue)
+                .FirstOrDefault();
+
+            if (primary != null)
+            {
+                snapshot.PrimaryTask = primary;
+                string quadrant = GetQuadrantDisplayName(primary.Importance, primary.Urgency);
+                if (primary.ReminderTime.HasValue)
+                {
+                    snapshot.PrimaryMeta = I18n.Tf("FocusBoard_PrimaryMetaWithReminderFormat", quadrant, primary.ReminderTime.Value);
+                }
+                else
+                {
+                    snapshot.PrimaryMeta = I18n.Tf("FocusBoard_PrimaryMetaFormat", quadrant);
+                }
+            }
+
+            ItemGrid reminder = tasks
+                .Where(t => t.ReminderTime.HasValue && t.ReminderTime.Value >= now)
+                .OrderBy(t => t.ReminderTime.Value)
+                .FirstOrDefault();
+
+            if (reminder != null)
+            {
+                snapshot.ReminderTask = reminder;
+                TimeSpan remain = reminder.ReminderTime.Value - now;
+                snapshot.ReminderMeta = I18n.Tf("FocusBoard_ReminderMetaFormat", reminder.ReminderTime.Value, FormatFocusDuration(remain));
+            }
+
+            ItemGrid stuck = tasks
+                .OrderByDescending(t => now - t.LastProgressDate)
+                .ThenByDescending(t => t.InactiveWarningCount)
+                .FirstOrDefault();
+
+            if (stuck != null)
+            {
+                snapshot.StuckTask = stuck;
+                snapshot.StuckMeta = I18n.Tf("FocusBoard_StuckMetaFormat", FormatFocusDuration(now - stuck.LastProgressDate));
+            }
+
+            return snapshot;
+        }
+
+        public static SystemProgressSnapshot BuildSystemProgressSnapshot(
+            IEnumerable<ItemGrid> sourceTasks,
+            LongTermGoal activeGoal,
+            UserProfileMetrics metrics,
+            DateTime now)
+        {
+            var tasks = (sourceTasks ?? Enumerable.Empty<ItemGrid>()).Where(t => t != null).ToList();
+            int activeCount = tasks.Count(t => t.IsActive && !string.IsNullOrWhiteSpace(t.Task));
+            int completedCount = tasks.Count(t => !t.IsActive);
+            int highPriorityCount = tasks.Count(t => t.IsActive &&
+                string.Equals(t.Importance, "High", StringComparison.OrdinalIgnoreCase));
+            int reminderCount = tasks.Count(t => t.IsActive && t.ReminderTime.HasValue);
+            int stuckCount = tasks.Count(t => t.IsActive && (now - t.LastProgressDate) >= TimeSpan.FromDays(3));
+
+            int accepted = metrics?.SuggestionsAccepted ?? 0;
+            int experience = completedCount * 120 + highPriorityCount * 25 + reminderCount * 10 + accepted * 15 + activeCount * 5;
+            int level = Math.Max(1, experience / 250 + 1);
+            int nextLevelExperience = level * 250;
+
+            string questName = activeGoal != null
+                ? (activeGoal.IsLearningPlan ? activeGoal.Subject : activeGoal.Description)
+                : null;
+            if (string.IsNullOrWhiteSpace(questName))
+            {
+                questName = activeCount > 0
+                    ? tasks.Where(t => t.IsActive && !string.IsNullOrWhiteSpace(t.Task))
+                        .OrderByDescending(t => string.Equals(t.Importance, "High", StringComparison.OrdinalIgnoreCase))
+                        .ThenByDescending(t => string.Equals(t.Urgency, "High", StringComparison.OrdinalIgnoreCase))
+                        .Select(t => t.Task)
+                        .FirstOrDefault()
+                    : I18n.T("SystemPanel_QuestEmpty");
+            }
+
+            string recommendedSkillId = GetRecommendedSkillId(tasks, activeGoal, now);
+            string recommendedSkillTitle = SkillManagementService.GetSkillDefinitions()
+                .FirstOrDefault(s => string.Equals(s.SkillId, recommendedSkillId, StringComparison.OrdinalIgnoreCase))
+                ?.Title ?? I18n.T("SystemPanel_SkillFallback");
+
+            string stageText = activeGoal != null
+                ? I18n.Tf("SystemPanel_StageGoalFormat", level, questName)
+                : I18n.Tf("SystemPanel_StageDefaultFormat", level, activeCount);
+
+            string narrativeText;
+            if (stuckCount >= 3)
+            {
+                narrativeText = I18n.T("SystemPanel_NarrativeStuck");
+            }
+            else if (highPriorityCount >= 3)
+            {
+                narrativeText = I18n.T("SystemPanel_NarrativeBattle");
+            }
+            else if (activeGoal != null)
+            {
+                narrativeText = I18n.T("SystemPanel_NarrativeQuest");
+            }
+            else
+            {
+                narrativeText = I18n.T("SystemPanel_NarrativeDefault");
+            }
+
+            return new SystemProgressSnapshot
+            {
+                Level = level,
+                Experience = experience,
+                NextLevelExperience = nextLevelExperience,
+                StageText = stageText,
+                NarrativeText = narrativeText,
+                ActiveQuestText = I18n.Tf("SystemPanel_QuestFormat", questName),
+                RecommendedSkillText = I18n.Tf("SystemPanel_SkillFormat", recommendedSkillTitle),
+                SkillNodes = BuildSystemSkillNodes(tasks, activeGoal, now, recommendedSkillId)
+            };
+        }
+
+        private static List<SystemSkillNodeSnapshot> BuildSystemSkillNodes(
+            List<ItemGrid> tasks,
+            LongTermGoal activeGoal,
+            DateTime now,
+            string recommendedSkillId)
+        {
+            var performance = new UserProfileManager()
+                .GetActionPerformance(30)
+                .ToDictionary(x => x.ActionId, StringComparer.OrdinalIgnoreCase);
+            var definitions = SkillManagementService.GetSkillDefinitions()
+                .Where(d => d != null)
+                .ToDictionary(d => d.SkillId, StringComparer.OrdinalIgnoreCase);
+
+            var seedSkillIds = new List<string>
+            {
+                recommendedSkillId,
+                "decompose",
+                "focus_sprint",
+                "risk_check",
+                "clarify_goal"
+            };
+
+            var selectedIds = seedSkillIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(4)
+                .ToList();
+
+            while (selectedIds.Count < 4)
+            {
+                string fallback = definitions.Keys.FirstOrDefault(k => !selectedIds.Contains(k, StringComparer.OrdinalIgnoreCase));
+                if (fallback == null)
+                {
+                    break;
+                }
+
+                selectedIds.Add(fallback);
+            }
+
+            var nodes = new List<SystemSkillNodeSnapshot>();
+            foreach (string skillId in selectedIds)
+            {
+                definitions.TryGetValue(skillId, out var definition);
+                performance.TryGetValue(skillId, out var stat);
+
+                int accepted = stat?.Accepted ?? 0;
+                int shown = stat?.Shown ?? 0;
+                int level = Math.Max(1, accepted / 2 + (shown > 0 ? 1 : 0));
+                string meta;
+
+                if (string.Equals(skillId, recommendedSkillId, StringComparison.OrdinalIgnoreCase))
+                {
+                    meta = I18n.T("SystemPanel_SkillNodeEquipped");
+                }
+                else if (accepted > 0)
+                {
+                    meta = I18n.Tf("SystemPanel_SkillNodeAcceptedFormat", accepted);
+                }
+                else if (shown > 0)
+                {
+                    meta = I18n.Tf("SystemPanel_SkillNodeSeenFormat", shown);
+                }
+                else if (activeGoal != null && string.Equals(skillId, "clarify_goal", StringComparison.OrdinalIgnoreCase))
+                {
+                    meta = I18n.T("SystemPanel_SkillNodeGoalLinked");
+                }
+                else if (tasks.Any(t => (now - t.LastProgressDate) >= TimeSpan.FromDays(3)) &&
+                         string.Equals(skillId, "risk_check", StringComparison.OrdinalIgnoreCase))
+                {
+                    meta = I18n.T("SystemPanel_SkillNodeHot");
+                }
+                else
+                {
+                    meta = I18n.T("SystemPanel_SkillNodeLocked");
+                }
+
+                nodes.Add(new SystemSkillNodeSnapshot
+                {
+                    SkillId = skillId,
+                    Title = definition?.Title ?? skillId,
+                    Level = level,
+                    MetaText = meta,
+                    ToolTipText = $"{definition?.Description ?? skillId}\n{meta}"
+                });
+            }
+
+            return nodes;
+        }
+
+        private static string GetRecommendedSkillId(IEnumerable<ItemGrid> sourceTasks, LongTermGoal activeGoal, DateTime now)
+        {
+            var tasks = (sourceTasks ?? Enumerable.Empty<ItemGrid>())
+                .Where(t => t != null && t.IsActive && !string.IsNullOrWhiteSpace(t.Task))
+                .ToList();
+
+            if (activeGoal == null)
+            {
+                return "clarify_goal";
+            }
+
+            if (tasks.Any(t => (now - t.LastProgressDate) >= TimeSpan.FromDays(3)))
+            {
+                return "risk_check";
+            }
+
+            if (tasks.Any(t => string.Equals(t.Importance, "High", StringComparison.OrdinalIgnoreCase) &&
+                               string.Equals(t.Urgency, "High", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "focus_sprint";
+            }
+
+            if (tasks.Any(t => !string.IsNullOrWhiteSpace(t.Task) && t.Task.Length >= 18))
+            {
+                return "decompose";
+            }
+
+            return "priority_rebalance";
+        }
+
+        private static string GetQuadrantDisplayName(string importance, string urgency)
+        {
+            if (string.Equals(importance, "High", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(urgency, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return I18n.T("Quadrant_ImportantUrgent");
+            }
+
+            if (string.Equals(importance, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return I18n.T("Quadrant_ImportantNotUrgent");
+            }
+
+            if (string.Equals(urgency, "High", StringComparison.OrdinalIgnoreCase))
+            {
+                return I18n.T("Quadrant_NotImportantUrgent");
+            }
+
+            return I18n.T("Quadrant_NotImportantNotUrgent");
+        }
+
+        private static string FormatFocusDuration(TimeSpan duration)
+        {
+            if (duration.TotalDays >= 1)
+            {
+                return I18n.Tf("FocusBoard_DurationDaysFormat", (int)Math.Round(duration.TotalDays));
+            }
+
+            if (duration.TotalHours >= 1)
+            {
+                return I18n.Tf("FocusBoard_DurationHoursFormat", (int)Math.Round(duration.TotalHours));
+            }
+
+            int minutes = Math.Max(1, (int)Math.Round(duration.TotalMinutes));
+            return I18n.Tf("FocusBoard_DurationMinutesFormat", minutes);
+        }
+
         private List<LongTermGoal> LoadActiveLongTermGoals()
         {
             try
@@ -1318,10 +1674,7 @@ namespace TimeTask
                     break;
                 case "skill_decompose_intro":
                     AutoEnableSkill("decompose");
-                    if (!await TryAutoActivateDecomposeSkillAsync())
-                    {
-                        ShowSkillRecommendation("decompose");
-                    }
+                    ShowSkillRecommendation("decompose");
                     break;
                 case "skill_focus_sprint_intro":
                     AutoEnableSkill("focus_sprint");
@@ -3978,6 +4331,8 @@ namespace TimeTask
                 {
                     dataGrid.Items.SortDescriptions.Add(new SortDescription("Score", ListSortDirection.Descending));
                 }
+
+                UpdateFocusBoard();
             }
             catch (Exception ex)
             {
@@ -3985,6 +4340,7 @@ namespace TimeTask
                 try
                 {
                     dataGrid.Items.Refresh();
+                    UpdateFocusBoard();
                 }
                 catch
                 {
@@ -3992,6 +4348,399 @@ namespace TimeTask
                     System.Diagnostics.Debug.WriteLine($"RefreshDataGrid failed: {ex.Message}");
                 }
             }
+        }
+
+        private void UpdateFocusBoard()
+        {
+            DateTime now = DateTime.Now;
+            var allTasks = GetAllQuadrantTasks();
+            var snapshot = BuildFocusBoardSnapshot(allTasks, now);
+            var metrics = ShouldRecordBehavior() ? _userProfileManager?.GetDashboardMetrics(7) : null;
+            var progress = BuildSystemProgressSnapshot(allTasks, _activeLongTermGoal, metrics, now);
+
+            _primaryFocusTask = snapshot.PrimaryTask;
+            _reminderFocusTask = snapshot.ReminderTask;
+            _stuckFocusTask = snapshot.StuckTask;
+            UpdateQuadrantCounts();
+            UpdateSystemPanel(progress);
+
+            ApplyFocusCard(
+                snapshot.PrimaryTask,
+                snapshot.PrimaryMeta,
+                PrimaryFocusTaskText,
+                PrimaryFocusMetaText,
+                PrimaryFocusButton,
+                I18n.T("FocusBoard_PrimaryEmpty"));
+
+            ApplyFocusCard(
+                snapshot.ReminderTask,
+                snapshot.ReminderMeta,
+                ReminderFocusTaskText,
+                ReminderFocusMetaText,
+                ReminderFocusButton,
+                I18n.T("FocusBoard_ReminderEmpty"));
+
+            ApplyFocusCard(
+                snapshot.StuckTask,
+                snapshot.StuckMeta,
+                StuckFocusTaskText,
+                StuckFocusMetaText,
+                StuckFocusButton,
+                I18n.T("FocusBoard_StuckEmpty"));
+        }
+
+        private void UpdateSystemPanel(SystemProgressSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            if (SystemLevelText != null)
+            {
+                SystemLevelText.Text = I18n.Tf("SystemPanel_LevelFormat", snapshot.Level);
+            }
+
+            if (SystemXpText != null)
+            {
+                SystemXpText.Text = I18n.Tf("SystemPanel_XpFormat", snapshot.Experience, snapshot.NextLevelExperience);
+            }
+
+            if (SystemStageText != null)
+            {
+                SystemStageText.Text = snapshot.StageText;
+            }
+
+            if (SystemNarrativeText != null)
+            {
+                SystemNarrativeText.Text = snapshot.NarrativeText;
+            }
+
+            if (SystemQuestText != null)
+            {
+                SystemQuestText.Text = snapshot.ActiveQuestText;
+            }
+
+            if (SystemSkillText != null)
+            {
+                SystemSkillText.Text = snapshot.RecommendedSkillText;
+            }
+
+            _skillTreeNodeMap.Clear();
+            if (SkillTreeCard1 != null && snapshot.SkillNodes.ElementAtOrDefault(0) != null) _skillTreeNodeMap[SkillTreeCard1] = snapshot.SkillNodes[0];
+            if (SkillTreeCard2 != null && snapshot.SkillNodes.ElementAtOrDefault(1) != null) _skillTreeNodeMap[SkillTreeCard2] = snapshot.SkillNodes[1];
+            if (SkillTreeCard3 != null && snapshot.SkillNodes.ElementAtOrDefault(2) != null) _skillTreeNodeMap[SkillTreeCard3] = snapshot.SkillNodes[2];
+            if (SkillTreeCard4 != null && snapshot.SkillNodes.ElementAtOrDefault(3) != null) _skillTreeNodeMap[SkillTreeCard4] = snapshot.SkillNodes[3];
+
+            ApplySkillTreeNode(snapshot.SkillNodes.ElementAtOrDefault(0), SkillTreeCard1, SkillTreeName1, SkillTreeLevel1, SkillTreeMeta1);
+            ApplySkillTreeNode(snapshot.SkillNodes.ElementAtOrDefault(1), SkillTreeCard2, SkillTreeName2, SkillTreeLevel2, SkillTreeMeta2);
+            ApplySkillTreeNode(snapshot.SkillNodes.ElementAtOrDefault(2), SkillTreeCard3, SkillTreeName3, SkillTreeLevel3, SkillTreeMeta3);
+            ApplySkillTreeNode(snapshot.SkillNodes.ElementAtOrDefault(3), SkillTreeCard4, SkillTreeName4, SkillTreeLevel4, SkillTreeMeta4);
+
+            RefreshSystemTicker(snapshot);
+            ApplySystemPanelMode();
+        }
+
+        private void RefreshSystemTicker(SystemProgressSnapshot snapshot)
+        {
+            _systemTickerMessages.Clear();
+
+            if (snapshot != null)
+            {
+                if (!string.IsNullOrWhiteSpace(snapshot.StageText))
+                {
+                    _systemTickerMessages.Add(snapshot.StageText);
+                }
+
+                if (!string.IsNullOrWhiteSpace(snapshot.ActiveQuestText))
+                {
+                    _systemTickerMessages.Add(snapshot.ActiveQuestText);
+                }
+
+                if (!string.IsNullOrWhiteSpace(snapshot.RecommendedSkillText))
+                {
+                    _systemTickerMessages.Add(snapshot.RecommendedSkillText);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(PrimaryFocusTaskText?.Text) &&
+                PrimaryFocusTaskText.Text != I18n.T("FocusBoard_PrimaryEmpty"))
+            {
+                _systemTickerMessages.Add(I18n.Tf("SystemPanel_TickerPrimaryFormat", PrimaryFocusTaskText.Text));
+            }
+
+            if (!string.IsNullOrWhiteSpace(ReminderFocusTaskText?.Text) &&
+                ReminderFocusTaskText.Text != I18n.T("FocusBoard_ReminderEmpty"))
+            {
+                _systemTickerMessages.Add(I18n.Tf("SystemPanel_TickerReminderFormat", ReminderFocusTaskText.Text));
+            }
+
+            if (!string.IsNullOrWhiteSpace(StuckFocusTaskText?.Text) &&
+                StuckFocusTaskText.Text != I18n.T("FocusBoard_StuckEmpty"))
+            {
+                _systemTickerMessages.Add(I18n.Tf("SystemPanel_TickerStuckFormat", StuckFocusTaskText.Text));
+            }
+
+            _systemTickerMessages.RemoveAll(string.IsNullOrWhiteSpace);
+            if (_systemTickerMessages.Count == 0)
+            {
+                _systemTickerMessages.Add(I18n.T("SystemPanel_TickerDefault"));
+            }
+
+            if (_systemTickerIndex >= _systemTickerMessages.Count)
+            {
+                _systemTickerIndex = 0;
+            }
+
+            UpdateSystemTickerText();
+        }
+
+        private void UpdateSystemTickerText()
+        {
+            if (SystemTickerText == null)
+            {
+                return;
+            }
+
+            if (_systemTickerMessages.Count == 0)
+            {
+                SystemTickerText.Text = I18n.T("SystemPanel_TickerDefault");
+                return;
+            }
+
+            SystemTickerText.Text = _systemTickerMessages[_systemTickerIndex];
+        }
+
+        private void SystemTickerTimer_Tick(object sender, EventArgs e)
+        {
+            if (_systemTickerMessages.Count <= 1)
+            {
+                UpdateSystemTickerText();
+                return;
+            }
+
+            _systemTickerIndex = (_systemTickerIndex + 1) % _systemTickerMessages.Count;
+            UpdateSystemTickerText();
+        }
+
+        private void ApplySystemPanelMode()
+        {
+            if (SystemPanelRoot != null)
+            {
+                SystemPanelRoot.Padding = _isSystemPanelCompactMode
+                    ? new Thickness(10, 10, 10, 8)
+                    : new Thickness(12);
+            }
+
+            if (SystemSkillColumn != null)
+            {
+                SystemSkillColumn.Width = _isSystemPanelCompactMode
+                    ? new GridLength(0)
+                    : new GridLength(1.4, GridUnitType.Star);
+            }
+
+            if (SystemSkillTreeSection != null)
+            {
+                SystemSkillTreeSection.Visibility = _isSystemPanelCompactMode ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            if (SystemSummarySection != null)
+            {
+                Grid.SetColumnSpan(SystemSummarySection, _isSystemPanelCompactMode ? 2 : 1);
+                SystemSummarySection.Margin = _isSystemPanelCompactMode
+                    ? new Thickness(0)
+                    : new Thickness(0, 0, 10, 0);
+            }
+
+            if (FocusBoardDetailSection != null)
+            {
+                FocusBoardDetailSection.Visibility = _isSystemPanelCompactMode ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            if (SystemNarrativeText != null)
+            {
+                SystemNarrativeText.Visibility = _isSystemPanelCompactMode ? Visibility.Collapsed : Visibility.Visible;
+                SystemNarrativeText.MaxHeight = _isSystemPanelCompactMode ? 0 : 36;
+                SystemNarrativeText.TextTrimming = _isSystemPanelCompactMode ? TextTrimming.CharacterEllipsis : TextTrimming.None;
+            }
+
+            if (SystemTickerBanner != null)
+            {
+                SystemTickerBanner.Margin = _isSystemPanelCompactMode
+                    ? new Thickness(0, 0, 0, 0)
+                    : new Thickness(0, 0, 0, 8);
+            }
+
+            if (SystemPanelToggleButton != null)
+            {
+                SystemPanelToggleButton.Content = _isSystemPanelCompactMode
+                    ? I18n.T("SystemPanel_ButtonExpand")
+                    : I18n.T("SystemPanel_ButtonCompact");
+            }
+        }
+
+        private static void ApplySkillTreeNode(
+            SystemSkillNodeSnapshot node,
+            Border card,
+            TextBlock nameBlock,
+            TextBlock levelBlock,
+            TextBlock metaBlock)
+        {
+            if (card == null || nameBlock == null || levelBlock == null || metaBlock == null)
+            {
+                return;
+            }
+
+            if (node == null)
+            {
+                nameBlock.Text = I18n.T("SystemPanel_SkillFallback");
+                levelBlock.Text = I18n.Tf("SystemPanel_SkillNodeLevelFormat", 1);
+                metaBlock.Text = I18n.T("SystemPanel_SkillNodeLocked");
+                card.ToolTip = null;
+                return;
+            }
+
+            nameBlock.Text = node.Title;
+            levelBlock.Text = I18n.Tf("SystemPanel_SkillNodeLevelFormat", node.Level);
+            metaBlock.Text = node.MetaText;
+            card.ToolTip = node.ToolTipText;
+        }
+
+        private async void SkillTreeCard_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is Border card) || !_skillTreeNodeMap.TryGetValue(card, out var node) || node == null)
+            {
+                return;
+            }
+
+            await ExecuteSystemSkillNodeAsync(node);
+        }
+
+        private async Task ExecuteSystemSkillNodeAsync(SystemSkillNodeSnapshot node)
+        {
+            if (node == null || string.IsNullOrWhiteSpace(node.SkillId))
+            {
+                return;
+            }
+
+            var task = FindBestTaskForSkill(node.SkillId);
+            if (task == null)
+            {
+                MessageBox.Show(I18n.T("SystemPanel_NoSkillContext"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var sourceGrid = FindContainingGrid(task);
+            if (sourceGrid == null)
+            {
+                MessageBox.Show(I18n.T("Message_TaskQuadrantNotFound"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            FocusTaskInBoard(task);
+
+            TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
+            var recommendation = ThinkingToolAdvisor.RecommendForTask(task.Task, task.Importance, task.Urgency, inactiveDuration, 8)
+                .FirstOrDefault(r => string.Equals(r.SkillId, node.SkillId, StringComparison.OrdinalIgnoreCase));
+
+            if (recommendation == null)
+            {
+                recommendation = new ThinkingToolRecommendation
+                {
+                    SkillId = node.SkillId,
+                    Title = node.Title,
+                    Why = node.MetaText,
+                    NextStep = I18n.T("SystemPanel_SkillNodeNextStepFallback"),
+                    Confidence = 0.6
+                };
+            }
+
+            await ExecuteThinkingToolForTaskAsync(task, sourceGrid, recommendation);
+        }
+
+        private void SystemPanelToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isSystemPanelCompactMode = !_isSystemPanelCompactMode;
+            ApplySystemPanelMode();
+        }
+
+        private ItemGrid FindBestTaskForSkill(string skillId)
+        {
+            var tasks = GetAllQuadrantTasks()
+                .Where(t => t != null && t.IsActive && !string.IsNullOrWhiteSpace(t.Task))
+                .ToList();
+
+            if (tasks.Count == 0)
+            {
+                return null;
+            }
+
+            return tasks
+                .Select(task => new
+                {
+                    Task = task,
+                    Recommendation = ThinkingToolAdvisor.RecommendForTask(
+                        task.Task,
+                        task.Importance,
+                        task.Urgency,
+                        DateTime.Now - task.LastProgressDate,
+                        8).FirstOrDefault(r => string.Equals(r.SkillId, skillId, StringComparison.OrdinalIgnoreCase))
+                })
+                .Where(x => x.Recommendation != null)
+                .OrderByDescending(x => x.Recommendation.Confidence)
+                .ThenByDescending(x => string.Equals(x.Task.Importance, "High", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(x => string.Equals(x.Task.Urgency, "High", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(x => x.Task.Score)
+                .Select(x => x.Task)
+                .FirstOrDefault()
+                ?? _primaryFocusTask
+                ?? _stuckFocusTask
+                ?? tasks.FirstOrDefault();
+        }
+
+        private void UpdateQuadrantCounts()
+        {
+            UpdateQuadrantCountText(Quadrant1CountText, task1?.ItemsSource as IEnumerable<ItemGrid>);
+            UpdateQuadrantCountText(Quadrant2CountText, task2?.ItemsSource as IEnumerable<ItemGrid>);
+            UpdateQuadrantCountText(Quadrant3CountText, task3?.ItemsSource as IEnumerable<ItemGrid>);
+            UpdateQuadrantCountText(Quadrant4CountText, task4?.ItemsSource as IEnumerable<ItemGrid>);
+        }
+
+        private static void UpdateQuadrantCountText(TextBlock target, IEnumerable<ItemGrid> tasks)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            int count = tasks?.Count(t => t != null && t.IsActive && !string.IsNullOrWhiteSpace(t.Task)) ?? 0;
+            target.Text = count.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static void ApplyFocusCard(
+            ItemGrid task,
+            string meta,
+            TextBlock titleBlock,
+            TextBlock metaBlock,
+            Button actionButton,
+            string emptyText)
+        {
+            if (titleBlock == null || metaBlock == null || actionButton == null)
+            {
+                return;
+            }
+
+            if (task == null)
+            {
+                titleBlock.Text = emptyText;
+                metaBlock.Text = I18n.T("FocusBoard_EmptyMeta");
+                actionButton.IsEnabled = false;
+                return;
+            }
+
+            titleBlock.Text = task.Task;
+            metaBlock.Text = string.IsNullOrWhiteSpace(meta) ? I18n.T("FocusBoard_EmptyMeta") : meta;
+            actionButton.IsEnabled = true;
         }
 
 
@@ -4550,6 +5299,62 @@ namespace TimeTask
             if (task2?.SelectedItem is ItemGrid b) return b;
             if (task3?.SelectedItem is ItemGrid c) return c;
             if (task4?.SelectedItem is ItemGrid d) return d;
+            return null;
+        }
+
+        private void PrimaryFocusButton_Click(object sender, RoutedEventArgs e)
+        {
+            FocusTaskInBoard(_primaryFocusTask);
+        }
+
+        private void ReminderFocusButton_Click(object sender, RoutedEventArgs e)
+        {
+            FocusTaskInBoard(_reminderFocusTask);
+        }
+
+        private void StuckFocusButton_Click(object sender, RoutedEventArgs e)
+        {
+            FocusTaskInBoard(_stuckFocusTask);
+        }
+
+        private void FocusTaskInBoard(ItemGrid task)
+        {
+            if (task == null)
+            {
+                return;
+            }
+
+            var grid = FindContainingGrid(task);
+            if (grid == null)
+            {
+                return;
+            }
+
+            ClearQuadrantSelections();
+            grid.SelectedItem = task;
+            grid.ScrollIntoView(task);
+            grid.Focus();
+        }
+
+        private void ClearQuadrantSelections()
+        {
+            if (task1 != null) task1.SelectedItem = null;
+            if (task2 != null) task2.SelectedItem = null;
+            if (task3 != null) task3.SelectedItem = null;
+            if (task4 != null) task4.SelectedItem = null;
+        }
+
+        private DataGrid FindContainingGrid(ItemGrid task)
+        {
+            if (task == null)
+            {
+                return null;
+            }
+
+            if (task1?.ItemsSource is List<ItemGrid> q1 && q1.Contains(task)) return task1;
+            if (task2?.ItemsSource is List<ItemGrid> q2 && q2.Contains(task)) return task2;
+            if (task3?.ItemsSource is List<ItemGrid> q3 && q3.Contains(task)) return task3;
+            if (task4?.ItemsSource is List<ItemGrid> q4 && q4.Contains(task)) return task4;
             return null;
         }
 

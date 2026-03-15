@@ -1,6 +1,6 @@
-# TimeTask 任务管理助手
+# 命途OS / QuestOS
 
-将任务按“重要/紧急”四象限管理，支持提醒、目标规划、语音草稿与智能建议。
+将任务按“重要/紧急”四象限组织，结合长期主线、提醒、语音草稿与 AI 引导，帮助用户像推进主线任务一样完成工作与人生目标。
 
 [![Release](https://img.shields.io/github/v/release/showkeyjar/TimeTask)](https://github.com/showkeyjar/TimeTask/releases/latest)
 [![License](https://img.shields.io/github/license/showkeyjar/TimeTask)](https://github.com/showkeyjar/TimeTask/blob/HEAD/LICENSE)
