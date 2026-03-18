@@ -48,11 +48,29 @@
 
         <!-- 按钮栏 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="15">
+            <Button x:Name="ImportButton" Content="{local:Loc Key=DraftViewer_ButtonImport}" Width="100" Height="35" Margin="0,0,10,0" Click="ImportButton_Click"/>
             <Button x:Name="AddToTaskButton" Content="{local:Loc Key=DraftViewer_ButtonAddSelected}" Width="100" Height="35" Margin="0,0,10,0" Click="AddToTaskButton_Click"/>
             <Button x:Name="AddAllButton" Content="{local:Loc Key=DraftViewer_ButtonAddAll}" Width="120" Height="35" Margin="0,0,10,0" Click="AddAllButton_Click"/>
             <Button x:Name="IgnoreButton" Content="{local:Loc Key=DraftViewer_ButtonIgnore}" Width="80" Height="35" Margin="0,0,10,0" Click="IgnoreButton_Click"/>
             <Button x:Name="ClearAllButton" Content="{local:Loc Key=DraftViewer_ButtonClear}" Width="80" Height="35" Margin="0,0,10,0" Click="ClearAllButton_Click"/>
             <Button x:Name="CloseButton" Content="{local:Loc Key=DraftViewer_ButtonClose}" Width="80" Height="35" Click="CloseButton_Click"/>
         </StackPanel>
+
+        <!-- 导入进度遮罩 -->
+        <Border x:Name="ImportProgressOverlay"
+                Grid.RowSpan="3"
+                Background="#CCFFFFFF"
+                Visibility="Collapsed"
+                Panel.ZIndex="10">
+            <Border BorderThickness="1" BorderBrush="#DDDDDD" Background="#F8F8F8" CornerRadius="6"
+                    Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Width="360">
+                    <TextBlock x:Name="ImportProgressText" Text="{local:Loc Key=DraftViewer_ImportProgressPreparing}"
+                               FontSize="14" FontWeight="SemiBold" Foreground="#333333" TextAlignment="Center"/>
+                    <ProgressBar x:Name="ImportProgressBar" Height="12" Margin="0,12,0,0"
+                                 IsIndeterminate="True" Minimum="0" Maximum="100"/>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Window>

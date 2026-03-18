@@ -1,0 +1,66 @@
+<Window x:Class="TimeTask.ImportPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TimeTask"
+        Title="{local:Loc Key=DraftViewer_ImportPreviewTitle}"
+        Width="860"
+        Height="560"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="{local:Loc Key=DraftViewer_ImportPreviewHint}" FontWeight="Bold"/>
+            <TextBlock Text="{Binding SummaryText}" Foreground="Gray" Margin="0,6,0,0"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="1"
+                  x:Name="PreviewGrid"
+                  Margin="0,12,0,12"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="False">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSelectable}" Value="False">
+                            <Setter Property="Foreground" Value="Gray"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColSelect}"
+                                        Binding="{Binding IsSelected, Mode=TwoWay}">
+                    <DataGridCheckBoxColumn.ElementStyle>
+                        <Style TargetType="CheckBox">
+                            <Setter Property="IsEnabled" Value="{Binding IsSelectable}"/>
+                        </Style>
+                    </DataGridCheckBoxColumn.ElementStyle>
+                    <DataGridCheckBoxColumn.EditingElementStyle>
+                        <Style TargetType="CheckBox">
+                            <Setter Property="IsEnabled" Value="{Binding IsSelectable}"/>
+                        </Style>
+                    </DataGridCheckBoxColumn.EditingElementStyle>
+                </DataGridCheckBoxColumn>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColTask}" Width="*" Binding="{Binding Title}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColOwner}" Width="120" Binding="{Binding Owner}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColStart}" Width="120" Binding="{Binding StartDate, StringFormat='yyyy-MM-dd'}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColReminder}" Width="140" Binding="{Binding ReminderTime, StringFormat='yyyy-MM-dd HH:mm'}"/>
+                <DataGridTextColumn Header="{local:Loc Key=DraftViewer_ImportPreviewColConfidence}" Width="90" Binding="{Binding Confidence, StringFormat='F2'}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="110" Height="32" Margin="0,0,8,0" Click="SelectAllButton_Click" Content="{local:Loc Key=DraftViewer_ImportPreviewSelectAll}"/>
+            <Button Width="110" Height="32" Margin="0,0,8,0" Click="SelectNoneButton_Click" Content="{local:Loc Key=DraftViewer_ImportPreviewSelectNone}"/>
+            <Button Width="120" Height="32" Margin="0,0,8,0" Click="ImportButton_Click" Content="{local:Loc Key=DraftViewer_ImportPreviewImport}"/>
+            <Button Width="90" Height="32" Click="CancelButton_Click" Content="{local:Loc Key=DraftViewer_ImportPreviewCancel}"/>
+        </StackPanel>
+    </Grid>
+</Window>

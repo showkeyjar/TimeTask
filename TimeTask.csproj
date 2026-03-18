@@ -15,6 +15,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <LangVersion>9.0</LangVersion>
+    <RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -62,6 +63,7 @@
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.0.4" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="NPOI" Version="2.6.2" />
     <PackageReference Include="Npgsql" Version="6.0.11" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
@@ -218,6 +220,17 @@
     <Compile Include="DraftViewerWindow.xaml.cs">
       <DependentUpon>DraftViewerWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ImportPlanTaskService.cs" />
+    <Compile Include="ImportUserNameStore.cs" />
+    <Compile Include="ImportUserNamePromptWindow.xaml.cs">
+      <DependentUpon>ImportUserNamePromptWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ImportPreviewWindow.xaml.cs">
+      <DependentUpon>ImportPreviewWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SkillTreeWindow.xaml.cs">
+      <DependentUpon>SkillTreeWindow.xaml</DependentUpon>
+    </Compile>
     <Page Include="SmartQuadrantSelectorWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -235,6 +248,18 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="DraftViewerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ImportUserNamePromptWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ImportPreviewWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="SkillTreeWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

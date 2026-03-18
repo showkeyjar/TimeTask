@@ -1247,8 +1247,98 @@
   <data name="DraftViewer_ButtonClose" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <data name="DraftViewer_ButtonImport" xml:space="preserve">
+    <value>导入</value>
+  </data>
   <data name="DraftViewer_CountFormat" xml:space="preserve">
     <value>({0} 个)</value>
+  </data>
+  <data name="DraftViewer_Import_Filter" xml:space="preserve">
+    <value>项目规划文件 (*.xlsx;*.xls;*.docx)|*.xlsx;*.xls;*.docx</value>
+  </data>
+  <data name="DraftViewer_ImportNeedName" xml:space="preserve">
+    <value>请先输入姓名或别名，用于过滤团队计划中的个人任务。</value>
+  </data>
+  <data name="DraftViewer_ImportNoTasks" xml:space="preserve">
+    <value>未识别到可导入的任务，请检查文件格式或表头。</value>
+  </data>
+  <data name="DraftViewer_ImportAllFiltered" xml:space="preserve">
+    <value>未找到与你姓名匹配的任务，可在姓名设置中添加别名后重试。</value>
+  </data>
+  <data name="DraftViewer_ImportResultFormat" xml:space="preserve">
+    <value>导入完成：新增 {0} 条，过滤 {1} 条，失败 {2} 条，LLM补全 {3} 条。</value>
+  </data>
+  <data name="DraftViewer_ImportFailedFormat" xml:space="preserve">
+    <value>导入失败：{0}</value>
+  </data>
+  <data name="DraftViewer_ImportProgressPreparing" xml:space="preserve">
+    <value>正在准备导入...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressExtracting" xml:space="preserve">
+    <value>正在读取文件...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressParsing" xml:space="preserve">
+    <value>正在解析任务...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressParsingFormat" xml:space="preserve">
+    <value>正在解析任务 {0}/{1}...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressCompleted" xml:space="preserve">
+    <value>解析完成，准备预览...</value>
+  </data>
+  <data name="DraftViewer_ImportNameTitle" xml:space="preserve">
+    <value>设置姓名</value>
+  </data>
+  <data name="DraftViewer_ImportNameHint" xml:space="preserve">
+    <value>请输入你的姓名或别名（用于匹配团队计划中的负责人）。可用逗号分隔多个别名。</value>
+  </data>
+  <data name="DraftViewer_ImportNamePlaceholder" xml:space="preserve">
+    <value>例如：张三, ZS</value>
+  </data>
+  <data name="DraftViewer_ImportNameRemember" xml:space="preserve">
+    <value>记住并用于后续导入</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewTitle" xml:space="preserve">
+    <value>导入预览</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewHint" xml:space="preserve">
+    <value>请选择要导入草稿的任务</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColSelect" xml:space="preserve">
+    <value>选择</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColTask" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColOwner" xml:space="preserve">
+    <value>负责人</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColStart" xml:space="preserve">
+    <value>开始日期</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColReminder" xml:space="preserve">
+    <value>提醒时间</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColConfidence" xml:space="preserve">
+    <value>置信度</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSelectNone" xml:space="preserve">
+    <value>全不选</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewImport" xml:space="preserve">
+    <value>导入选中</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewNoneSelected" xml:space="preserve">
+    <value>请至少选择一条任务。</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSummaryFormat" xml:space="preserve">
+    <value>总计 {0} 条，可选 {1} 条，过滤 {2} 条，失败 {3} 条，LLM补全 {4} 条。</value>
   </data>
   <data name="DraftViewer_SelectDraftFirst" xml:space="preserve">
     <value>请先选择草稿</value>
@@ -1324,5 +1414,41 @@
   </data>
   <data name="Reminder_EditorSelectValidTime" xml:space="preserve">
     <value>请选择有效的提醒时间。</value>
+  </data>
+  <data name="Button_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Strategy_Button_SkillTree" xml:space="preserve">
+    <value>技能树</value>
+  </data>
+  <data name="SkillTree_Window_Title" xml:space="preserve">
+    <value>技能树</value>
+  </data>
+  <data name="SkillTree_Header" xml:space="preserve">
+    <value>目标科技树</value>
+  </data>
+  <data name="SkillTree_Subtitle" xml:space="preserve">
+    <value>展示长期目标、学习计划与任务分解的路径</value>
+  </data>
+  <data name="SkillTree_Status_NotStarted" xml:space="preserve">
+    <value>未开始</value>
+  </data>
+  <data name="SkillTree_Status_InProgress" xml:space="preserve">
+    <value>进行中</value>
+  </data>
+  <data name="SkillTree_Status_Completed" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="SkillTree_Group_Unscheduled" xml:space="preserve">
+    <value>未安排阶段</value>
+  </data>
+  <data name="SkillTree_Group_StageFormat" xml:space="preserve">
+    <value>阶段 {0}</value>
+  </data>
+  <data name="SkillTree_UnnamedTask" xml:space="preserve">
+    <value>未命名任务</value>
   </data>
 </root>

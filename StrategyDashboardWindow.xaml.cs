@@ -17,11 +17,13 @@ namespace TimeTask
 
     public partial class StrategyDashboardWindow : Window
     {
+        private readonly string _dataPath;
         private readonly string _strategyPath;
 
         public StrategyDashboardWindow(string dataPath)
         {
             InitializeComponent();
+            _dataPath = dataPath;
             _strategyPath = Path.Combine(dataPath, "strategy");
             LoadDashboard();
         }
@@ -29,6 +31,15 @@ namespace TimeTask
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
             LoadDashboard();
+        }
+
+        private void SkillTreeButton_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new SkillTreeWindow(_dataPath)
+            {
+                Owner = this
+            };
+            window.ShowDialog();
         }
 
         private void LoadDashboard()

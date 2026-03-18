@@ -953,6 +953,96 @@ Please check logs: {0}</value>
   <data name="DraftViewer_ButtonClose" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="DraftViewer_ButtonImport" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="DraftViewer_Import_Filter" xml:space="preserve">
+    <value>Planning files (*.xlsx;*.xls;*.docx)|*.xlsx;*.xls;*.docx</value>
+  </data>
+  <data name="DraftViewer_ImportNeedName" xml:space="preserve">
+    <value>Please enter your name or aliases to filter personal tasks.</value>
+  </data>
+  <data name="DraftViewer_ImportNoTasks" xml:space="preserve">
+    <value>No tasks were detected. Please check the file format or headers.</value>
+  </data>
+  <data name="DraftViewer_ImportAllFiltered" xml:space="preserve">
+    <value>No tasks matched your name. Add an alias and try again.</value>
+  </data>
+  <data name="DraftViewer_ImportResultFormat" xml:space="preserve">
+    <value>Import complete: added {0}, filtered {1}, failed {2}, LLM refined {3}.</value>
+  </data>
+  <data name="DraftViewer_ImportFailedFormat" xml:space="preserve">
+    <value>Import failed: {0}</value>
+  </data>
+  <data name="DraftViewer_ImportProgressPreparing" xml:space="preserve">
+    <value>Preparing import...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressExtracting" xml:space="preserve">
+    <value>Reading file...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressParsing" xml:space="preserve">
+    <value>Parsing tasks...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressParsingFormat" xml:space="preserve">
+    <value>Parsing tasks {0}/{1}...</value>
+  </data>
+  <data name="DraftViewer_ImportProgressCompleted" xml:space="preserve">
+    <value>Parsing complete, preparing preview...</value>
+  </data>
+  <data name="DraftViewer_ImportNameTitle" xml:space="preserve">
+    <value>Set Name</value>
+  </data>
+  <data name="DraftViewer_ImportNameHint" xml:space="preserve">
+    <value>Enter your name or aliases for matching owners. Use commas to separate aliases.</value>
+  </data>
+  <data name="DraftViewer_ImportNamePlaceholder" xml:space="preserve">
+    <value>e.g. Alex, A. Li</value>
+  </data>
+  <data name="DraftViewer_ImportNameRemember" xml:space="preserve">
+    <value>Remember for future imports</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewTitle" xml:space="preserve">
+    <value>Import Preview</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewHint" xml:space="preserve">
+    <value>Select tasks to import into drafts</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColSelect" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColTask" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColOwner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColStart" xml:space="preserve">
+    <value>Start Date</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColReminder" xml:space="preserve">
+    <value>Reminder</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewColConfidence" xml:space="preserve">
+    <value>Confidence</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSelectAll" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSelectNone" xml:space="preserve">
+    <value>Select None</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewImport" xml:space="preserve">
+    <value>Import Selected</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewNoneSelected" xml:space="preserve">
+    <value>Please select at least one task.</value>
+  </data>
+  <data name="DraftViewer_ImportPreviewSummaryFormat" xml:space="preserve">
+    <value>Total {0}, selectable {1}, filtered {2}, failed {3}, LLM refined {4}.</value>
+  </data>
   <data name="AddTask_SuggestionFormat" xml:space="preserve">
     <value>AI suggested quadrant ({0}): {1}</value>
   </data>
@@ -1222,5 +1312,41 @@ Please check logs: {0}</value>
   </data>
   <data name="AddTask_SmartPreviewNoReminderFormat" xml:space="preserve">
     <value>Preview: this will be added to "{0}" without a reminder.</value>
+  </data>
+  <data name="Button_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Strategy_Button_SkillTree" xml:space="preserve">
+    <value>Skill Tree</value>
+  </data>
+  <data name="SkillTree_Window_Title" xml:space="preserve">
+    <value>Skill Tree</value>
+  </data>
+  <data name="SkillTree_Header" xml:space="preserve">
+    <value>Goal Skill Tree</value>
+  </data>
+  <data name="SkillTree_Subtitle" xml:space="preserve">
+    <value>See long-term goals, learning plans, and task paths</value>
+  </data>
+  <data name="SkillTree_Status_NotStarted" xml:space="preserve">
+    <value>Not Started</value>
+  </data>
+  <data name="SkillTree_Status_InProgress" xml:space="preserve">
+    <value>In Progress</value>
+  </data>
+  <data name="SkillTree_Status_Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="SkillTree_Group_Unscheduled" xml:space="preserve">
+    <value>Unscheduled</value>
+  </data>
+  <data name="SkillTree_Group_StageFormat" xml:space="preserve">
+    <value>Stage {0}</value>
+  </data>
+  <data name="SkillTree_UnnamedTask" xml:space="preserve">
+    <value>Unnamed Task</value>
   </data>
 </root>

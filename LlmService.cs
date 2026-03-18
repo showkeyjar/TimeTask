@@ -82,6 +82,21 @@ namespace TimeTask
         public double Confidence { get; set; }
     }
 
+    public class LlmImportTask
+    {
+        [JsonPropertyName("title")]
+        public string Title { get; set; }
+
+        [JsonPropertyName("owner")]
+        public string Owner { get; set; }
+
+        [JsonPropertyName("start_date")]
+        public string StartDate { get; set; }
+
+        [JsonPropertyName("confidence")]
+        public double Confidence { get; set; }
+    }
+
     public class LlmService : ILlmService
     {
         private IOpenAIService _openAiService;
@@ -171,6 +186,22 @@ namespace TimeTask
             "Extract ONLY tasks that the user should do. " +
             "Return a JSON array of strings. Do not include any extra text.\n" +
             "Conversation:\n";
+
+        private const string ImportTaskParsePrompt = @"
+You are an assistant helping extract personal tasks from project plan text.
+Return ONLY a JSON object with fields: ""title"", ""owner"", ""start_date"", ""confidence"".
+- ""title"": concise task title.
+- ""owner"": person responsible, or empty string if not mentioned.
+- ""start_date"": yyyy-MM-dd if found, else empty string.
+- ""confidence"": 0 to 1.
+
+Raw Text:
+{raw}
+
+Context:
+{context}
+
+Return only JSON, no extra text.";
 
         private const string GoalDecompositionSystemPrompt = @"
       You are an expert goal planning assistant. Your task is to take a user's long-term goal and a specified duration, and break it down into a series of smaller, actionable daily tasks. For each task, you must also categorize it into one of four quadrants based on its importance and urgency, and provide an estimated time for completion.
@@ -976,6 +1007,67 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .ToList();
             return lines;
+        }
+
+        public async Task<ParsedImportTask> ParseImportTaskAsync(string rawText, string contextText)
+        {
+            if (string.IsNullOrWhiteSpace(rawText))
+            {
+                return null;
+            }
+
+            string prompt = ImportTaskParsePrompt
+                .Replace("{raw}", rawText)
+                .Replace("{context}", contextText ?? string.Empty);
+
+            string llmResponse = await GetCompletionAsync(prompt);
+            if (IsErrorResponse(llmResponse))
+            {
+                return null;
+            }
+
+            try
+            {
+                string cleaned = llmResponse.Trim();
+                if (cleaned.StartsWith("```", StringComparison.Ordinal))
+                {
+                    int firstLineEnd = cleaned.IndexOf('\n');
+                    if (firstLineEnd >= 0)
+                    {
+                        cleaned = cleaned.Substring(firstLineEnd + 1);
+                    }
+                    if (cleaned.EndsWith("```", StringComparison.Ordinal))
+                    {
+                        cleaned = cleaned.Substring(0, cleaned.Length - 3);
+                    }
+                    cleaned = cleaned.Trim();
+                }
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var parsed = JsonSerializer.Deserialize<LlmImportTask>(cleaned, options);
+                if (parsed == null)
+                {
+                    return null;
+                }
+
+                DateTime? startDate = null;
+                if (!string.IsNullOrWhiteSpace(parsed.StartDate) && DateTime.TryParse(parsed.StartDate, out DateTime sd))
+                {
+                    startDate = sd.Date;
+                }
+
+                return new ParsedImportTask
+                {
+                    Title = parsed.Title?.Trim(),
+                    Owner = parsed.Owner?.Trim(),
+                    StartDate = startDate,
+                    Confidence = parsed.Confidence
+                };
+            }
+            catch
+            {
+                return null;
+            }
         }
         
         private void LoadLlmConfig() // Renamed and updated

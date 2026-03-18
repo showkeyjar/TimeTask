@@ -21,14 +21,24 @@
                     <TextBlock Text="{local:Loc Key=Strategy_Header}" FontSize="22" FontWeight="Bold" Foreground="#1F2937"/>
                     <TextBlock x:Name="GeneratedAtText" Text="{local:Loc Key=Strategy_LastUpdatedDefault}" Foreground="#6B7280" Margin="0,4,0,0"/>
                 </StackPanel>
-                <Button Content="{local:Loc Key=Button_Refresh}"
-                        Width="88"
-                        Height="32"
-                        HorizontalAlignment="Right"
-                        Click="RefreshButton_Click"
-                        Background="#2563EB"
-                        Foreground="White"
-                        BorderBrush="#1D4ED8"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="{local:Loc Key=Strategy_Button_SkillTree}"
+                            Width="88"
+                            Height="32"
+                            Margin="0,0,8,0"
+                            Click="SkillTreeButton_Click"
+                            Background="#10B981"
+                            Foreground="White"
+                            BorderBrush="#059669"/>
+                    <Button Content="{local:Loc Key=Button_Refresh}"
+                            Width="88"
+                            Height="32"
+                            HorizontalAlignment="Right"
+                            Click="RefreshButton_Click"
+                            Background="#2563EB"
+                            Foreground="White"
+                            BorderBrush="#1D4ED8"/>
+                </StackPanel>
             </DockPanel>
         </Border>
 

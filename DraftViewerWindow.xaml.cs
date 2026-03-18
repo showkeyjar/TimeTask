@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 
 namespace TimeTask
 {
@@ -12,11 +13,16 @@ namespace TimeTask
     public partial class DraftViewerWindow : Window
     {
         private readonly TaskDraftManager _draftManager;
+        private readonly LlmService _llmService;
+        private bool _isClosed;
+        private bool _isImporting;
 
-        public DraftViewerWindow(TaskDraftManager draftManager)
+        public DraftViewerWindow(TaskDraftManager draftManager, LlmService llmService)
         {
             InitializeComponent();
             _draftManager = draftManager ?? throw new ArgumentNullException(nameof(draftManager));
+            _llmService = llmService;
+            Closed += (_, __) => _isClosed = true;
 
             LoadDrafts();
         }
@@ -181,6 +187,212 @@ namespace TimeTask
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private async void ImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isImporting)
+            {
+                return;
+            }
+
+            var openDialog = new OpenFileDialog
+            {
+                Filter = I18n.T("DraftViewer_Import_Filter"),
+                Multiselect = false
+            };
+
+            if (openDialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            var nameStore = new ImportUserNameStore();
+            var aliases = nameStore.GetAliases();
+            if (aliases.Count == 0)
+            {
+                var nameDialog = new ImportUserNamePromptWindow(nameStore.GetKnownNames());
+                var safeOwner = GetSafeOwner();
+                if (safeOwner != null)
+                {
+                    nameDialog.Owner = safeOwner;
+                }
+                if (nameDialog.ShowDialog() != true)
+                {
+                    return;
+                }
+                aliases = nameDialog.GetAliases();
+                if (aliases.Count == 0)
+                {
+                    MessageBox.Show(I18n.T("DraftViewer_ImportNeedName"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                nameStore.SaveAliases(aliases, nameDialog.RememberChoice);
+            }
+
+            ImportResult result;
+            ImportPreviewResult preview;
+            _isImporting = true;
+            SetImportBusy(true, I18n.T("DraftViewer_ImportProgressPreparing"));
+            try
+            {
+                var service = new ImportPlanTaskService(_llmService);
+                var progress = new Progress<ImportProgress>(UpdateImportProgress);
+                preview = await service.BuildPreviewAsync(openDialog.FileName, aliases, progress);
+                if (_isClosed)
+                {
+                    return;
+                }
+                SetImportBusy(false);
+                if (preview.TotalCandidates == 0 || preview.Items.Count == 0)
+                {
+                    MessageBox.Show(I18n.T("DraftViewer_ImportNoTasks"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var previewWindow = new ImportPreviewWindow(preview);
+                var safeOwner = GetSafeOwner();
+                if (safeOwner != null)
+                {
+                    previewWindow.Owner = safeOwner;
+                }
+                if (previewWindow.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                var selectedItems = previewWindow.GetSelectedItems();
+                if (selectedItems.Count == 0)
+                {
+                    MessageBox.Show(I18n.T("DraftViewer_ImportPreviewNoneSelected"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                result = service.ImportPreviewToDrafts(selectedItems, _draftManager);
+                result.Filtered = preview.Filtered;
+                result.LlmUsed = preview.LlmUsed;
+                result.TotalCandidates = preview.TotalCandidates;
+            }
+            catch (Exception ex)
+            {
+                if (!_isClosed)
+                {
+                    SetImportBusy(false);
+                }
+                MessageBox.Show(I18n.Tf("DraftViewer_ImportFailedFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            finally
+            {
+                _isImporting = false;
+                SetImportBusy(false);
+            }
+
+            LoadDrafts();
+
+            if (result.Imported == 0 && result.Filtered > 0)
+            {
+                MessageBox.Show(I18n.T("DraftViewer_ImportAllFiltered"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            MessageBox.Show(I18n.Tf("DraftViewer_ImportResultFormat", result.Imported, result.Filtered, result.Failed, result.LlmUsed), I18n.T("Title_Done"), MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private Window GetSafeOwner()
+        {
+            if (!_isClosed && IsLoaded)
+            {
+                return this;
+            }
+
+            var active = Application.Current?.Windows?.OfType<Window>()
+                .FirstOrDefault(w => w != null && w.IsLoaded);
+            if (active != null)
+            {
+                return active;
+            }
+
+            var main = Application.Current?.MainWindow;
+            if (main != null && main.IsLoaded)
+            {
+                return main;
+            }
+
+            return null;
+        }
+
+        private void UpdateImportProgress(ImportProgress progress)
+        {
+            if (progress == null || _isClosed || !IsLoaded)
+            {
+                return;
+            }
+
+            string status;
+            bool indeterminate = true;
+            double? value = null;
+            double? max = null;
+
+            switch (progress.Stage)
+            {
+                case ImportProgressStage.Preparing:
+                    status = I18n.T("DraftViewer_ImportProgressPreparing");
+                    break;
+                case ImportProgressStage.Extracting:
+                    status = I18n.T("DraftViewer_ImportProgressExtracting");
+                    break;
+                case ImportProgressStage.Parsing:
+                    if (progress.Total > 0)
+                    {
+                        status = I18n.Tf("DraftViewer_ImportProgressParsingFormat", progress.Current, progress.Total);
+                        indeterminate = false;
+                        value = progress.Current;
+                        max = progress.Total;
+                    }
+                    else
+                    {
+                        status = I18n.T("DraftViewer_ImportProgressParsing");
+                    }
+                    break;
+                case ImportProgressStage.Completed:
+                    status = I18n.T("DraftViewer_ImportProgressCompleted");
+                    break;
+                default:
+                    status = I18n.T("DraftViewer_ImportProgressPreparing");
+                    break;
+            }
+
+            SetImportBusy(true, status, value, max, indeterminate);
+        }
+
+        private void SetImportBusy(bool isBusy, string status = null, double? value = null, double? max = null, bool indeterminate = true)
+        {
+            if (_isClosed || !IsLoaded)
+            {
+                return;
+            }
+
+            ImportProgressOverlay.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                ImportProgressText.Text = status;
+            }
+
+            ImportProgressBar.IsIndeterminate = indeterminate;
+            if (!indeterminate && value.HasValue && max.HasValue)
+            {
+                ImportProgressBar.Minimum = 0;
+                ImportProgressBar.Maximum = max.Value <= 0 ? 1 : max.Value;
+                ImportProgressBar.Value = Math.Max(0, value.Value);
+            }
+
+            DraftsDataGrid.IsEnabled = !isBusy;
+            ImportButton.IsEnabled = !isBusy;
+            AddToTaskButton.IsEnabled = !isBusy;
+            AddAllButton.IsEnabled = !isBusy;
+            IgnoreButton.IsEnabled = !isBusy;
+            ClearAllButton.IsEnabled = !isBusy;
         }
     }
 }

@@ -5142,7 +5142,7 @@ namespace TimeTask
                 return;
             }
 
-            var draftWindow = new DraftViewerWindow(draftManager);
+            var draftWindow = new DraftViewerWindow(draftManager, _llmService);
             draftWindow.Owner = this;
             draftWindow.ShowDialog();
 

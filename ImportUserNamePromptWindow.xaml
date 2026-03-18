@@ -1,0 +1,42 @@
+<Window x:Class="TimeTask.ImportUserNamePromptWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TimeTask"
+        Title="{local:Loc Key=DraftViewer_ImportNameTitle}"
+        Height="260"
+        Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{local:Loc Key=DraftViewer_ImportNameHint}" TextWrapping="Wrap"/>
+
+        <ComboBox Grid.Row="1"
+                  x:Name="KnownNamesComboBox"
+                  Margin="0,12,0,0"
+                  Height="26"
+                  IsEditable="False"
+                  SelectionChanged="KnownNamesComboBox_SelectionChanged"/>
+
+        <TextBox Grid.Row="2"
+                 x:Name="AliasesTextBox"
+                 Margin="0,10,0,0"
+                 Height="26"
+                 ToolTip="{local:Loc Key=DraftViewer_ImportNamePlaceholder}"/>
+
+        <CheckBox Grid.Row="3" x:Name="RememberCheckBox" Margin="0,10,0,0" IsChecked="True"
+                  Content="{local:Loc Key=DraftViewer_ImportNameRemember}"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Width="90" Height="30" Margin="0,0,10,0" Click="OkButton_Click" Content="{local:Loc Key=Button_OK}"/>
+            <Button Width="90" Height="30" Click="CancelButton_Click" Content="{local:Loc Key=Button_Cancel}"/>
+        </StackPanel>
+    </Grid>
+</Window>
