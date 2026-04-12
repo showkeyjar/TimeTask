@@ -22,6 +22,15 @@ namespace TimeTask.Tests
         }
 
         [TestMethod]
+        public void IsPotentialTask_FillerPhrase_ShouldBeFalse()
+        {
+            var recognizer = new IntentRecognizer();
+            Assert.IsFalse(recognizer.IsPotentialTask("对啊"));
+            Assert.IsFalse(recognizer.IsPotentialTask("这个软件"));
+            Assert.IsFalse(recognizer.IsPotentialTask("为什么这个事情要这样弄呢"));
+        }
+
+        [TestMethod]
         public void EstimatePriority_UrgentAndImportant_ShouldReturnHighHigh()
         {
             var recognizer = new IntentRecognizer();

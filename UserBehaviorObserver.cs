@@ -198,6 +198,8 @@ namespace TimeTask
         {
             var taskInteractions = _interactions
                 .Where(i => i.Type == InteractionType.TaskOperation && 
+                           i.Metadata.ContainsKey("operation") &&
+                           IsCreationOperation(i.Metadata["operation"]) &&
                            i.Timestamp > DateTime.Now.AddDays(-14))
                 .ToList();
 
@@ -261,9 +263,8 @@ namespace TimeTask
             );
 
             var taskKeywords = voiceInteractions
-                .Where(i => i.Description != null)
-                .SelectMany(i => Regex.Matches(i.Description, @"[\u4e00-\u9fa5A-Za-z]{2,}").Cast<Match>())
-                .Select(m => m.Value)
+                .Where(i => TaskTextQualityHelper.IsMeaningfulTaskText(i.Description))
+                .SelectMany(i => TaskTextQualityHelper.ExtractKeywords(i.Description, 4))
                 .GroupBy(w => w, StringComparer.Ordinal)
                 .Where(g => g.Count() >= 2)
                 .OrderByDescending(g => g.Count())
@@ -453,19 +454,13 @@ namespace TimeTask
             if (existingPattern != null)
             {
                 existingPattern.LastObserved = DateTime.Now;
-                existingPattern.ObservationCount += observationCount;
+                existingPattern.ObservationCount = observationCount;
                 existingPattern.Description = description;
                 
                 if (frequencyData != null)
                 {
-                    foreach (var kvp in frequencyData)
-                    {
-                        if (!existingPattern.FrequencyByHour.ContainsKey(kvp.Key))
-                        {
-                            existingPattern.FrequencyByHour[kvp.Key] = 0;
-                        }
-                        existingPattern.FrequencyByHour[kvp.Key] += kvp.Value;
-                    }
+                    existingPattern.FrequencyByHour = BuildHourFrequencyMap(frequencyData);
+                    existingPattern.FrequencyByDay = BuildDayFrequencyMap(frequencyData);
                 }
                 
                 PatternDetected?.Invoke(existingPattern);
@@ -481,8 +476,8 @@ namespace TimeTask
                     FirstObserved = DateTime.Now,
                     LastObserved = DateTime.Now,
                     ObservationCount = observationCount,
-                    FrequencyByHour = frequencyData ?? new Dictionary<string, int>(),
-                    FrequencyByDay = new Dictionary<string, int>()
+                    FrequencyByHour = BuildHourFrequencyMap(frequencyData),
+                    FrequencyByDay = BuildDayFrequencyMap(frequencyData)
                 };
                 
                 _patterns.Add(newPattern);
@@ -490,6 +485,41 @@ namespace TimeTask
             }
 
             SavePatterns();
+        }
+
+        private static bool IsCreationOperation(string operation)
+        {
+            if (string.IsNullOrWhiteSpace(operation))
+            {
+                return false;
+            }
+
+            return string.Equals(operation, "add", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(operation, "conversation_extract_add", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Dictionary<string, int> BuildHourFrequencyMap(Dictionary<string, int> frequencyData)
+        {
+            if (frequencyData == null)
+            {
+                return new Dictionary<string, int>();
+            }
+
+            return frequencyData
+                .Where(kv => int.TryParse(kv.Key, out _))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
+        private static Dictionary<string, int> BuildDayFrequencyMap(Dictionary<string, int> frequencyData)
+        {
+            if (frequencyData == null)
+            {
+                return new Dictionary<string, int>();
+            }
+
+            return frequencyData
+                .Where(kv => !int.TryParse(kv.Key, out _))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
         }
 
         private void GenerateInsight(string insightId, string title, string description, 

@@ -437,6 +437,12 @@ namespace TimeTask
         {
             try
             {
+                var taskAnalysis = TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(text);
+                if (!taskAnalysis.IsMeaningfulTask)
+                {
+                    return null;
+                }
+
                 // 提取任务描述
                 string cleanedText = _intentRecognizer.ExtractTaskDescription(text);
                 if (string.IsNullOrWhiteSpace(cleanedText))
@@ -464,7 +470,8 @@ namespace TimeTask
                     Importance = importance,
                     Urgency = urgency,
                     EstimatedQuadrant = quadrant,
-                    Source = "voice"
+                    Source = "voice",
+                    Confidence = Math.Max(confidence, (float)taskAnalysis.StructureScore)
                 };
 
                 _draftManager.AddDraft(draft);
@@ -954,6 +961,7 @@ namespace TimeTask
             double score = ClampConfidence(confidence);
             score += (_intentRecognizer?.ScoreTaskLikelihood(normalized) ?? 0) * 0.25;
             score += ScoreHintMatch(normalized);
+            score += TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(normalized).StructureScore * 0.2;
 
             if (Regex.IsMatch(normalized, @"^(嗯+|啊+|额+|哦+|那个|就是)$", RegexOptions.IgnoreCase))
             {
@@ -1028,8 +1036,9 @@ namespace TimeTask
             });
 
             bool isSystemFallback = _classicFallbackEnabled && string.Equals(source, "system-speech", StringComparison.OrdinalIgnoreCase);
+            var taskAnalysis = TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(text);
             double taskLikelihood = _intentRecognizer.ScoreTaskLikelihood(text);
-            bool reminderLike = _intentRecognizer.IsReminderLike(text);
+            bool reminderLike = _intentRecognizer.IsReminderLike(text) || taskAnalysis.IsReminderCandidate;
             float minConfidence = isSystemFallback
                 ? Math.Max(0.05f, _confidenceThreshold * 0.12f)
                 : _confidenceThreshold * 0.45f;
@@ -1039,10 +1048,10 @@ namespace TimeTask
                 minConfidence = Math.Max(0.15f, minConfidence * 0.6f);
             }
 
-            if (confidence < minConfidence && taskLikelihood < 0.45 && !reminderLike)
+            if (confidence < minConfidence && taskLikelihood < 0.45 && taskAnalysis.StructureScore < 0.35 && !reminderLike)
                 return;
 
-            if (_intentRecognizer.IsPotentialTask(text) || reminderLike)
+            if (taskAnalysis.IsMeaningfulTask && (_intentRecognizer.IsPotentialTask(text) || reminderLike || taskAnalysis.StructureScore >= 0.45))
             {
                 TotalPotentialTasks++;
                 var draft = ProcessPotentialTask(text, confidence);
@@ -1060,7 +1069,7 @@ namespace TimeTask
             }
             else
             {
-                VoiceRuntimeLog.Info($"Skip draft: not task-like. text={text}");
+                VoiceRuntimeLog.Info($"Skip draft: not task-like. text={text}, structure={taskAnalysis.StructureScore:F2}");
             }
 
             BufferConversation(text);

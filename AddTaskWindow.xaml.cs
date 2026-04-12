@@ -435,6 +435,7 @@ namespace TimeTask
         {
             var recognizer = new IntentRecognizer();
             var parser = new VoiceReminderTimeParser();
+            var taskAnalysis = TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(rawText);
             string normalized = string.IsNullOrWhiteSpace(rawText) ? string.Empty : rawText.Trim();
             string extracted = recognizer.ExtractTaskDescription(normalized);
             if (!string.IsNullOrWhiteSpace(extracted))
@@ -446,7 +447,7 @@ namespace TimeTask
             {
                 NormalizedDescription = normalized,
                 TaskLikelihoodScore = recognizer.ScoreTaskLikelihood(rawText),
-                IsPotentialTask = recognizer.IsPotentialTask(rawText)
+                IsPotentialTask = taskAnalysis.IsMeaningfulTask && recognizer.IsPotentialTask(rawText)
             };
 
             if (!string.IsNullOrWhiteSpace(normalized))

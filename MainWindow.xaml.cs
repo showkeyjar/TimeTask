@@ -416,6 +416,7 @@ namespace TimeTask
         private LifeProfileEngine _lifeProfileEngine;
         private DecisionEngine _decisionEngine;
         private WeeklyReviewEngine _weeklyReviewEngine;
+        private VoiceRecognitionQualityEngine _voiceRecognitionQualityEngine;
         private GoalHierarchyEngine _goalHierarchyEngine;
         private System.Windows.Threading.DispatcherTimer _smartSystemTimer;
         private System.Windows.Threading.DispatcherTimer _conversationIdleTimer;
@@ -1184,6 +1185,7 @@ namespace TimeTask
                 _lifeProfileEngine = new LifeProfileEngine(dataPath);
                 _decisionEngine = new DecisionEngine(dataPath, _decisionOptions);
                 _weeklyReviewEngine = new WeeklyReviewEngine(dataPath);
+                _voiceRecognitionQualityEngine = new VoiceRecognitionQualityEngine(dataPath);
                 _goalHierarchyEngine = new GoalHierarchyEngine(dataPath);
 
                 _smartGuidanceManager.ScenarioTriggered += SmartGuidanceManager_ScenarioTriggered;
@@ -1246,6 +1248,7 @@ namespace TimeTask
                 _goalHierarchyEngine?.BuildAndPersist(activeGoals, allTasks, now);
                 var ranked = _decisionEngine?.RankTasks(allTasks, lifeProfile, _activeLongTermGoal?.Id, now) ?? new List<TaskDecisionScore>();
                 _decisionEngine?.PersistSnapshot(ranked, now);
+                _voiceRecognitionQualityEngine?.BuildAndPersist(allTasks, now);
 
                 WeeklyReviewReport weeklyReport = null;
                 bool shouldRunWeekly = force || now.DayOfWeek == _weeklyReviewPublishDay;
@@ -1885,6 +1888,11 @@ namespace TimeTask
         {
             foreach (var taskText in tasks.Take(5))
             {
+                if (!TaskTextQualityHelper.IsMeaningfulTaskText(taskText))
+                {
+                    continue;
+                }
+
                 var intentRecognizer = new IntentRecognizer();
                 var (importance, urgency) = intentRecognizer.EstimatePriority(taskText);
                 var quadrant = intentRecognizer.EstimateQuadrant(importance, urgency);

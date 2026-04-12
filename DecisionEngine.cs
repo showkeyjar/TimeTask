@@ -53,7 +53,13 @@ namespace TimeTask
         public List<TaskDecisionScore> RankTasks(List<ItemGrid> tasks, LifeProfileSnapshot lifeProfile, string activeGoalId, DateTime now)
         {
             tasks ??= new List<ItemGrid>();
-            var activeTasks = tasks.Where(t => t != null && t.IsActive).ToList();
+            var activeTasks = tasks
+                .Where(t => t != null && t.IsActive && TaskTextQualityHelper.IsMeaningfulTaskText(t.Task))
+                .ToList();
+            if (!activeTasks.Any())
+            {
+                activeTasks = tasks.Where(t => t != null && t.IsActive).ToList();
+            }
             lifeProfile ??= new LifeProfileSnapshot();
 
             var ranked = activeTasks

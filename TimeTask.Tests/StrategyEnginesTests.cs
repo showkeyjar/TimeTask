@@ -133,5 +133,21 @@ namespace TimeTask.Tests
             Assert.AreEqual(2, ranked.Count);
             Assert.AreEqual("紧急救火", ranked[0].TaskName);
         }
+
+        [TestMethod]
+        public void DecisionEngine_RankTasks_IgnoresNoiseTasksWhenMeaningfulTasksExist()
+        {
+            var engine = new DecisionEngine(_tempRoot);
+            var tasks = new List<ItemGrid>
+            {
+                new ItemGrid { Task = "对啊", IsActive = true, Importance = "High", Urgency = "High", LastProgressDate = DateTime.Now },
+                new ItemGrid { Task = "现在给他打电话问", IsActive = true, Importance = "Medium", Urgency = "High", LastProgressDate = DateTime.Now }
+            };
+
+            var ranked = engine.RankTasks(tasks, new LifeProfileSnapshot(), null, DateTime.Now);
+
+            Assert.AreEqual(1, ranked.Count);
+            Assert.AreEqual("现在给他打电话问", ranked[0].TaskName);
+        }
     }
 }

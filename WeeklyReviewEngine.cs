@@ -60,9 +60,17 @@ namespace TimeTask
                 }
 
                 var tasks = allTasks ?? new List<ItemGrid>();
-                var activeTasks = tasks.Where(t => t != null && t.IsActive).ToList();
-                var completedThisWeek = tasks.Count(t => t != null && !t.IsActive && t.LastModifiedDate >= weekStart && t.LastModifiedDate <= weekEnd.AddDays(1));
-                var createdThisWeek = tasks.Count(t => t != null && t.CreatedDate >= weekStart && t.CreatedDate <= weekEnd.AddDays(1));
+                var qualityTasks = tasks
+                    .Where(t => t != null && TaskTextQualityHelper.IsMeaningfulTaskText(t.Task))
+                    .ToList();
+                if (!qualityTasks.Any())
+                {
+                    qualityTasks = tasks.Where(t => t != null).ToList();
+                }
+
+                var activeTasks = qualityTasks.Where(t => t.IsActive).ToList();
+                var completedThisWeek = qualityTasks.Count(t => !t.IsActive && t.LastModifiedDate >= weekStart && t.LastModifiedDate <= weekEnd.AddDays(1));
+                var createdThisWeek = qualityTasks.Count(t => t.CreatedDate >= weekStart && t.CreatedDate <= weekEnd.AddDays(1));
                 var stuckTasks = activeTasks.Count(t => t.LastProgressDate < now.AddDays(-3));
                 var goalLinked = activeTasks.Count(t => !string.IsNullOrWhiteSpace(t.LongTermGoalId));
 
