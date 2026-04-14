@@ -524,31 +524,18 @@ namespace TimeTask
             }
             _profile.ActiveHourHistogram[hour]++;
 
-            if (task != null)
-            {
-                Increment(_profile.TaskKeywordHistogram, task.Importance ?? "Unknown");
-                Increment(_profile.TaskKeywordHistogram, task.Urgency ?? "Unknown");
-            }
+            _ = task;
         }
 
         private void AddTaskKeywords(string taskText)
         {
-            if (string.IsNullOrWhiteSpace(taskText))
+            if (!TaskTextQualityHelper.IsMeaningfulTaskText(taskText))
             {
                 return;
             }
 
-            foreach (string raw in taskText.Split(KeywordSeparators, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string token in TaskTextQualityHelper.ExtractKeywords(taskText, maxCount: 6))
             {
-                string token = raw.Trim();
-                if (token.Length < 2)
-                {
-                    continue;
-                }
-                if (token.All(char.IsDigit))
-                {
-                    continue;
-                }
                 Increment(_profile.TaskKeywordHistogram, token);
             }
         }

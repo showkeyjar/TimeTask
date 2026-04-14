@@ -79,6 +79,13 @@ namespace TimeTask
             tasks ??= new List<ItemGrid>();
 
             var activeTasks = tasks.Where(t => t != null && t.IsActive).ToList();
+            var qualityTasks = activeTasks
+                .Where(t => TaskTextQualityHelper.IsMeaningfulTaskText(t.Task))
+                .ToList();
+            if (!qualityTasks.Any())
+            {
+                qualityTasks = activeTasks;
+            }
             int totalReminderResponses = Math.Max(1,
                 behaviorSnapshot.ReminderCompletedCount +
                 behaviorSnapshot.ReminderUpdatedCount +
@@ -98,29 +105,34 @@ namespace TimeTask
                 .ToList();
 
             var topTopics = (behaviorSnapshot.TaskKeywordHistogram ?? new Dictionary<string, int>())
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key))
+                .Where(kv => !string.Equals(kv.Key, "High", StringComparison.OrdinalIgnoreCase))
+                .Where(kv => !string.Equals(kv.Key, "Medium", StringComparison.OrdinalIgnoreCase))
+                .Where(kv => !string.Equals(kv.Key, "Low", StringComparison.OrdinalIgnoreCase))
+                .Where(kv => !string.Equals(kv.Key, "Unknown", StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(kv => kv.Value)
                 .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
                 .Take(8)
                 .Select(kv => kv.Key)
                 .ToList();
 
-            int highHighCount = activeTasks.Count(t =>
+            int highHighCount = qualityTasks.Count(t =>
                 string.Equals(t.Importance, "High", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(t.Urgency, "High", StringComparison.OrdinalIgnoreCase));
 
-            int stuckTaskCount = activeTasks.Count(t => t.LastProgressDate < now.AddDays(-3));
-            int goalLinkedCount = activeTasks.Count(t => !string.IsNullOrWhiteSpace(t.LongTermGoalId));
+            int stuckTaskCount = qualityTasks.Count(t => t.LastProgressDate < now.AddDays(-3));
+            int goalLinkedCount = qualityTasks.Count(t => !string.IsNullOrWhiteSpace(t.LongTermGoalId));
 
             var strengths = new List<string>();
             if (executionReliability >= 0.65) strengths.Add("consistent_executor");
-            if (goalLinkedCount >= Math.Max(2, activeTasks.Count / 3)) strengths.Add("goal_oriented");
-            if (highHighCount <= Math.Max(1, activeTasks.Count / 4)) strengths.Add("prioritization_control");
+            if (goalLinkedCount >= Math.Max(2, qualityTasks.Count / 3)) strengths.Add("goal_oriented");
+            if (highHighCount <= Math.Max(1, qualityTasks.Count / 4)) strengths.Add("prioritization_control");
             if (peakHours.Any()) strengths.Add("predictable_energy_rhythm");
 
             var risks = new List<string>();
             if (interruptionSensitivity >= 0.55) risks.Add("high_interruption_cost");
-            if (stuckTaskCount >= Math.Max(2, activeTasks.Count / 3)) risks.Add("stuck_backlog");
-            if (highHighCount >= Math.Max(3, activeTasks.Count / 2)) risks.Add("urgency_overload");
+            if (stuckTaskCount >= Math.Max(2, qualityTasks.Count / 3)) risks.Add("stuck_backlog");
+            if (highHighCount >= Math.Max(3, qualityTasks.Count / 2)) risks.Add("urgency_overload");
 
             string style = "balanced";
             if (executionReliability >= 0.7 && interruptionSensitivity <= 0.3)
@@ -145,7 +157,7 @@ namespace TimeTask
                 PeakHours = peakHours,
                 ExecutionReliability = executionReliability,
                 InterruptionSensitivity = interruptionSensitivity,
-                ActiveTaskCount = activeTasks.Count,
+                ActiveTaskCount = qualityTasks.Count,
                 StuckTaskCount = stuckTaskCount,
                 GoalLinkedTaskCount = goalLinkedCount
             };

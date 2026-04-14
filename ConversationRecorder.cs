@@ -299,14 +299,17 @@ namespace TimeTask
                 if (intentRecognizer.IsPotentialTask(segment.RecognizedText))
                 {
                     var taskDesc = intentRecognizer.ExtractTaskDescription(segment.RecognizedText);
-                    if (!string.IsNullOrWhiteSpace(taskDesc))
+                    if (!string.IsNullOrWhiteSpace(taskDesc) && TaskTextQualityHelper.IsMeaningfulTaskText(taskDesc))
                     {
                         extractedTasks.Add(taskDesc);
                     }
                 }
             }
 
-            _currentSession.ExtractedTasks = extractedTasks.Distinct().ToList();
+            _currentSession.ExtractedTasks = extractedTasks
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .ToList();
         }
 
         public List<ConversationSession> GetSessions(ConversationType? type = null, DateTime? startDate = null, DateTime? endDate = null)

@@ -55,6 +55,10 @@ namespace TimeTask
 
         public bool IsPotentialTask(string text)
         {
+            var analysis = TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(text);
+            if (!analysis.IsMeaningfulTask)
+                return false;
+
             if (ScoreTaskLikelihood(text) >= 0.45)
                 return true;
 
@@ -69,7 +73,8 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(text))
                 return 0;
 
-            string normalized = NormalizeText(text);
+            var analysis = TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(text);
+            string normalized = analysis.SanitizedText;
             if (normalized.Length < 4)
                 return 0;
 
@@ -101,10 +106,30 @@ namespace TimeTask
                 score -= 4;
             }
 
+            if (!analysis.IsMeaningfulTask)
+            {
+                score -= 6;
+            }
+
+            if (analysis.IsQuestionLike)
+            {
+                score -= 2;
+            }
+
+            if (analysis.IsLongFreeformSpeech)
+            {
+                score -= 3;
+            }
+
             if (Regex.IsMatch(normalized, @"^(好的|是的|嗯|哦|啊|呀|哈哈|收到)$"))
                 score -= 5;
 
-            if (normalized.Length > 40)
+            if (normalized.Length > 24 && !ContainsAny(normalized, ActionWords))
+            {
+                score -= 2;
+            }
+
+            if (normalized.Length > 40 && ContainsAny(normalized, ActionWords))
             {
                 score += 1;
             }
@@ -121,18 +146,13 @@ namespace TimeTask
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            string normalized = NormalizeText(text);
-            normalized = Regex.Replace(normalized, @"^(请)?\s*(提醒我|帮我|记得)\s*", "", RegexOptions.IgnoreCase);
-            normalized = Regex.Replace(normalized, @"^(麻烦你|请|那个|就是|然后|我想|我需要)\s*", "", RegexOptions.IgnoreCase);
-            normalized = Regex.Replace(normalized, @"^(要|需要|必须|应该|得)\s*", "", RegexOptions.IgnoreCase);
-            normalized = Regex.Replace(normalized, @"(啊|呀|吧|呢|哦|啦|嘛)$", "", RegexOptions.IgnoreCase);
-            normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+            string normalized = TaskTextQualityHelper.SanitizeTaskText(text);
 
             var matchWords = ChineseOrEnglishWordRegex.Matches(normalized).Cast<Match>().Select(m => m.Value).ToList();
             if (matchWords.Count < 2 && normalized.Length < 5)
                 return null;
 
-            return normalized.Length >= 3 ? normalized : null;
+            return TaskTextQualityHelper.IsMeaningfulTaskText(normalized) ? normalized : null;
         }
 
         /// <summary>
@@ -204,10 +224,7 @@ namespace TimeTask
 
         private static string NormalizeText(string text)
         {
-            string normalized = text.Trim();
-            normalized = Regex.Replace(normalized, @"[，。！？,.!?;；]+", " ");
-            normalized = Regex.Replace(normalized, @"\s+", " ");
-            return normalized.Trim();
+            return TaskTextQualityHelper.Normalize(text);
         }
     }
 }

@@ -206,12 +206,14 @@
     <Compile Include="SpeakerVerificationService.cs" />
     <Compile Include="VoiceLexiconManager.cs" />
     <Compile Include="IntentRecognizer.cs" />
+    <Compile Include="TaskTextQualityHelper.cs" />
     <Compile Include="UserProfileManager.cs" />
     <Compile Include="TaskDraftManager.cs" />
     <Compile Include="SkillManagementService.cs" />
     <Compile Include="ThinkingToolAdvisor.cs" />
     <Compile Include="LifeProfileEngine.cs" />
     <Compile Include="VoiceReminderTimeParser.cs" />
+    <Compile Include="VoiceRecognitionQualityEngine.cs" />
     <Compile Include="NotificationManager.cs" />
     <Compile Include="FunAsrRuntimeManager.cs" />
     <Compile Include="VoiceListenerStatusCenter.cs" />
