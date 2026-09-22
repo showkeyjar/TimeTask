@@ -161,6 +161,11 @@ namespace TimeTask
 
         private async void AddTaskButton_Click(object sender, RoutedEventArgs e)
         {
+            await UiSafe.RunAsync("添加任务", AddTaskButtonCoreAsync);
+        }
+
+        private async Task AddTaskButtonCoreAsync()
+        {
             string currentTaskDescription = NormalizeTaskText(TaskDescriptionTextBox.Text);
             SelectedListIndex = ListSelectorComboBox.SelectedIndex;
             string configErrorSubstring = "LLM dummy response (Configuration Error: API key missing or placeholder)";

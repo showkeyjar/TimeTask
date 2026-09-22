@@ -3949,6 +3949,11 @@ namespace TimeTask
 
         public async void QuickDecomposeTask_Click(object sender, RoutedEventArgs e)
         {
+            await UiSafe.RunAsync("快捷分解任务", () => QuickDecomposeTaskCoreAsync(sender));
+        }
+
+        private async Task QuickDecomposeTaskCoreAsync(object sender)
+        {
             if (!(sender is Button btn) || !(btn.DataContext is ItemGrid task))
             {
                 return;
@@ -5056,7 +5061,13 @@ namespace TimeTask
 
         private async void SkillTreeCard_Click(object sender, MouseButtonEventArgs e)
         {
-            if (!(sender is Border card) || !_skillTreeNodeMap.TryGetValue(card, out var node) || node == null)
+            Border card = sender as Border;
+            await UiSafe.RunAsync("执行技能节点", () => SkillTreeCardCoreAsync(card));
+        }
+
+        private async Task SkillTreeCardCoreAsync(Border card)
+        {
+            if (card == null || !_skillTreeNodeMap.TryGetValue(card, out var node) || node == null)
             {
                 return;
             }
@@ -6038,6 +6049,11 @@ namespace TimeTask
         }
 
         private async void LongTermGoalButton_Click(object sender, RoutedEventArgs e)
+        {
+            await UiSafe.RunAsync("创建长期目标", LongTermGoalButtonCoreAsync);
+        }
+
+        private async Task LongTermGoalButtonCoreAsync()
         {
             SetLongTermGoalWindow goalDialog = new SetLongTermGoalWindow();
             TrySetDialogOwner(goalDialog);

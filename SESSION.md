@@ -1,5 +1,23 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-22 ~20:45 +08:00] 可观测性与 UI 操作防护：Console Tee + 日志滚动 + UiSafe
+- 背景：审计发现全仓 315 处 Console.WriteLine 在 WPF（无控制台）下全部丢失——
+  语音/LLM 排障最关键的诊断（EnhancedAudioCaptureService/ConversationRecorder/LlmService
+  的输出）恰恰全是 Console-only；另有 6 个 async void 事件处理器无异常隔离
+  （全局 DispatcherUnhandledException 兜底在、不会崩，但用户看到的是无上下文弹窗，
+  且 TestLlmConnection 异常后按钮永久禁用）。
+- 1) Console Tee（一处改动，零调用点churn）：VoiceRuntimeLog.TeeConsoleToLog()
+  把 Console.Out/Error 换成 ConsoleTeeWriter（原始流透传保持带控制台调试可见 +
+  凑行落日志，stderr 按 WARN+[stderr] 记）。App 启动早期安装。防自激回环：
+  VoiceRuntimeLog 的控制台回显改为写「cctor 捕获的原始流」且 Tee 安装后不回显。
+- 2) 日志滚动：超过 MaxLogBytes（默认 5MB）当前内容转 .old（保留一份），常驻应用日志不再无限涨。
+- 3) UiSafe.RunAsync(操作名, body)：统一包裹 6 个无隔离 async void
+  （添加任务/导入草稿/测试LLM连接/快捷分解/技能节点/长期目标）——原方法体改名 Core 零正文改动；
+  异常记「UI 操作失败：{操作名}」+ 友好弹窗；TestLlmConnection 额外 finally 恢复按钮（修软锁）。
+- 测试注意：测试进程绝不能装 Tee（会劫持 vstest 的输出捕获），只直接测 ConsoleTeeWriter。
+- 验证：MSBuild 0 错；vstest 199 项 / 197 通过 / 0 失败 / 2 跳过（+5：UiSafe×2、
+  TeeWriter 拼行/stderr×2、日志滚动×1）；真实日志隔离字节数证明依旧成立。
+
 ## [2026-09-22 ~20:10 +08:00] 智能引导域定时器收口（MainWindow 拆分路线图收尾）
 - 新增 GuidanceScheduler（与 ReminderService/SyncScheduler 同构的定时器宿主）：
   收口 _smartSystemTimer（场景触发+目标调适+战略导航）与 _taskReminderTimer

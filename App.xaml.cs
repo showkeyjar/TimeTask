@@ -91,6 +91,9 @@ namespace TimeTask
             VoiceRuntimeLog.Info($"ProcessBitness: {(Environment.Is64BitProcess ? "x64" : "x86")}, OS: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
             VoiceRuntimeLog.Info($"BaseDirectory: {AppDomain.CurrentDomain.BaseDirectory}");
             VoiceRuntimeLog.Info($"Config: VoiceAsrProvider={ConfigurationManager.AppSettings["VoiceAsrProvider"]}, FunAsrAutoBootstrap={ConfigurationManager.AppSettings["FunAsrAutoBootstrap"]}");
+            // 控制台输出并入日志：全仓 315 处 Console.WriteLine 在 WPF（无控制台）下原本全部丢失，
+            // 排查语音/LLM 问题时这些诊断最关键；带控制台启动调试时原样回显，不影响。
+            VoiceRuntimeLog.TeeConsoleToLog();
             VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, I18n.T("Voice_StatusUnavailable"));
             FunAsrRuntimeManager.KickoffIfNeeded();
 

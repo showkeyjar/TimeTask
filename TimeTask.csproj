@@ -85,6 +85,7 @@
     <Compile Include="LlmPromptTemplates.cs" />
     <Compile Include="LlmRetryPolicy.cs" />
     <Compile Include="GuidanceScheduler.cs" />
+    <Compile Include="UiSafe.cs" />
     <Compile Include="QuadrantStore.cs" />
     <Compile Include="RecordingRetention.cs" />
     <Compile Include="ReminderService.cs" />

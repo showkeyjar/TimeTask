@@ -401,6 +401,23 @@ namespace TimeTask
 
         private async void TestLlmConnectionButton_Click(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                await UiSafe.RunAsync("测试 LLM 连接", TestLlmConnectionCoreAsync);
+                if (!TestLlmConnectionButton.IsEnabled)
+                {
+                    TestResultTextBlock.Text = "测试连接失败：请查看日志了解详情。";
+                }
+            }
+            finally
+            {
+                // 异常也必须恢复按钮（旧实现异常后按钮永久禁用，只能重启应用）
+                TestLlmConnectionButton.IsEnabled = true;
+            }
+        }
+
+        private async Task TestLlmConnectionCoreAsync()
+        {
             TestLlmConnectionButton.IsEnabled = false;
             TestResultTextBlock.Text = "Testing connection, please wait...";
 

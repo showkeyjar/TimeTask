@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -190,6 +191,11 @@ namespace TimeTask
         }
 
         private async void ImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            await UiSafe.RunAsync("导入草稿", ImportButtonCoreAsync);
+        }
+
+        private async Task ImportButtonCoreAsync()
         {
             if (_isImporting)
             {
