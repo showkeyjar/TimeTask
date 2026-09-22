@@ -152,8 +152,30 @@ namespace TimeTask
         private double _noiseFloor = double.MaxValue;
         private bool _micActive;
         private bool _sysActive;
-        private readonly List<TranscriptTurn> _turns = new List<TranscriptTurn>();
+        // 注意：不是 Clear() 而是「每会话换新列表引用」——停止后仍在途的 FunASR 分段识别
+        // 持有旧列表引用写入，快照也持同一引用，新旧会话的转写绝不串台。
+        private List<TranscriptTurn> _turns = new List<TranscriptTurn>();
         private readonly System.Timers.Timer _watchdog;
+
+        // ---- ASR 引擎选择（Vosk 实时流式 / FunASR 高精度分段）----
+        // 用户反馈「识别能力太弱」：Vosk 小模型精度有限；FunASR(SenseVoice) 中文精度高得多，
+        // 但以「分段文件识别」方式工作。ConversationCaptureAsrEngine = auto|funasr|vosk（默认 auto：
+        // 优先 FunASR，启动超时自动回落 Vosk，本次录音不受影响）。
+        private AsrEngineKind _engineKind = AsrEngineKind.Vosk;
+        private bool _engineAllowVoskFallback;
+        private bool _funasrReady;
+        private readonly FunAsrEngine _funasr = new FunAsrEngine();
+        // FunASR 分段缓冲（16k/16bit/mono 混音 PCM，与泵输出一致）
+        private readonly object _segLock = new object();
+        private readonly Queue<byte[]> _segChunks = new Queue<byte[]>();
+        private int _segBufferedBytes;
+        private int _segQuietTailBytes;
+        private int _funasrInFlight;
+        private int _segSeq;
+        private string _funasrSegDir;
+        private const int FunAsrSegCapSeconds = 900; // worker 暂不可用时最多囤 15 分钟，超过丢最旧（防 OOM）
+        private const int FunAsrStartTimeoutSeconds = 60;  // 会话内等引擎就绪的上限，超时回落 Vosk
+        private const int FunAsrStopWaitSeconds = 15;      // 停止时等在途分段识别完成的上限
         // 会话代数：每 Start 递增；异步任务（会议状态更新/收尾）据此丢弃过期结果，绝不污染新会话。
         private int _sessionGen;
         // 最近一次停止的收尾任务（Dispose 时做有界等待：WAV 头写完整、收尾不半途而废）。
@@ -211,14 +233,14 @@ namespace TimeTask
         public bool MicActive => _micActive;
         public bool SystemActive => _sysActive;
         public TimeSpan Elapsed => _recording ? DateTime.Now - _startTime : TimeSpan.Zero;
-        public bool AsrAvailable => _voskReady;
-        /// <summary>ASR 模型状态文本（供状态栏/收件箱空态展示）：未初始化 / 模型加载中… / 实时转写就绪 / 不可用。</summary>
+        public bool AsrAvailable => _voskReady || _funasrReady;
+        /// <summary>ASR 状态文本（供状态栏/收件箱空态展示）：引擎中立，不露实现名词。</summary>
         public string AsrStatusText => _asrStatus switch
         {
-            1 => "ASR 模型加载中…",
+            1 => _engineKind == AsrEngineKind.FunAsr ? "高精度识别启动中…" : "语音模型加载中…",
             2 => "实时转写就绪",
-            3 => "ASR 不可用",
-            _ => "ASR 未初始化"
+            3 => "转写暂不可用（录音仍保存）",
+            _ => "转写未初始化"
         };
 
         public void Start(CaptureMode mode)
@@ -242,11 +264,27 @@ namespace TimeTask
                 _hadSpeech = false;
                 _noiseFloor = double.MaxValue;
                 _sessionGen++;
-                _turns.Clear();
+                // 换新列表（不是 Clear）：在途识别闭包持有旧引用，新旧会话转写绝不串台
+                _turns = new List<TranscriptTurn>();
                 _micQueue.Clear();
                 _sysQueue.Clear();
                 _asrPending.Clear();
                 _asrPendingBytes = 0;
+
+                // 引擎选择（每会话解析一次，可配置切换）：auto=优先高精度、失败回落 Vosk
+                var engineChoice = AsrEngineChoice.Resolve(ConfigurationManager.AppSettings["ConversationCaptureAsrEngine"]);
+                _engineKind = engineChoice.Kind;
+                _engineAllowVoskFallback = engineChoice.AllowVoskFallback;
+                _funasrReady = _engineKind == AsrEngineKind.FunAsr && _funasr.IsRunning;
+                if (_engineKind == AsrEngineKind.FunAsr)
+                {
+                    lock (_segLock)
+                    {
+                        _segChunks.Clear();
+                        _segBufferedBytes = 0;
+                        _segQuietTailBytes = 0;
+                    }
+                }
 
                 PrepareSessionFolder();
 
@@ -366,6 +404,9 @@ namespace TimeTask
             public AsrPump Pump;
             public MeetingState MeetingState;
             public int LastStateTurnCount;
+            // FunASR 引擎的会话状态
+            public AsrEngineKind Engine;
+            public List<byte[]> FunasrSegments; // 停止时需冲洗的剩余分段缓冲
         }
 
         // 必须在持有 _lock 时调用：把当前会话的全部可变状态/资源移交快照，并把共享字段清零。
@@ -374,11 +415,11 @@ namespace TimeTask
             var snap = new SessionSnapshot
             {
                 Gen = _sessionGen,
-                Turns = _turns.ToList(),
+                Turns = _turns,   // 持引用：停止后仍在途的 FunASR 分段结果会写入此列表，收尾统一读取
                 Mode = _mode,
                 StartTime = _startTime,
                 Folder = _sessionFolder,
-                VoskAvailable = _voskReady,
+                VoskAvailable = _voskReady || _funasrReady,
                 Recognizer = _voskRecognizer,
                 Mic = _mic,
                 Loopback = _loopback,
@@ -387,8 +428,22 @@ namespace TimeTask
                 SysWriter = _sysWriter,
                 Pump = _pump,
                 MeetingState = _meetingState,
-                LastStateTurnCount = _lastStateTurnCount
+                LastStateTurnCount = _lastStateTurnCount,
+                Engine = _engineKind
             };
+
+            // FunASR：把分段缓冲移交快照（停止收尾时冲洗成最后一段）
+            if (_engineKind == AsrEngineKind.FunAsr)
+            {
+                lock (_segLock)
+                {
+                    snap.FunasrSegments = new List<byte[]>(_segChunks);
+                    _segChunks.Clear();
+                    _segBufferedBytes = 0;
+                    _segQuietTailBytes = 0;
+                }
+            }
+            _funasrReady = false;
 
             _mic = null;
             _loopback = null;
@@ -458,6 +513,13 @@ namespace TimeTask
             {
                 // 1) 等本会话的 ASR 泵线程退出（最多 2s）。泵退出后不再触碰本会话识别器。
                 StopPump(snap.Pump);
+
+                // 1.5) FunASR 收尾：把剩余分段缓冲冲洗成最后一段识别掉 + 有界等在途识别完成。
+                // 在途识别闭包持有本会话转写列表引用，结果会直接落到 snap.Turns，随后统一进入结果构建。
+                if (snap.Engine == AsrEngineKind.FunAsr)
+                {
+                    await FinalizeFunAsrSessionAsync(snap).ConfigureAwait(false);
+                }
 
                 // 2) 让旧识别器完成最后一句：泵线程已退出，且所有 Vosk 调用经 _voskIoLock 串行化，绝无并发。
                 if (recog != null)
@@ -715,43 +777,244 @@ namespace TimeTask
                 bytes[i * 2 + 1] = (byte)((m >> 8) & 0xFF);
             }
 
-            FeedVosk(bytes);
+            FeedAsr(bytes);
         }
 
-        // 把混音结果喂给 Vosk；Vosk 未就绪时进有界 pending 缓冲（pre-roll 防首字丢失）。
-        // 本方法在 ASR 后台线程上调用，但 AcceptWaveform 本身不在 _lock 内。
-        private void FeedVosk(byte[] bytes)
+        // 引擎分发：FunASR 模式喂分段缓冲；Vosk 模式走流式识别；引擎未就绪时统一进有界 pending。
+        private void FeedAsr(byte[] bytes)
         {
-            if (_voskReady && _voskRecognizer != null)
+            if (_engineKind == AsrEngineKind.FunAsr)
             {
-                List<byte[]> replay = null;
-                lock (_lock)
+                if (_funasrReady)
                 {
-                    if (_asrPending.Count > 0)
-                    {
-                        replay = new List<byte[]>(_asrPending.Count);
-                        while (_asrPending.Count > 0)
-                        {
-                            var p = _asrPending.Dequeue();
-                            _asrPendingBytes -= p.Length;
-                            replay.Add(p);
-                        }
-                    }
+                    ReplayPending(FeedFunAsr);
+                    FeedFunAsr(bytes);
                 }
-                if (replay != null)
-                    foreach (var p in replay) TryFeedVosk(p);
-                TryFeedVosk(bytes);
+                else
+                {
+                    PendingAsr(bytes);
+                }
             }
             else
             {
-                lock (_lock)
+                if (_voskReady && _voskRecognizer != null)
                 {
-                    // ASR 未就绪：缓存（有界），录音与写盘不受影响
-                    _asrPendingBytes += bytes.Length;
-                    while (_asrPendingBytes > AsrPendingCapBytes && _asrPending.Count > 0)
-                        _asrPendingBytes -= _asrPending.Dequeue().Length;
-                    _asrPending.Enqueue(bytes);
+                    ReplayPending(TryFeedVosk);
+                    TryFeedVosk(bytes);
                 }
+                else
+                {
+                    PendingAsr(bytes);
+                }
+            }
+        }
+
+        // 引擎就绪后回灌 pending 缓冲（pre-roll 防首字丢失，两个引擎共用同一机制）。
+        private void ReplayPending(Action<byte[]> feed)
+        {
+            List<byte[]> replay = null;
+            lock (_lock)
+            {
+                if (_asrPending.Count > 0)
+                {
+                    replay = new List<byte[]>(_asrPending.Count);
+                    while (_asrPending.Count > 0)
+                    {
+                        var p = _asrPending.Dequeue();
+                        _asrPendingBytes -= p.Length;
+                        replay.Add(p);
+                    }
+                }
+            }
+            if (replay != null)
+                foreach (var p in replay) feed(p);
+        }
+
+        private void PendingAsr(byte[] bytes)
+        {
+            lock (_lock)
+            {
+                // ASR 未就绪：缓存（有界），录音与写盘不受影响
+                _asrPendingBytes += bytes.Length;
+                while (_asrPendingBytes > AsrPendingCapBytes && _asrPending.Count > 0)
+                    _asrPendingBytes -= _asrPending.Dequeue().Length;
+                _asrPending.Enqueue(bytes);
+            }
+        }
+
+        // ---------- FunASR：分段喂入（16k/16bit/mono 混音 PCM，与泵输出一致）----------
+
+        private void FeedFunAsr(byte[] bytes)
+        {
+            byte[] toRecognize = null;
+            lock (_segLock)
+            {
+                _segChunks.Enqueue(bytes);
+                _segBufferedBytes += bytes.Length;
+
+                // 尾部静音统计：说到停顿处提前切段，断句自然、精度最好
+                double rms = FunAsrSegmenter.Rms(bytes);
+                if (rms < FunAsrSegmenter.QuietRmsThreshold)
+                    _segQuietTailBytes += bytes.Length;
+                else
+                    _segQuietTailBytes = 0;
+
+                // 硬容量上限：worker 未就绪/变慢时防无限囤积（丢最旧段，与队列防 OOM 同一原则）
+                int capBytes = FunAsrSegCapSeconds * 32000;
+                while (_segBufferedBytes > capBytes && _segChunks.Count > 1)
+                {
+                    _segBufferedBytes -= _segChunks.Dequeue().Length;
+                }
+
+                if (FunAsrSegmenter.ShouldFlush(_segBufferedBytes, _segQuietTailBytes, 16000))
+                {
+                    toRecognize = TakeSegmentLocked();
+                }
+            }
+            if (toRecognize != null)
+            {
+                DispatchFunAsrSegment(toRecognize, _turns, _sessionGen);
+            }
+        }
+
+        /// <summary>取走全部缓冲拼成一段（调用方必须持 _segLock）。</summary>
+        private byte[] TakeSegmentLocked()
+        {
+            if (_segBufferedBytes <= 0) return null;
+            var pcm = new byte[_segBufferedBytes];
+            int offset = 0;
+            foreach (var chunk in _segChunks)
+            {
+                Buffer.BlockCopy(chunk, 0, pcm, offset, chunk.Length);
+                offset += chunk.Length;
+            }
+            _segChunks.Clear();
+            _segBufferedBytes = 0;
+            _segQuietTailBytes = 0;
+            return pcm;
+        }
+
+        private string WriteSegWav(byte[] pcm)
+        {
+            try
+            {
+                if (_funasrSegDir == null)
+                {
+                    _funasrSegDir = Path.Combine(Path.GetTempPath(), "TimeTask", "funasr-capture");
+                    Directory.CreateDirectory(_funasrSegDir);
+                }
+                string path = Path.Combine(_funasrSegDir,
+                    $"seg_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Interlocked.Increment(ref _segSeq)}.wav");
+                File.WriteAllBytes(path, FunAsrEngine.BuildWav16kMono(pcm));
+                return path;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("写入 FunASR 分段临时文件失败。", ex);
+                return null;
+            }
+        }
+
+        /// <summary>把一段 PCM 落成临时 WAV 并交后台识别（不阻塞泵线程）。</summary>
+        private void DispatchFunAsrSegment(byte[] pcm, List<TranscriptTurn> sessionTurns, int gen)
+        {
+            string wavPath = WriteSegWav(pcm);
+            if (wavPath == null) return;
+
+            Interlocked.Increment(ref _funasrInFlight);
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var r = await _funasr.RecognizeWavAsync(wavPath).ConfigureAwait(false);
+                    AppendFunAsrTurn(sessionTurns, gen, r);
+                }
+                catch (Exception ex)
+                {
+                    VoiceRuntimeLog.Error("FunASR 分段识别异常。", ex);
+                }
+                finally
+                {
+                    try { File.Delete(wavPath); } catch { }
+                    Interlocked.Decrement(ref _funasrInFlight);
+                }
+            });
+        }
+
+        /// <summary>
+        /// 把分段识别结果写进转写：会话进行中走完整 AddTurn（草稿/状态发布）；
+        /// 停止后（含收尾冲洗段）直接追加到捕获的会话列表引用，绝不污染新会话。
+        /// </summary>
+        private void AppendFunAsrTurn(List<TranscriptTurn> sessionTurns, int gen, FunAsrResult r)
+        {
+            if (r == null || !r.Ok || string.IsNullOrWhiteSpace(r.Text)) return;
+            string text = CleanText(r.Text);
+            if (text.Length < 2) return;
+
+            if (gen == _sessionGen && ReferenceEquals(sessionTurns, _turns))
+            {
+                AddTurn(text, (float)r.Confidence);
+                return;
+            }
+
+            lock (_lock)
+            {
+                sessionTurns.Add(new TranscriptTurn { Time = DateTime.Now, Text = text, SpeakerId = "me" });
+            }
+        }
+
+        /// <summary>停止时的 FunASR 收尾：冲洗剩余分段 + 有界等在途识别完成。</summary>
+        private async Task FinalizeFunAsrSessionAsync(SessionSnapshot snap)
+        {
+            try
+            {
+                var remaining = snap.FunasrSegments;
+                snap.FunasrSegments = null;
+                if (remaining != null && remaining.Count > 0)
+                {
+                    int total = 0;
+                    foreach (var c in remaining) total += c.Length;
+                    if (total >= 16000) // ≥0.5s 才值得识别
+                    {
+                        var pcm = new byte[total];
+                        int offset = 0;
+                        foreach (var chunk in remaining)
+                        {
+                            Buffer.BlockCopy(chunk, 0, pcm, offset, chunk.Length);
+                            offset += chunk.Length;
+                        }
+                        string wavPath = WriteSegWav(pcm);
+                        if (wavPath != null)
+                        {
+                            Interlocked.Increment(ref _funasrInFlight);
+                            try
+                            {
+                                var r = await _funasr.RecognizeWavAsync(wavPath).ConfigureAwait(false);
+                                AppendFunAsrTurn(snap.Turns, snap.Gen, r);
+                            }
+                            finally
+                            {
+                                try { File.Delete(wavPath); } catch { }
+                                Interlocked.Decrement(ref _funasrInFlight);
+                            }
+                        }
+                    }
+                }
+
+                // 有界等在途分段识别完成（结果由闭包直接写入 snap.Turns）
+                var deadline = DateTime.UtcNow.AddSeconds(FunAsrStopWaitSeconds);
+                while (DateTime.UtcNow < deadline && Volatile.Read(ref _funasrInFlight) > 0)
+                {
+                    await Task.Delay(200).ConfigureAwait(false);
+                }
+                if (Volatile.Read(ref _funasrInFlight) > 0)
+                {
+                    VoiceRuntimeLog.Info("FunASR 在途识别未在限时内完成：放弃等待（已完成的转写不受影响，录音完整保存）。");
+                }
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR 会话收尾失败（不影响录音与已得转写）。", ex);
             }
         }
 
@@ -1275,6 +1538,13 @@ namespace TimeTask
         /// </summary>
         private void InitRecognizerBackground()
         {
+            // FunASR 引擎（每会话检查；worker 常驻时瞬间完成）：
+            // 未就绪期间音频进 pending 缓冲，就绪后回灌；超时按配置回落 Vosk。
+            if (_engineKind == AsrEngineKind.FunAsr)
+            {
+                KickFunAsrReadiness();
+            }
+
             bool firstInit = false;
             lock (_lock)
             {
@@ -1339,6 +1609,57 @@ namespace TimeTask
             }
         }
 
+        /// <summary>启动/检查 FunASR worker 就绪：成功即切换为高精度转写；失败按配置回落 Vosk。</summary>
+        private void KickFunAsrReadiness()
+        {
+            if (_funasrReady) return;
+
+            _asrStatus = 1; // 启动中（首次准备运行环境较慢，状态栏有提示）
+            RaiseStatus();
+            VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading, "正在启动高精度识别引擎");
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    bool ok = await _funasr.EnsureReadyAsync(TimeSpan.FromSeconds(FunAsrStartTimeoutSeconds))
+                        .ConfigureAwait(false);
+                    if (ok)
+                    {
+                        _funasrReady = true;
+                        _asrStatus = 2;
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Ready, "高精度识别就绪");
+                        RaiseStatus();
+                        try { _asrSignal.Set(); } catch { } // 唤醒泵回灌 pending
+                        return;
+                    }
+
+                    // 未就绪：auto 模式回落 Vosk（模型已就绪则立即开转写，否则等模型下载完成时自动接入）
+                    if (_engineAllowVoskFallback)
+                    {
+                        VoiceRuntimeLog.Info("FunASR 本轮未就绪：已回落 Vosk（运行环境继续后台准备，之后的录音自动升级）。");
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading, "高精度引擎准备中，本轮用快速识别");
+                        _engineKind = AsrEngineKind.Vosk;
+                        TryCreateSessionRecognizer();
+                        RaiseStatus();
+                    }
+                    else
+                    {
+                        _asrStatus = 3;
+                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "高精度识别不可用（录音仍保存）");
+                        VoiceRuntimeLog.Info("FunASR 不可用（ConversationCaptureAsrEngine=funasr 不回落）：本轮无实时转写，音频已落盘。");
+                        RaiseStatus();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _asrStatus = 3;
+                    VoiceRuntimeLog.Error("FunASR 就绪检查失败。", ex);
+                    RaiseStatus();
+                }
+            });
+        }
+
         /// <summary>
         /// 创建本会话的轻量 Vosk 识别器（Model 常驻复用、Recognizer 每会话一个）。
         /// 模型未就绪或本会话已有识别器时为空操作；失败仅影响实时转写，录音与落盘不受影响。
@@ -1357,7 +1678,11 @@ namespace TimeTask
                     rec.SetWords(false);
                     _voskRecognizer = rec;                // 先赋值识别器，再置 ready
                     _voskReady = true;
-                    _asrStatus = 2; // 就绪
+                    // FunASR 仍是主引擎时，Vosk 只作待命备份：不发布「就绪」误导用户
+                    if (_engineKind != AsrEngineKind.FunAsr || _funasrReady)
+                    {
+                        _asrStatus = 2; // 就绪
+                    }
                     created = true;
                 }
                 if (created)
@@ -1440,6 +1765,17 @@ namespace TimeTask
             }
             catch { }
             finally { if (tookVoskLock) { try { Monitor.Exit(_voskIoLock); } catch { } } }
+
+            // FunASR 常驻 worker：服务拆卸时温和停机（进程树兜底），并清掉分段临时目录
+            try { _funasr?.Shutdown(); } catch { }
+            try
+            {
+                if (_funasrSegDir != null && Directory.Exists(_funasrSegDir))
+                {
+                    Directory.Delete(_funasrSegDir, recursive: true);
+                }
+            }
+            catch { }
         }
     }
 }

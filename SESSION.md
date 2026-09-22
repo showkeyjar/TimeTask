@@ -1,5 +1,37 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-22 ~19:30 +08:00] 高精度识别引擎接入（用户反馈：识别能力太弱）
+- 目标：Vosk 小模型（40MB）精度不足是收件箱质量差的根因——把 FunASR(SenseVoiceSmall)
+  接到主录音链路 ConversationCaptureService，Vosk 降为回落引擎。
+- 已完成：
+  - 新增 `FunAsrEngine.cs`：常驻 worker 封装（scripts/funasr_asr.py --server，stdin/stdout
+    JSON 行协议）；复用 FunAsrRuntimeManager 运行环境引导与 ProcessUtils.KillTree；
+    读写超时即重启 worker 自愈；含纯函数助手（JSON 解析/WAV 头构造/分段决策/RMS）。
+  - `ConversationCaptureService`：`ConversationCaptureAsrEngine` = auto（默认，优先 FunASR、
+    60s 未就绪回落 Vosk，本次录音不受影响）/ funasr（不回落）/ vosk。
+    - 泵输出单点分发 FeedAsr：FunAsr 模式喂分段缓冲（12s 硬上限 + 尾部静音≥1s 提前切段，
+      ≥3s 起切），临时 WAV 后台识别，结果走 AddTurn（会议状态机/行动抽取链路完全复用）。
+    - 引擎未就绪期间音频进既有 pending 缓冲，就绪后回灌（两引擎共用，pre-roll 不丢首字）。
+    - 分段缓冲 15 分钟硬上限防 OOM；停止时冲洗剩余分段 + 有界等在途识别（≤15s）。
+    - `_turns` 改为每会话换新列表引用（不再是 Clear）：停止后仍在途的识别结果写入旧列表
+      （快照持同一引用），新旧会话转写绝不串台。
+  - 状态文案引擎中立化（“高精度识别启动中…/实时转写就绪”，不再露 ASR 字样）。
+  - 新增 10 项引擎契约测试（选择解析/JSON 行协议/WAV 头/分段决策/RMS）。
+  - 回归：MSBuild 0 错；vstest **162 项 / 160 过 / 0 败 / 2 跳过**。
+- 环境现状（本机）：python 3.12 + funasr 已装（旧管线实验时备好）；SenseVoiceSmall 模型
+  未缓存——首次录音会自动从 modelscope 下载约 230MB（国内源，一两分钟），之后常驻秒开。
+- 关键决策：
+  - 没走「换 Vosk 大模型」路线：SpeechModelManager 下载无断点续传（FileMode.Create 每次
+    重试从头截断），1.4GB 在国内网络基本下不完；且大模型精度仍不及 SenseVoice。
+  - worker 跨会话常驻（模型只加载一次），只在服务 Dispose 停机；识别请求串行化（_ioLock）。
+  - auto 回落只降级当前会话：运行环境继续后台准备，之后的录音自动升级，无需用户干预。
+- 下一步：用户实测——录一场真实会议，确认托盘出现「高精度识别就绪」、转写质量明显提升、
+  停止后收件箱行动项数量/质量改善。若接受良好，后续可考虑把旧管线 EnhancedAudioCaptureService
+  也切到 FunAsrEngine（消重复）。
+- 相关文件：`FunAsrEngine.cs`、`ConversationCaptureService.cs`、`App.config`
+  （新增 ConversationCaptureAsrEngine）、`TimeTask.Tests/FunAsrEngineTests.cs`
+- 阻塞/风险：模型首次下载期间该场录音回落 Vosk（预期行为）；UI 实测待用户。
+
 ## [2026-09-22 ~18:00 +08:00] 收件箱减负 + 录音保留策略（用户反馈轮）
 - 目标：解决用户两条反馈——①录音后收件箱太繁琐/概念不懂/不知下一步；②录音无限堆积是隐患。
 - 已完成（ActionInboxWindow.xaml/.cs 重排 + RecordingRetention.cs 新增）：

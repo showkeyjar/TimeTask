@@ -90,6 +90,7 @@
     <Compile Include="SecureApiKeyStore.cs" />
     <Compile Include="AppPaths.cs" />
     <Compile Include="DecisionEngine.cs" />
+    <Compile Include="FunAsrEngine.cs" />
     <Compile Include="GoalHierarchyEngine.cs" />
     <Compile Include="ConfirmGoalTasksWindow.xaml.cs">
       <DependentUpon>ConfirmGoalTasksWindow.xaml</DependentUpon>
