@@ -390,7 +390,7 @@ namespace TimeTask
         private static int MaxInactiveWarnings => Properties.Settings.Default.MaxInactiveWarnings;
         private static TimeSpan FirstWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.FirstWarningAfterDays);
         private static TimeSpan SecondWarningAfter => TimeSpan.FromDays(Properties.Settings.Default.SecondWarningAfterDays);
-        private System.Windows.Threading.DispatcherTimer _reminderTimer;
+        private ReminderService _reminderService;
         private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
         private System.Windows.Threading.DispatcherTimer _voiceStatusAnimTimer;
         private ConversationCaptureService _capture;
@@ -446,11 +446,9 @@ namespace TimeTask
         private bool _isSystemPanelCompactMode = true;
 
         private DatabaseService _databaseService;
-        private System.Windows.Threading.DispatcherTimer _syncTimer;
+        private SyncScheduler _syncScheduler;
         private KnowledgeSyncService _knowledgeSyncService;
         private KnowledgeArtifactService _knowledgeArtifactService;
-        private System.Windows.Threading.DispatcherTimer _knowledgeSyncTimer;
-        private System.Windows.Threading.DispatcherTimer _knowledgeSyncDebounceTimer;
         private FileSystemWatcher _obsidianWatcher;
         private bool _knowledgeSyncRunning = false;
         private HashSet<string> _syncedTaskSourceIDs = new HashSet<string>();
@@ -744,15 +742,18 @@ namespace TimeTask
             task3.CellEditEnding += DataGrid_CellEditEnding;
             task4.CellEditEnding += DataGrid_CellEditEnding;
 
-            // Initialize and start the reminder timer with configurable interval
-            _reminderTimer = new System.Windows.Threading.DispatcherTimer();
-            _reminderTimer.Interval = TimeSpan.FromSeconds(Properties.Settings.Default.ReminderCheckIntervalSeconds);
-            _reminderTimer.Tick += ReminderTimer_Tick;
-            _reminderTimer.Start();
-            
+            // 提醒域定时器收敛到 ReminderService（评估 + 弹窗互斥收口，窗口只负责展示）
+            _reminderService = new ReminderService(
+                TimeSpan.FromSeconds(Properties.Settings.Default.ReminderCheckIntervalSeconds),
+                GetQuadrantTaskLists);
+            _reminderService.DueRemindersRaised += ReminderService_DueRemindersRaised;
+            _reminderService.Start();
+
             // Start periodic task reminder checks
             StartPeriodicTaskReminderChecks();
 
+            // 同步域定时器（团队同步 + 知识同步 + 防抖）收敛到 SyncScheduler
+            _syncScheduler = new SyncScheduler();
             InitializeSyncService();
             _knowledgeArtifactService = KnowledgeArtifactService.CreateFromAppSettings(currentPath);
 
@@ -1214,8 +1215,7 @@ namespace TimeTask
                 foreach (var timer in new[]
                 {
                     _voiceStatusAnimTimer, _systemTickerTimer, _conversationIdleTimer,
-                    _knowledgeSyncTimer, _knowledgeSyncDebounceTimer, _reminderTimer,
-                    _taskReminderTimer, _draftBadgeTimer, _smartSystemTimer, _syncTimer,
+                    _taskReminderTimer, _draftBadgeTimer, _smartSystemTimer,
                     _meetingToastTimer, _recordUiTimer
                 })
                 {
@@ -1227,15 +1227,17 @@ namespace TimeTask
                 _voiceStatusAnimTimer = null;
                 _systemTickerTimer = null;
                 _conversationIdleTimer = null;
-                _knowledgeSyncTimer = null;
-                _knowledgeSyncDebounceTimer = null;
-                _reminderTimer = null;
                 _taskReminderTimer = null;
                 _draftBadgeTimer = null;
                 _smartSystemTimer = null;
-                _syncTimer = null;
                 _meetingToastTimer = null;
                 _recordUiTimer = null;
+
+                // 提醒域 / 同步域定时器宿主统一释放（内部含各自定时器的停走）
+                _reminderService?.Dispose();
+                _reminderService = null;
+                _syncScheduler?.Dispose();
+                _syncScheduler = null;
 
                 if (_obsidianWatcher != null)
                 {
@@ -2514,13 +2516,13 @@ namespace TimeTask
         {
             try
             {
-                // 与到期提醒共用互斥：模态提醒窗已打开时改走被动气泡，绝不堆叠第二个模态窗
-                if (_reminderDialogActive)
+                // 与到期提醒共用互斥（互斥状态由 ReminderService 持有）：
+                // 模态提醒窗已打开时改走被动气泡，绝不堆叠第二个模态窗
+                if (!_reminderService.TryBeginDialog())
                 {
                     ShowSimpleNotification(task, message);
                     return;
                 }
-                _reminderDialogActive = true;
                 try
                 {
                 // Generate AI-powered reminder and suggestions
@@ -2570,7 +2572,7 @@ namespace TimeTask
                 }
                 finally
                 {
-                    _reminderDialogActive = false;
+                    _reminderService.EndDialog();
                 }
             }
             catch (Exception ex)
@@ -3411,12 +3413,6 @@ namespace TimeTask
                         _databaseService = new DatabaseService(connectionString);
                         Console.WriteLine("DatabaseService initialized with connection string.");
 
-                        if (_syncTimer == null)
-                        {
-                            _syncTimer = new System.Windows.Threading.DispatcherTimer();
-                            _syncTimer.Tick += SyncTimer_Tick;
-                        }
-
                         int syncInterval = 30; // Default interval
                         try
                         {
@@ -3431,12 +3427,11 @@ namespace TimeTask
                         {
                             Console.WriteLine($"ERROR: Error accessing setting 'SyncIntervalMinutes'. Defaulting to 30. Error: {ex.Message}");
                         }
-                        _syncTimer.Interval = TimeSpan.FromMinutes(syncInterval);
-                        _syncTimer.Start();
+                        _syncScheduler.ConfigureTeamSync(true, syncInterval, TeamSyncTick);
                         Console.WriteLine($"Sync timer started. Interval: {syncInterval} minutes.");
 
                         // Perform an initial sync immediately if enabled
-                        Task.Run(() => SyncTimer_Tick(this, EventArgs.Empty));
+                        Task.Run(() => TeamSyncTick());
                     }
                     else
                     {
@@ -3451,11 +3446,7 @@ namespace TimeTask
                 else
                 {
                     Console.WriteLine("Team Sync is disabled. Sync service not started.");
-                    if (_syncTimer != null)
-                    {
-                        _syncTimer.Stop();
-                        Console.WriteLine("Sync timer stopped.");
-                    }
+                    _syncScheduler.StopTeamSync();
                 }
             }
             catch (Exception ex)
@@ -3482,14 +3473,10 @@ namespace TimeTask
                     return;
                 }
 
-                if (_knowledgeSyncTimer == null)
-                {
-                    _knowledgeSyncTimer = new System.Windows.Threading.DispatcherTimer();
-                    _knowledgeSyncTimer.Tick += async (s, e) => await RunKnowledgeSyncAsync(false);
-                }
-
-                _knowledgeSyncTimer.Interval = TimeSpan.FromMinutes(_knowledgeSyncService.Options.SyncIntervalMinutes);
-                _knowledgeSyncTimer.Start();
+                _syncScheduler.ConfigureKnowledgeSync(
+                    _knowledgeSyncService.Options.SyncIntervalMinutes,
+                    _knowledgeSyncService.Options.SyncDebounceSeconds,
+                    () => RunKnowledgeSyncAsync(false));
                 Console.WriteLine($"Knowledge sync timer started. Interval: {_knowledgeSyncService.Options.SyncIntervalMinutes} minutes.");
                 if (_knowledgeSyncService.Options.ObsidianVaultAutoDiscovered &&
                     _knowledgeSyncService.Options.SmartNotifyEnabled &&
@@ -3497,17 +3484,6 @@ namespace TimeTask
                 {
                     ShowPassiveNotification("已自动连接 Obsidian", _knowledgeSyncService.Options.ObsidianVaultPath, System.Windows.Forms.ToolTipIcon.Info, 4000);
                 }
-
-                if (_knowledgeSyncDebounceTimer == null)
-                {
-                    _knowledgeSyncDebounceTimer = new System.Windows.Threading.DispatcherTimer();
-                    _knowledgeSyncDebounceTimer.Tick += async (s, e) =>
-                    {
-                        _knowledgeSyncDebounceTimer.Stop();
-                        await RunKnowledgeSyncAsync(false);
-                    };
-                }
-                _knowledgeSyncDebounceTimer.Interval = TimeSpan.FromSeconds(_knowledgeSyncService.Options.SyncDebounceSeconds);
 
                 SetupObsidianRealtimeWatcher();
                 Dispatcher.BeginInvoke(new Action(async () => await RunKnowledgeSyncAsync(false)));
@@ -3560,16 +3536,8 @@ namespace TimeTask
         {
             try
             {
-                if (_knowledgeSyncDebounceTimer == null)
-                {
-                    return;
-                }
-
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _knowledgeSyncDebounceTimer.Stop();
-                    _knowledgeSyncDebounceTimer.Start();
-                }));
+                // 防抖计时器的 marshal 由 SyncScheduler 内部处理（未配置时是安全空操作）
+                _syncScheduler?.TriggerKnowledgeDebounce();
             }
             catch (Exception ex)
             {
@@ -3785,7 +3753,7 @@ namespace TimeTask
             return "不重要不紧急";
         }
 
-        private async void SyncTimer_Tick(object sender, EventArgs e)
+        private async void TeamSyncTick()
         {
             bool enableSync = false;
             try
@@ -3799,7 +3767,7 @@ namespace TimeTask
 
             if (!enableSync || _databaseService == null)
             {
-                if (_syncTimer != null) _syncTimer.Stop(); // Stop if disabled or service not available
+                _syncScheduler.StopTeamSync(); // Stop if disabled or service not available
                 Console.WriteLine("SyncTimer_Tick: Sync disabled or DatabaseService not available. Timer stopped.");
                 return;
             }
@@ -3901,69 +3869,53 @@ namespace TimeTask
         }
 
         /// <summary>
-        /// 提醒弹窗互斥：TaskReminderWindow 是模态的，而 ShowDialog 会泵消息——
-        /// 定时器在弹窗打开期间照样触发，无互斥时 N 个到期提醒会排队弹 N 个模态窗互相卡死。
-        /// 置位期间新的到期提醒改走被动气泡，绝不堆叠。
+        /// 给 ReminderService 提供四个象限的当前任务列表（元素可为 null：象限未加载数据时
+        /// ItemsSource 为 null，评估器按空象限处理）。
         /// </summary>
-        private bool _reminderDialogActive;
-
-        private void ReminderTimer_Tick(object sender, EventArgs e)
+        private List<ItemGrid>[] GetQuadrantTaskLists()
         {
-            DateTime now = DateTime.Now;
-
-            DataGrid[] dataGrids = { task1, task2, task3, task4 };
-            string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" }; // To identify which CSV to update
-
-            ItemGrid firstDue = null;
-            DataGrid firstDueGrid = null;
-            string firstDueCsv = null;
-            int dueCount = 0;
-
-            for (int i = 0; i < dataGrids.Length; i++)
+            return new[]
             {
-                DataGrid currentGrid = dataGrids[i];
+                task1.ItemsSource as List<ItemGrid>,
+                task2.ItemsSource as List<ItemGrid>,
+                task3.ItemsSource as List<ItemGrid>,
+                task4.ItemsSource as List<ItemGrid>
+            };
+        }
 
-                if (currentGrid.ItemsSource is List<ItemGrid> tasks)
-                {
-                    foreach (ItemGrid task in tasks)
-                    {
-                        if (task.IsActive && task.ReminderTime.HasValue && task.ReminderTime.Value <= now)
-                        {
-                            dueCount++;
-                            if (firstDue == null)
-                            {
-                                firstDue = task;
-                                firstDueGrid = currentGrid;
-                                firstDueCsv = csvFiles[i].Replace(".csv", "");
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (firstDue == null)
+        /// <summary>
+        /// ReminderService 报告一批到期提醒：优先弹模态窗（互斥由服务持有——
+        /// TaskReminderWindow 是模态的且 ShowDialog 会泵消息，弹窗打开期间定时器
+        /// 照样触发，占用失败的新批次降级为被动气泡，绝不堆叠模态窗）。
+        /// </summary>
+        private void ReminderService_DueRemindersRaised(object sender, ReminderBatch batch)
+        {
+            if (batch == null || batch.First == null)
             {
                 return;
             }
 
-            if (_reminderDialogActive)
+            DataGrid[] dataGrids = { task1, task2, task3, task4 };
+            DataGrid firstDueGrid = dataGrids[batch.FirstQuadrant - 1];
+            string firstDueCsv = batch.FirstQuadrant.ToString(CultureInfo.InvariantCulture);
+
+            if (!_reminderService.TryBeginDialog())
             {
                 // 已有提醒窗在展示：本轮只发一条被动气泡，避免模态窗排队堆叠
-                ShowSimpleNotification(firstDue, dueCount > 1
-                    ? $"你有 {dueCount} 个提醒到期（正在展示第一个），其余将依次提醒。"
+                ShowSimpleNotification(batch.First, batch.DueCount > 1
+                    ? $"你有 {batch.DueCount} 个提醒到期（正在展示第一个），其余将依次提醒。"
                     : "你有 1 个提醒到期，稍后弹窗提醒。");
                 return;
             }
 
-            _reminderDialogActive = true;
             try
             {
-                var dueReminderWindow = new TaskReminderWindow(firstDue, firstDue.ReminderTime.Value)
+                var dueReminderWindow = new TaskReminderWindow(batch.First, batch.First.ReminderTime.Value)
                 {
                     Owner = this
                 };
                 dueReminderWindow.ShowDialog();
-                bool changed = HandleDueReminderDecision(firstDue, dueReminderWindow.Result, now);
+                bool changed = HandleDueReminderDecision(batch.First, dueReminderWindow.Result, DateTime.Now);
                 if (changed)
                 {
                     update_csv(firstDueGrid, firstDueCsv);
@@ -3972,13 +3924,13 @@ namespace TimeTask
             }
             finally
             {
-                _reminderDialogActive = false;
+                _reminderService.EndDialog();
             }
 
             // 本轮还有其他到期提醒：气泡告知（它们保持到期状态，下一个 tick 依次弹出）
-            if (dueCount > 1)
+            if (batch.DueCount > 1)
             {
-                ShowSimpleNotification(firstDue, $"还有 {dueCount - 1} 个提醒到期，将按节奏依次弹出。");
+                ShowSimpleNotification(batch.First, $"还有 {batch.DueCount - 1} 个提醒到期，将按节奏依次弹出。");
             }
         }
 
@@ -6088,7 +6040,7 @@ namespace TimeTask
                 // For now, just re-initializing the service.
 
                 // Re-initialize sync service with potentially new settings
-                if (_syncTimer != null) _syncTimer.Stop(); // Stop existing timer before re-init
+                _syncScheduler.StopTeamSync(); // Stop existing timer before re-init
                 InitializeSyncService();
             }
         }

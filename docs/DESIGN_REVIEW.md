@@ -2,6 +2,7 @@
 
 > 评审范围：全仓代码走读（主窗口 / 数据层 / 语音-LLM 链路）+ 三轮独立子代理交叉审查。
 > 本轮改进已全部落地并通过构建与测试：**121 项测试，119 通过 / 0 失败 / 2 跳过**。
+> 2026-09-22 追加轮：录音会话硬化 + **定时器宿主收敛**（ReminderService / SyncScheduler），**147 项测试，145 通过 / 0 失败 / 2 跳过**。
 
 ## 一、项目现状概述
 
@@ -71,10 +72,11 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 | **PromptTemplates 拆分** | 10 个提示词模板常量拆到 `LlmPromptTemplates`（纯数据），便于统一审阅措辞与后续本地化；`LlmService` 全部引用已限定 |
 | **LLM 日志截断** | 智谱请求/响应正文不再全量落日志（含用户对话原文，是隐私泄露面），截断到 200/400 字符仅供排查 |
 | **QuadrantStore 提取**（拆 MainWindow 第一步） | 四象限持久化语义唯一 Owner：Load/Save/InsertTop（顶部插入+全象限评分）/DeleteFromAll/Rescore；ActionInbox 接受行动项、主窗口加载与跨象限拖拽评分全部收口，消除规则漂移；支持测试注入数据目录，新增 5 项语义契约测试 |
+| **定时器宿主收敛**（拆 MainWindow 第二步） | 提醒域迁入 `ReminderService`（到期评估纯函数化 `ReminderEvaluator` + 模态弹窗互斥收口，到期提醒与智能提醒共用互斥不变量保留）；同步域迁入 `SyncScheduler`（团队同步/知识同步/防抖三定时器 + 跨线程 marshal）；MainWindow 删除 4 个散落定时器字段，关闭清理/重初始化路径统一走宿主；新增 14 项契约测试 |
 
 ## 四、建议路线图（部分已实施，其余按收益/风险排序）
 
-1. **拆 MainWindow**（最大收益，改动最大）：~~数据层第一步~~ **已完成**（`QuadrantStore`：四象限 CSV 读写/增删/评分收口）；剩余：把各定时器收敛为 `ReminderService` / `SyncService` 两个宿主，UI 只留绑定与命令。可按提醒 → 同步的顺序渐进，每步都有测试兜底。
+1. **拆 MainWindow**（最大收益，改动最大）：~~数据层第一步~~ **已完成**（`QuadrantStore`：四象限 CSV 读写/增删/评分收口）；~~定时器收敛为 ReminderService / SyncService 两个宿主~~ **已完成**（`ReminderService` + `SyncScheduler`，到期评估/弹窗互斥/防抖均有契约测试）；剩余：智能引导类定时器（`_taskReminderTimer`/`_smartSystemTimer`，逻辑与窗口交互状态耦合较深，宜连同 SmartGuidance 一起迁）与纯 UI 动效定时器（保持留在窗口），UI 只留绑定与命令。
 2. **合并音频管线**：以 `ConversationCaptureService` 为唯一��口，内部组合设备管理 + ASR 引擎（Vosk/FunASR 做成可替换的 `IAsrEngine`），删除另两条管线及其回落链。*（未实施）*
 3. **LlmService 拆分**：~~响应解析器拆分~~ **已完成**；~~调用可取消~~ **已完成**；~~Key 加密存储~~ **已完成**；~~HttpClient 复用~~ **已完成**；~~PromptTemplates 拆分~~ **已完成**。剩余：连接池监控与重试策略统一。
 4. ~~**配置损坏策略**~~ **已完成**：`JsonStore` / `ReadCsv` 读取失败先尝试 `.bak` 再考虑重置，并记录警告日志。
@@ -86,3 +88,4 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 - `dotnet test --no-build`：**131/133 通过，0 失败，2 跳过**（跳过项需要真实 LLM 连接串，属预期）。
   - 含 7 项数据韧性契约测试（AtomicFile 备份、JsonStore 回退、ReadCsv 备份回退不丢行）
   - 含 5 项 QuadrantStore 语义契约测试（顶部插入+评分、跨象限删除、边界校验）。
+- 2026-09-22 追加轮后：**145/147 通过，0 失败，2 跳过**（新增 14 项 ReminderService/SyncScheduler 契约测试）。
