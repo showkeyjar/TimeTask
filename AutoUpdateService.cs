@@ -384,26 +384,45 @@ namespace TimeTask
             }
         }
 
-        private static Version ParseVersion(string versionText)
+        /// <summary>
+        /// 从任意形态的 tag/name 文本中提取版本号。容忍 v 前缀、release- 等前缀、
+        /// -beta.1 等后缀、以及「TimeTask v1.2（2026-09-22）」这类混杂文本——
+        /// 此前严格 Version.TryParse 导致 tag 稍不规范就抛「无法解析版本号」
+        /// （2026-09-22 实际日志中发生过）。提取不到才返回 null。
+        /// </summary>
+        internal static Version ParseVersion(string versionText)
         {
             if (string.IsNullOrWhiteSpace(versionText))
             {
                 return null;
             }
 
-            string normalized = versionText.Trim();
-            if (normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            string text = versionText.Trim();
+
+            // 优先：x.y[.z[.r]]（首个版本串）
+            var match = System.Text.RegularExpressions.Regex.Match(text,
+                @"(?<![0-9])([0-9]{1,4}\.[0-9]{1,4}(?:\.[0-9]{1,4}){0,2})");
+            if (match.Success)
             {
-                normalized = normalized.Substring(1);
+                Version parsed;
+                if (Version.TryParse(match.Groups[1].Value, out parsed))
+                {
+                    return NormalizeVersion(parsed);
+                }
             }
 
-                Version version;
-                if (!Version.TryParse(normalized, out version))
+            // 退化：单个数字（如 tag "3"）按 major.0 处理
+            var single = System.Text.RegularExpressions.Regex.Match(text, @"(?<![0-9])[0-9]{1,4}(?![0-9])");
+            if (single.Success)
+            {
+                int major;
+                if (int.TryParse(single.Value, out major))
                 {
-                    return null;
+                    return NormalizeVersion(new Version(major, 0));
                 }
+            }
 
-                return NormalizeVersion(version);
+            return null;
         }
 
         private static Version NormalizeVersion(Version version)

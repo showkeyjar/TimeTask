@@ -783,12 +783,21 @@ namespace TimeTask
         }
 
         /// <summary>
-        /// 带 cooperative 取消的补全入口。
+        /// 带 cooperative 取消的补全入口（瞬时失败自动重试，见 LlmRetryPolicy：
+        /// 超时/断连/限流/5xx 重试，取消/鉴权/解析/配置类错误不重试）。
         /// net472 + Betalgo SDK 不接受 CancellationToken，OpenAI 兼容路径用 WhenAny 竞速实现
         /// 「调用方立即返回」（被放弃的底层请求最多再跑到 HttpClient 超时为止，有上界）；
         /// 智谱 HTTP 路径是真正的网络层取消。取消/超时一律返回 Error 字符串，保持既有调用方契约（不抛异常）。
         /// </summary>
         public async Task<string> GetCompletionAsync(string prompt, System.Threading.CancellationToken cancellationToken)
+        {
+            return await LlmRetryPolicy.ExecuteAsync(
+                ct => GetCompletionOnceAsync(prompt, ct),
+                LlmRetryPolicy.ReadMaxAttempts(),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<string> GetCompletionOnceAsync(string prompt, System.Threading.CancellationToken cancellationToken)
         {
             // Check if using Zhipu AI
             bool isZhipuAi = !string.IsNullOrWhiteSpace(_apiBaseUrl) && _apiBaseUrl.Contains("bigmodel.cn");

@@ -624,17 +624,18 @@ namespace TimeTask.Tests
         // Helper to simulate the JSON parsing part of DecomposeGoalIntoDailyTasksAsync
         private List<ProposedDailyTask> ParseGoalDecompositionJson(string? jsonResponse)
         {
-            if (string.IsNullOrWhiteSpace(jsonResponse))
+            string response = jsonResponse ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(response))
             {
                 return new List<ProposedDailyTask>();
             }
-            if (jsonResponse.StartsWith("LLM dummy response") || jsonResponse.StartsWith("Error from LLM"))
+            if (response.StartsWith("LLM dummy response") || response.StartsWith("Error from LLM"))
             {
                 return new List<ProposedDailyTask>();
             }
             try
             {
-                jsonResponse = jsonResponse.Trim();
+                jsonResponse = response.Trim();
                 if (jsonResponse.StartsWith("```json")) { jsonResponse = jsonResponse.Substring(7); }
                 if (jsonResponse.EndsWith("```")) { jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3); }
                 jsonResponse = jsonResponse.Trim();

@@ -26,9 +26,9 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 - **写盘风暴**：四个象限的 `SelectionChanged` 每次单击都全量重写 CSV——加载时 `ItemsSource` 重置还会级联触发；`location_Save` 在拖动窗口时**每像素写一次 Settings**。
 - **帮助对话框说谎**：宣传 Ctrl+S / Del / Tab 切换象限，实际只有 F1 / Ctrl+N / Ctrl+F / Ctrl+E / F5 / Escape；已实现的 Ctrl+E、F5 反而没写。
 
-**本轮��复**：`MainWindow_Closed` 统一停掉全部 12 个定时器并退订采集事件；`SelectionChanged` 改为 400ms 防抖 + 加载期间（`_isLoadingGrids`）完全不触发；窗口位置 500ms 防抖 + 关闭时兜底刷新；**实现**了 Ctrl+S（保存全部象限）与 Del（删除选中任务，复用按钮的确认+行为记录逻辑），帮助文本与实现对齐。
+**本轮修复**：`MainWindow_Closed` 统一停掉全部 12 个定时器并退订采集事件；`SelectionChanged` 改为 400ms 防抖 + 加载期间（`_isLoadingGrids`）完全不触发；窗口位置 500ms 防抖 + 关闭时兜底刷新；**实现**了 Ctrl+S（保存全部象限）与 Del（删除选中任务，复用按钮的确认+行为记录逻辑），帮助文本与实现对齐。
 
-### 3. 进程级健壮性缺���（已修复）
+### 3. 进程级健壮性缺失（已修复）
 
 - 后台线程 / Task 的未处理异常直接闪退，用户连"发生了什么"都无法得知；没有单实例保护，双开会互相覆盖 CSV / JSON（后写者赢，丢掉对方全部改动）。
 
@@ -65,7 +65,7 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 | **僵尸进程治理** | 新增 `ProcessUtils.KillTree`（`taskkill /T /F` 递归终止进程树）：FunASR 引导 bootstrap 超时/取消、分段推理超时、常驻 worker 停止，四处全部改用进程树终止——修复取消等待时 Dispose 不杀进程导致的 python 孤儿堆积 |
 | **解析器拆分** | 四个 LLM 响应解析方法拆到 `LlmResponseParsers`（纯函数、可独立测试），`LlmService` 保留转发签名兼容既有测试 |
 | **韧性测试** | 新增 7 项契约测试：AtomicFile 二次写入必产 .bak、JsonStore 损坏回退/健康不回退/无文件返 null、ReadCsv 备份回退不丢好行 |
-| **LLM 可取消** | `GetCompletionAsync` 新增 `CancellationToken` 重载��智谱 HTTP 路径真网络层取消；Betalgo 路径（SDK 不收 token）用 WhenAny 竞速实现调用方立即返回，被弃请求以 HttpClient 超时为上界。`ConversationCaptureService` 拆卸时取消在途精修请求（放在 Dispose 而非 Stop——停止后还有最终 NLP 抽取要用 LLM） |
+| **LLM 可取消** | `GetCompletionAsync` 新增 `CancellationToken` 重载；智谱 HTTP 路径真网络层取消；Betalgo 路径（SDK 不收 token）用 WhenAny 竞速实现调用方立即返回，被弃请求以 HttpClient 超时为上界。`ConversationCaptureService` 拆卸时取消在途精修请求（放在 Dispose 而非 Stop——停止后还有最终 NLP 抽取要用 LLM） |
 | **API Key 加密存储** | 新增 `SecureApiKeyStore`（DPAPI CurrentUser + 附加熵，落用户数据目录）：首次读到配置明文自动迁入加密存储并尽力清明文；设置界面读写全走加密存储；启动 Key 检查、`LoadLlmConfig` 优先读加密副本（含「存储被删而配置只剩标记」的边界处理） |
 | **提醒弹窗风暴治理** | `TaskReminderWindow` 是模态的且 `ShowDialog` 会泵消息——定时器在弹窗打开期间照样触发，N 个到期提醒会堆叠 N 个模态窗互相卡死。引入 `_reminderDialogActive` 互斥：同一时刻至多一个模态提醒窗，其余到期提醒降级为被动气泡并按 tick 节奏依次弹出 |
 | **HttpClient 复用** | 智谱路径此前每次调用 `new HttpClient`——TIME_WAIT 套接字持续堆积，长会话/高频调用最终「再也连不上」。改为共享单例客户端 + 每请求认证头/超时（换 Key 后也不会串号） |
@@ -77,8 +77,8 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 ## 四、建议路线图（部分已实施，其余按收益/风险排序）
 
 1. **拆 MainWindow**（最大收益，改动最大）：~~数据层第一步~~ **已完成**（`QuadrantStore`：四象限 CSV 读写/增删/评分收口）；~~定时器收敛为 ReminderService / SyncService 两个宿主~~ **已完成**（`ReminderService` + `SyncScheduler`，到期评估/弹窗互斥/防抖均有契约测试）；剩余：智能引导类定时器（`_taskReminderTimer`/`_smartSystemTimer`，逻辑与窗口交互状态耦合较深，宜连同 SmartGuidance 一起迁）与纯 UI 动效定时器（保持留在窗口），UI 只留绑定与命令。
-2. **合并音频管线**：以 `ConversationCaptureService` 为唯一��口，内部组合设备管理 + ASR 引擎（Vosk/FunASR 做成可替换的 `IAsrEngine`），删除另两条管线及其回落链。*（未实施）*
-3. **LlmService 拆分**：~~响应解析器拆分~~ **已完成**；~~调用可取消~~ **已完成**；~~Key 加密存储~~ **已完成**；~~HttpClient 复用~~ **已完成**；~~PromptTemplates 拆分~~ **已完成**。剩余：连接池监控与重试策略统一。
+2. **合并音频管线**：以 `ConversationCaptureService` 为唯一入口，内部组合设备管理 + ASR 引擎（Vosk/FunASR 做成可替换的 `IAsrEngine`），删除另两条管线及其回落链。*（未实施）*
+3. **LlmService 拆分**：~~响应解析器拆分~~ **已完成**；~~调用可取消~~ **已完成**；~~Key 加密存储~~ **已完成**；~~HttpClient 复用~~ **已完成**；~~PromptTemplates 拆分~~ **已完成**；~~瞬时失败重试（LlmRetryPolicy：超时/断连/限流/5xx 自动重试，取消/鉴权/解析/配置不重试，正常内容绝不重试）~~ **已完成**。剩余：连接池监控（收益低，观察中）。
 4. ~~**配置损坏策略**~~ **已完成**：`JsonStore` / `ReadCsv` 读取失败先尝试 `.bak` 再考虑重置，并记录警告日志。
 5. **国际化收口**：新增字符串一律走 `I18n`，硬编码的逐步迁移。*（未实施）*
 

@@ -1,5 +1,30 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-22 ~19:45 +08:00] 稳定性与工程卫生：LLM 重试 + 测试日志隔离 + 更新版本解析
+- 背景：用户暂无法实测录音链路，转做可单测验证的路线图遗留项。
+- 1) LLM 瞬时失败重试（路线图第 3 项遗留，此前完全没有 retry——会议 60s/次的精修、
+  停止后的行动项抽取遇到一次网络抖动就整次丢失）：
+  - 新增 LlmRetryPolicy（纯函数可测）：按 LlmService「失败返回 Error 字符串」的契约做文本分类——
+    超时/断连/限流/5xx 重试（含中文网络异常文案「发送请求时出错」）；取消/鉴权401/403/解析/配置不重试；
+    未知错误保守不重试；**正常内容哪怕含「超时」字样也绝不重试**（防重复计费）。
+  - 退避 1s/2s/4s（上限8s+确定性抖动）；等待期取消立即返回（保持不抛异常契约）。
+    LlmService.GetCompletionAsync 包装原单次执行为 GetCompletionOnceAsync + ExecuteAsync 重试。
+    配置 LlmRetryMaxAttempts（默认3，钳1..6）。既有测试的 mock 错误均为解析类 → 不受重试影响。
+- 2) 测试污染用户真实日志（%AppData%\TimeTask\logs\voice-runtime.log 混入大量单测条目，实测抓到）：
+  - VoiceRuntimeLog.DetourTo(path) 重定向 + TimeHostSetup（改名 TestHostSetup）[AssemblyInitialize]
+    全程序集重定向到 %TEMP%\TimeTask.Tests\logs。
+  - **踩坑自纠**：首版 Detour 测试 finally 里 DetourTo(null)，把后面执行的测试类打回真实日志
+    （RecordingRetention/ReminderSync 泄漏，靠「真实日志字节数前后一致」验证抓出）——
+    finally 必须恢复到 TestHostSetup.TestLogPath。最终验证：全量 187 项跑完真实日志逐字节不变。
+- 3) AutoUpdateService.ParseVersion 加固：原严格 Version.TryParse，tag 稍不规范（release-2.0.1、
+  「TimeTask v1.2（2026-09-22）」、v1.2.3-beta.1）就抛「无法解析版本号」（用户日志实际发生过）。
+  改为正则提取首个 x.y[.z[.r]] + 单数字退化，提取不到才 null。
+- 顺手：修 LlmServiceTests 的 CS8602 可空警告。
+- 验证：MSBuild 0 错 0 警告（CS8602 消除）；vstest 187 项 / 185 通过 / 0 失败 / 2 跳过（+25 新增）；
+  真实日志隔离字节数证明。全部改动文件 U+FFFD 扫描为 0。
+- 教训：全局单例状态（日志重定向）的测试，清理逻辑必须恢复到「全局初始态」而非默认值——
+  测试间执行顺序不可假设。
+
 ## [2026-09-22 ~19:00 +08:00] 修复「一直提示高精度模型准备中」
 - 根因（读 voice-runtime.log 定位）：`FunAsrRuntimeManager` 的策略是
   `preferPrebuiltRuntime=True + allowOnlineInstallFallback=False` —— 只认

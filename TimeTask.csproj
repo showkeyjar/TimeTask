@@ -83,6 +83,7 @@
     <Compile Include="ProcessUtils.cs" />
     <Compile Include="LlmResponseParsers.cs" />
     <Compile Include="LlmPromptTemplates.cs" />
+    <Compile Include="LlmRetryPolicy.cs" />
     <Compile Include="QuadrantStore.cs" />
     <Compile Include="RecordingRetention.cs" />
     <Compile Include="ReminderService.cs" />
