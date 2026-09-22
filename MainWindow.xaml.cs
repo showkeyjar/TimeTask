@@ -464,8 +464,9 @@ namespace TimeTask
         private WeeklyReviewEngine _weeklyReviewEngine;
         private VoiceRecognitionQualityEngine _voiceRecognitionQualityEngine;
         private GoalHierarchyEngine _goalHierarchyEngine;
-        private System.Windows.Threading.DispatcherTimer _smartSystemTimer;
         private System.Windows.Threading.DispatcherTimer _conversationIdleTimer;
+        // 智能引导域定时器宿主（_smartSystemTimer/_taskReminderTimer 的收口，含异常隔离）
+        private GuidanceScheduler _guidanceScheduler;
         private DateTime _lastVoiceConversationSegmentAtUtc = DateTime.MinValue;
         private DateTime _lastStrategyCycleAt = DateTime.MinValue;
         private DateTime _lastWeeklyReviewNoticeDate = DateTime.MinValue;
@@ -750,6 +751,8 @@ namespace TimeTask
             _reminderService.Start();
 
             // Start periodic task reminder checks
+            // 智能引导域定时器宿主：先建再配（TaskReminder 与 SmartSystem 两路共用）
+            _guidanceScheduler = new GuidanceScheduler();
             StartPeriodicTaskReminderChecks();
 
             // 同步域定时器（团队同步 + 知识同步 + 防抖）收敛到 SyncScheduler
@@ -1215,7 +1218,7 @@ namespace TimeTask
                 foreach (var timer in new[]
                 {
                     _voiceStatusAnimTimer, _systemTickerTimer, _conversationIdleTimer,
-                    _taskReminderTimer, _draftBadgeTimer, _smartSystemTimer,
+                    _draftBadgeTimer,
                     _meetingToastTimer, _recordUiTimer
                 })
                 {
@@ -1227,17 +1230,17 @@ namespace TimeTask
                 _voiceStatusAnimTimer = null;
                 _systemTickerTimer = null;
                 _conversationIdleTimer = null;
-                _taskReminderTimer = null;
                 _draftBadgeTimer = null;
-                _smartSystemTimer = null;
                 _meetingToastTimer = null;
                 _recordUiTimer = null;
 
-                // 提醒域 / 同步域定时器宿主统一释放（内部含各自定时器的停走）
+                // 提醒域 / 同步域 / 智能引导域定时器宿主统一释放（内部含各自定时器的停走）
                 _reminderService?.Dispose();
                 _reminderService = null;
                 _syncScheduler?.Dispose();
                 _syncScheduler = null;
+                _guidanceScheduler?.Dispose();
+                _guidanceScheduler = null;
 
                 if (_obsidianWatcher != null)
                 {
@@ -1455,10 +1458,8 @@ namespace TimeTask
 
                 _smartGuidanceManager.Initialize();
 
-                _smartSystemTimer = new System.Windows.Threading.DispatcherTimer();
-                _smartSystemTimer.Interval = TimeSpan.FromMinutes(5);
-                _smartSystemTimer.Tick += SmartSystemTimer_Tick;
-                _smartSystemTimer.Start();
+                // 智能引导域定时器（宿主含异常隔离；间隔与旧硬编码一致）
+                _guidanceScheduler.ConfigureSmartSystem(5, SmartSystemTickBody);
 
                 VoiceListenerStatusCenter.RecognitionCaptured -= VoiceListenerStatusCenter_RecognitionCaptured;
                 VoiceListenerStatusCenter.RecognitionCaptured += VoiceListenerStatusCenter_RecognitionCaptured;
@@ -1476,18 +1477,12 @@ namespace TimeTask
             }
         }
 
-        private void SmartSystemTimer_Tick(object sender, EventArgs e)
+        /// <summary>智能系统定时任务体（场景触发 + 目标调适 + 战略导航）。异常由 GuidanceScheduler 隔离。</summary>
+        private void SmartSystemTickBody()
         {
-            try
-            {
-                _smartGuidanceManager.CheckAndTriggerScenarios();
-                _adaptiveGoalManager.CheckAndAdjustGoals();
-                RunStrategicNavigationCycle(force: false);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[SmartSystems] Timer tick failed: {ex.Message}");
-            }
+            _smartGuidanceManager.CheckAndTriggerScenarios();
+            _adaptiveGoalManager.CheckAndAdjustGoals();
+            RunStrategicNavigationCycle(force: false);
         }
 
         private void RunStrategicNavigationCycle(bool force)
@@ -2790,8 +2785,6 @@ namespace TimeTask
             }
         }
         
-        private System.Windows.Threading.DispatcherTimer _taskReminderTimer;
-
         private class TaskInteractionState
         {
             public DateTime WindowStart { get; set; } = DateTime.Now;
@@ -2809,13 +2802,12 @@ namespace TimeTask
         
         private void StartPeriodicTaskReminderChecks()
         {
-            _taskReminderTimer = new System.Windows.Threading.DispatcherTimer();
-            _taskReminderTimer.Interval = TimeSpan.FromMinutes(5); // Check every 5 minutes
-            _taskReminderTimer.Tick += TaskReminderTimer_Tick;
-            _taskReminderTimer.Start();
+            // 宿主负责定时器生命周期与异常隔离（旧实现是 async void 无隔离，异常直冲 Dispatcher）
+            _guidanceScheduler.ConfigureTaskReminder(5, TaskReminderTickBodyAsync);
         }
-        
-        private async void TaskReminderTimer_Tick(object sender, EventArgs e)
+
+        /// <summary>任务提醒定时任务体（自适应调参 + 陈旧任务提醒 + 卡住检测）。异常由宿主隔离。</summary>
+        private async Task TaskReminderTickBodyAsync()
         {
             UpdateAdaptiveNudgeParameters();
             await CheckForStaleTasksAndRemind();

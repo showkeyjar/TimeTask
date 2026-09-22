@@ -1,5 +1,22 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-22 ~20:10 +08:00] 智能引导域定时器收口（MainWindow 拆分路线图收尾）
+- 新增 GuidanceScheduler（与 ReminderService/SyncScheduler 同构的定时器宿主）：
+  收口 _smartSystemTimer（场景触发+目标调适+战略导航）与 _taskReminderTimer
+  （自适应调参+陈旧任务提醒+卡住检测）两个散落 DispatcherTimer。
+- 修掉一个真实崩溃面：旧 TaskReminderTimer_Tick 是 **async void 且无 try/catch**——
+  一次 tick 异常直冲 Dispatcher 即崩应用。宿主 SafeTick/SafeTickAsync 统一异常隔离
+  （单次失败记日志、定时器存活），窗口只提供 tick 委托。
+- MainWindow 六处改动：字段×2 收敛为 _guidanceScheduler、构造（先建再配）、
+  两个 tick 改为纯任务体（SmartSystemTickBody / TaskReminderTickBodyAsync）、
+  关闭清理并入宿主 Dispose。间隔维持旧硬编码 5 分钟（NormalizeIntervalMinutes 可兜底）。
+- 新增 7 项契约测试（GuidanceSchedulerTests）：异常隔离同步/异步两路、
+  同步段抛出不外抛、null tick 安全、Dispose 后配置抛、双 Dispose 幂等、间隔规范化。
+- 验证：MSBuild 0 错；vstest 194 项 / 192 通过 / 0 失败 / 2 跳过（+7）；
+  真实日志字节数前后一致；改动文件 U+FFFD 均为 0。
+- 路线图状态：拆 MainWindow 的定时器部分全部完成（数据层 QuadrantStore →
+  ReminderService/SyncScheduler → GuidanceScheduler），剩纯 UI 动效定时器留在窗口（按设计）。
+
 ## [2026-09-22 ~19:45 +08:00] 稳定性与工程卫生：LLM 重试 + 测试日志隔离 + 更新版本解析
 - 背景：用户暂无法实测录音链路，转做可单测验证的路线图遗留项。
 - 1) LLM 瞬时失败重试（路线图第 3 项遗留，此前完全没有 retry——会议 60s/次的精修、

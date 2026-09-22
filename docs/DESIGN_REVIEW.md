@@ -76,7 +76,7 @@ TimeTask（QuestOS）是 .NET Framework 4.7.2 上的 WPF 桌面应用：以四�
 
 ## 四、建议路线图（部分已实施，其余按收益/风险排序）
 
-1. **拆 MainWindow**（最大收益，改动最大）：~~数据层第一步~~ **已完成**（`QuadrantStore`：四象限 CSV 读写/增删/评分收口）；~~定时器收敛为 ReminderService / SyncService 两个宿主~~ **已完成**（`ReminderService` + `SyncScheduler`，到期评估/弹窗互斥/防抖均有契约测试）；剩余：智能引导类定时器（`_taskReminderTimer`/`_smartSystemTimer`，逻辑与窗口交互状态耦合较深，宜连同 SmartGuidance 一起迁）与纯 UI 动效定时器（保持留在窗口），UI 只留绑定与命令。
+1. **拆 MainWindow**（最大收益，改动最大）：~~数据层第一步~~ **已完成**（`QuadrantStore`：四象限 CSV 读写/增删/评分收口）；~~定时器收敛为 ReminderService / SyncService 两个宿主~~ **已完成**（`ReminderService` + `SyncScheduler`，到期评估/弹窗互斥/防抖均有契约测试）；~~智能引导类定时器（`_taskReminderTimer`/`_smartSystemTimer`）迁移~~ **已完成**（`GuidanceScheduler` 收口，并修复旧 async void tick 无异常隔离的崩溃面，契约测试覆盖）；剩余仅纯 UI 动效定时器（按设计留在窗口），UI 只留绑定与命令。
 2. **合并音频管线**：以 `ConversationCaptureService` 为唯一入口，内部组合设备管理 + ASR 引擎（Vosk/FunASR 做成可替换的 `IAsrEngine`），删除另两条管线及其回落链。*（未实施）*
 3. **LlmService 拆分**：~~响应解析器拆分~~ **已完成**；~~调用可取消~~ **已完成**；~~Key 加密存储~~ **已完成**；~~HttpClient 复用~~ **已完成**；~~PromptTemplates 拆分~~ **已完成**；~~瞬时失败重试（LlmRetryPolicy：超时/断连/限流/5xx 自动重试，取消/鉴权/解析/配置不重试，正常内容绝不重试）~~ **已完成**。剩余：连接池监控（收益低，观察中）。
 4. ~~**配置损坏策略**~~ **已完成**：`JsonStore` / `ReadCsv` 读取失败先尝试 `.bak` 再考虑重置，并记录警告日志。
