@@ -84,6 +84,7 @@
     <Compile Include="LlmResponseParsers.cs" />
     <Compile Include="LlmPromptTemplates.cs" />
     <Compile Include="QuadrantStore.cs" />
+    <Compile Include="RecordingRetention.cs" />
     <Compile Include="ReminderService.cs" />
     <Compile Include="SyncScheduler.cs" />
     <Compile Include="SecureApiKeyStore.cs" />

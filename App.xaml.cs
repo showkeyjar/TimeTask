@@ -153,6 +153,10 @@ namespace TimeTask
                 VoiceRuntimeLog.Info($"全局快捷键注册{(hotkeyOk ? "成功" : "失败")}：{_hotkeyHint} 切换记录。");
 
                 VoiceRuntimeLog.Info("Conversation capture + tray initialized (standby).");
+
+                // 录音保留策略：启动时后台清一次过期录音（录音占磁盘，无限堆积是隐患）
+                System.Threading.Tasks.Task.Run(() =>
+                    RecordingRetention.Apply(AppPaths.RecordingsDir, RecordingRetention.GetRetentionDays()));
             }
             catch (Exception ex)
             {
@@ -233,6 +237,12 @@ namespace TimeTask
         private void OnConversationCaptured(ConversationCaptureService.ConversationCaptureResult result)
         {
             _lastCaptureResult = result;
+
+            // 每场录音结束后顺带清一轮过期录音（应用常驻多日也保持磁盘可控；
+            // 刚结束的会话不可能满足过期条件，无并发风险）
+            System.Threading.Tasks.Task.Run(() =>
+                RecordingRetention.Apply(AppPaths.RecordingsDir, RecordingRetention.GetRetentionDays()));
+
             // 用 BeginInvoke 异步切回 UI，避免 Dispatcher.Invoke 同步调用可能引发的死锁。
             Dispatcher.BeginInvoke(new Action(() =>
             {

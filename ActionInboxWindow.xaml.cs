@@ -16,6 +16,10 @@ namespace TimeTask
     /// 用户勾选并确认后，任务真正进入 TimeTask 四象限。
     /// 这是“现实流→行动”闭环的最后一环。
     ///
+    /// 交互原则（用户反馈“太繁琐/概念不懂/不知道下一步”后确立）：
+    /// 首屏只回答「找到了几件事、加不加」，一个绿色主按钮收口；
+    /// 回放/转写全文/会议纪要全部折叠、大白话命名；不露 ASR/LLM/置信度等术语。
+    ///
     /// 降级设计：即使本地 ASR 模型不可用，录音依然落盘。本窗口支持
     /// (1) 直接回放录音，(2) 手动录入/粘贴文本并复用同一套提取逻辑。
     /// 因此“没有 ASR”也能完成“录音→行动项”的完整闭环。
@@ -64,65 +68,78 @@ namespace TimeTask
             QuadrantColumn.ItemsSource = Quadrants;
             Grid.ItemsSource = _items;
 
-            TitleText.Text = result.Type == ConversationType.Meeting
-                ? "会议记录 · 行动收件箱"
-                : "交流记录 · 行动收件箱";
-
+            // ---------- 人话文案：只讲结论和数字，不露术语 ----------
             var dur = result.EndTime - result.StartTime;
-            string asrTag = result.AsrAvailable
-                ? "实时转写：已启用"
-                : "实时转写：未启用（可回放录音手动转写）";
-            string refineTag = result.LlmRefined ? " · LLM上下文精炼" : string.Empty;
-            MetaText.Text = $"类型：{result.Type}　时长：{dur.TotalMinutes:F0} 分钟　{asrTag}{refineTag}　识别行动项：{result.Actions.Count}";
+            TitleText.Text = result.Type == ConversationType.Meeting ? "✅ 这场会议整理好了" : "✅ 这段录音整理好了";
+            string speechState = result.AsrAvailable ? "语音已转成文字" : "没能自动转成文字";
+            MetaText.Text = $"时长 {dur.TotalMinutes:F0} 分钟 · {speechState} · 找到 {result.Actions.Count} 件可跟进的事";
 
             if (string.IsNullOrWhiteSpace(result.Summary))
             {
-                // 收件箱为空时给出明确原因与可追溯信息，而不是一句“无内容”让人摸不着头脑。
-                string reason = result.AsrAvailable
-                    ? "本次录音未识别到有效语音内容，未抽取行动项。可检查麦克风/系统音频是否被静音后重新录制。"
-                    : "本次录音未启用实时转写（ASR 模型仍在后台加载/下载，或不可用），因此没有可抽取的文字内容。\n" +
-                      "不过录音已保存到磁盘：你可以点击上方“录音回放”听回内容，再用“手动录入文本”抽取行动项；或等模型就绪后重新录制。";
-                string pathNote = string.IsNullOrWhiteSpace(_folder)
-                    ? string.Empty
-                    : $"\n\n录音文件已保存：{_folder}";
-                TranscriptBox.Text = reason + pathNote;
+                // 空态：直接说人话 + 给两条可走的路（听回放 / 手动补记），不给一段术语墙
+                EmptyReasonText.Text = result.AsrAvailable
+                    ? "没有听出有效的内容。可能麦克风被静音了，或者这一段没有说话。"
+                    : "这场录音没能自动转成文字。录音本身已完整保存：可以听一下回放，把要点敲进来，一样能提取成待办。";
+                if (!string.IsNullOrWhiteSpace(_folder))
+                {
+                    EmptyReasonText.Text += $"\n录音保存在：{_folder}";
+                }
             }
             else
             {
                 TranscriptBox.Text = result.Summary;
             }
 
-            // 音频面板：仅当存在录音文件时显示
-            bool hasMic = _micPath != null && File.Exists(_micPath);
-            bool hasSys = _sysPath != null && File.Exists(_sysPath);
-            if (hasMic || hasSys)
-            {
-                AudioPanel.Visibility = Visibility.Visible;
-                BtnPlayMic.Visibility = hasMic ? Visibility.Visible : Visibility.Collapsed;
-                BtnPlaySystem.Visibility = hasSys ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            // 手动转写兜底：默认折叠；当没有任何内容时自动展开，引导用户走手动路径
-            bool noContent = result.Actions.Count == 0 &&
-                             (string.IsNullOrWhiteSpace(result.Summary) || result.Summary.StartsWith("本次"));
-            if (noContent) ManualExpander.IsExpanded = true;
-
+            // ---------- 空态 / 有内容的分叉 ----------
             foreach (var a in result.Actions)
             {
-                _items.Add(new ActionItemVM
+                var vm = new ActionItemVM
                 {
                     Text = a.CleanedText ?? a.RawText,
                     Quadrant = a.EstimatedQuadrant ?? "重要不紧急",
                     Reminder = a.ReminderTime,
                     Confidence = (float)a.Confidence
-                });
+                };
+                vm.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ActionItemVM.Accepted)) UpdateAcceptButton(); };
+                _items.Add(vm);
             }
 
-            // 结构化会议纪要（会议助手实时提炼的结果）：即使没有文本转写，只要配了 LLM 也有要点
+            if (_items.Count == 0)
+            {
+                ActionsCard.Visibility = Visibility.Collapsed;
+                ActionHintText.Visibility = Visibility.Collapsed;
+                EmptyCard.Visibility = Visibility.Visible;
+                // 没有可提取内容时：展开转写区引导查看；完全没有文字时再展开手动补记
+                TranscriptExpander.IsExpanded = true;
+                if (string.IsNullOrWhiteSpace(result.Summary))
+                {
+                    ManualExpander.IsExpanded = true;
+                }
+            }
+            UpdateAcceptButton();
+
+            // ---------- 录音回放（折叠区）：只在确实有录音文件时保留入口 ----------
+            bool hasMic = _micPath != null && File.Exists(_micPath);
+            bool hasSys = _sysPath != null && File.Exists(_sysPath);
+            if (hasMic || hasSys)
+            {
+                BtnPlayMic.Visibility = hasMic ? Visibility.Visible : Visibility.Collapsed;
+                BtnPlaySystem.Visibility = hasSys ? Visibility.Visible : Visibility.Collapsed;
+                int days = RecordingRetention.GetRetentionDays();
+                RetentionNote.Text = RecordingRetention.IsEnabled(days)
+                    ? $"录音保存在本机，{days} 天后会自动清理释放空间（保留期可在配置 ConversationCaptureRetentionDays 调整，0 = 永久保留）。"
+                    : "录音保存在本机（未启用自动清理）。";
+            }
+            else
+            {
+                AudioExpander.Visibility = Visibility.Collapsed;
+            }
+
+            // ---------- 会议纪要（折叠区）：有结构化内容时才给入口 ----------
             if (result.MeetingState != null)
             {
                 MinutesSummary.Text = string.IsNullOrWhiteSpace(result.MeetingState.Summary)
-                    ? "（本次会议未提炼出结构化要点）"
+                    ? "（本次没有提炼出要点）"
                     : result.MeetingState.Summary;
                 MinConcepts.ItemsSource = result.MeetingState.Concepts;
                 MinQuestions.ItemsSource = result.MeetingState.Questions;
@@ -131,16 +148,34 @@ namespace TimeTask
             }
             else
             {
-                MinutesSummary.Text = "（未启用实时提炼；可回放录音后用“手动录入文本”抽取行动项）";
-            }
-
-            if (_items.Count == 0)
-            {
-                BtnAcceptAll.IsEnabled = false;
-                BtnAcceptSelected.IsEnabled = false;
+                MinutesSummary.Text = "（本次没有实时提炼；可在录音前配置智能服务启用）";
             }
 
             Closed += (s, e) => StopPlayback();
+        }
+
+        /// <summary>主按钮文案与可用性 = 当前勾选数（所见即所得，不再区分“全部接受/接受选中”）。</summary>
+        private void UpdateAcceptButton()
+        {
+            int n = _items.Count(i => i.Accepted);
+            BtnAcceptAll.Content = n > 0 ? $"✓ 把 {n} 件事加入任务列表" : "✓ 加入任务列表";
+            BtnAcceptAll.IsEnabled = n > 0;
+        }
+
+        // ---------- 空态引导：两条路一目了然 ----------
+
+        private void BtnEmptyListen_Click(object sender, RoutedEventArgs e)
+        {
+            AudioExpander.IsExpanded = true;
+            if (_micPath != null && File.Exists(_micPath)) StartPlayback(_micPath);
+            else if (_sysPath != null && File.Exists(_sysPath)) StartPlayback(_sysPath);
+        }
+
+        private void BtnEmptyManual_Click(object sender, RoutedEventArgs e)
+        {
+            TranscriptExpander.IsExpanded = true;
+            ManualExpander.IsExpanded = true;
+            ManualTextBox.Focus();
         }
 
         // ---------- 录音回放（NAudio，非阻塞）----------
@@ -221,35 +256,40 @@ namespace TimeTask
 
             foreach (var d in drafts)
             {
-                _items.Add(new ActionItemVM
+                var vm = new ActionItemVM
                 {
                     Text = d.CleanedText ?? d.RawText,
                     Quadrant = d.EstimatedQuadrant ?? "重要不紧急",
                     Reminder = d.ReminderTime,
                     Confidence = (float)d.Confidence
-                });
+                };
+                vm.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ActionItemVM.Accepted)) UpdateAcceptButton(); };
+                _items.Add(vm);
             }
 
-            BtnAcceptAll.IsEnabled = true;
-            BtnAcceptSelected.IsEnabled = true;
+            // 手动补记产生了内容：从空态切回列表态
+            EmptyCard.Visibility = Visibility.Collapsed;
+            ActionsCard.Visibility = Visibility.Visible;
+            ActionHintText.Visibility = Visibility.Visible;
+            UpdateAcceptButton();
             TranscriptBox.Text = text.Trim();
-            PlayStatus.Text = $"已从手动文本抽取 {drafts.Count} 个行动项，请勾选后接受。";
+            StatusText.Text = $"已从你补记的文字里提取 {drafts.Count} 件，勾选后点绿色按钮加入。";
         }
 
-        // ---------- 接受 / 忽略（与自动转写完全一致）----------
+        // ---------- 加入 / 忽略 ----------
 
-        private void BtnAcceptAll_Click(object sender, RoutedEventArgs e) => Accept(acceptSelectedOnly: false);
-        private void BtnAcceptSelected_Click(object sender, RoutedEventArgs e) => Accept(acceptSelectedOnly: true);
+        private void BtnAcceptAll_Click(object sender, RoutedEventArgs e) => Accept();
 
-        private void Accept(bool acceptSelectedOnly)
+        /// <summary>
+        /// 把勾选的事项加入四象限。勾选即所见即所得（默认全勾），
+        /// 完成后直接关窗——主窗口会自动刷新，任务就在象限顶部，不再叠加确认弹窗。
+        /// </summary>
+        private void Accept()
         {
-            var toAdd = acceptSelectedOnly
-                ? _items.Where(i => i.Accepted).ToList()
-                : _items.ToList();
+            var toAdd = _items.Where(i => i.Accepted).ToList();
 
             if (toAdd.Count == 0)
             {
-                MessageBox.Show("没有可接受的行动项", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -291,7 +331,14 @@ namespace TimeTask
             }
 
             RefreshMainGrid();
-            MessageBox.Show($"已接受 {added} 个行动项并加入四象限。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            // 全部失败才打扰用户；成功时不弹确认框（少一次点击，任务已出现在主窗口象限顶部）
+            if (added == 0)
+            {
+                MessageBox.Show("加入任务列表失败了，详情见日志（data\\logs）。", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
             Close();
         }
 

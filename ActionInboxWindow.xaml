@@ -1,45 +1,123 @@
 <Window x:Class="TimeTask.ActionInboxWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="行动收件箱 · Action Inbox"
-        Height="720" Width="800"
+        Title="录音整理"
+        Height="600" Width="720"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize">
-    <Grid Margin="14">
+    <!--
+      设计原则（用户反馈：太繁琐 / 概念不懂 / 不知道下一步干嘛）：
+      1) 首屏只回答一件事——「找到了几件事，加不加进任务列表」，一个绿色主按钮收口；
+      2) 全部高级内容（回放、转写全文、会议纪要）默认折叠，用大白话命名；
+      3) 不出现 ASR / LLM / 置信度 / 象限这类术语，列头改成「加入 / 事项 / 放到哪 / 提醒我」。
+    -->
+    <Grid Margin="16,12,16,12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- 0. 一句话结论 -->
         <StackPanel Grid.Row="0" Orientation="Vertical">
-            <TextBlock x:Name="TitleText" FontSize="18" FontWeight="Bold" Text="交流记录 · 行动收件箱"/>
-            <TextBlock x:Name="MetaText" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"/>
+            <TextBlock x:Name="TitleText" FontSize="19" FontWeight="Bold" Text="这段录音整理好了"/>
+            <TextBlock x:Name="MetaText" Foreground="#666" Margin="0,4,0,0" FontSize="13" TextWrapping="Wrap"/>
         </StackPanel>
 
-        <!-- 音频回放面板：无 ASR 时也能听回录音，不浪费 -->
-        <Border x:Name="AudioPanel" Grid.Row="1" Margin="0,8,0,4" Padding="10,8"
-                Background="#EAF3FB" BorderBrush="#BBD7F0" BorderThickness="1" CornerRadius="4"
-                Visibility="Collapsed">
-            <StackPanel Orientation="Vertical">
-                <TextBlock FontWeight="SemiBold" Margin="0,0,0,4">录音回放</TextBlock>
-                <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BtnPlayMic" Content="▶ 播放麦克风" Width="120" Height="30" Margin="0,0,8,0" Click="BtnPlayMic_Click"/>
-                    <Button x:Name="BtnPlaySystem" Content="▶ 播放系统音频" Width="130" Height="30" Margin="0,0,8,0" Click="BtnPlaySystem_Click"/>
-                    <Button x:Name="BtnStopPlay" Content="■ 停止" Width="80" Height="30" Margin="0,0,8,0" Click="BtnStopPlay_Click" IsEnabled="False"/>
-                    <Button x:Name="BtnOpenFolder" Content="打开文件夹" Width="96" Height="30" Click="BtnOpenFolder_Click"/>
+        <!-- 1. 操作引导（有人话的下一步） -->
+        <TextBlock x:Name="ActionHintText" Grid.Row="1" Margin="0,10,0,4" FontSize="13" Foreground="#333"
+                   Text="勾掉不需要的，剩下的点下面绿色按钮就会加进任务列表（默认已按重要/紧急分好类，不满意可以改）："/>
+
+        <!-- 2. 行动项卡片 / 空态卡片 -->
+        <Border x:Name="ActionsCard" Grid.Row="2" Background="#FDFEFD" BorderBrush="#D8E4D8"
+                BorderThickness="1" CornerRadius="6" Padding="6" ClipToBounds="True">
+            <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
+                      CanUserDeleteRows="False" SelectionMode="Single" Background="Transparent"
+                      HeadersVisibility="Column" BorderThickness="0" RowHeight="34"
+                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEE">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="加入" Binding="{Binding Accepted, Mode=TwoWay}" Width="46"/>
+                    <DataGridTextColumn Header="事项" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
+                    <DataGridComboBoxColumn x:Name="QuadrantColumn" Header="放到哪" SelectedItemBinding="{Binding Quadrant, Mode=TwoWay}" Width="128"/>
+                    <DataGridTemplateColumn Header="提醒我" Width="112">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DatePicker SelectedDate="{Binding Reminder, Mode=TwoWay}" BorderThickness="0"
+                                            ToolTip="留空 = 不提醒"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Border x:Name="EmptyCard" Grid.Row="2" Background="#FBF9F2" BorderBrush="#E6DFC8"
+                BorderThickness="1" CornerRadius="6" Padding="16" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock x:Name="EmptyReasonText" FontSize="13" TextWrapping="Wrap" Foreground="#5A5245" LineHeight="22"/>
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button x:Name="BtnEmptyListen" Content="▶ 听一听录音" Width="120" Height="32" Margin="0,0,10,0"
+                            Click="BtnEmptyListen_Click" Background="#FFFDF6" BorderBrush="#C9B98A"/>
+                    <Button x:Name="BtnEmptyManual" Content="✍ 手动补记几句话" Width="140" Height="32"
+                            Click="BtnEmptyManual_Click" Background="#FFFDF6" BorderBrush="#C9B98A"/>
                 </StackPanel>
-                <TextBlock x:Name="PlayStatus" Foreground="#555" FontSize="11" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 
-        <!-- 会议要点（会议助手实时提炼的结构化纪要） -->
-        <Expander Grid.Row="2" Header="会议要点（实时提炼：新概念 / 待讨论 / 决策 / 行动项）" Margin="0,4,0,4" IsExpanded="True">
+        <!-- 3. 主操作：一个绿色按钮收口 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
+            <Button x:Name="BtnAcceptAll" Content="✓ 加入任务列表" Height="40" MinWidth="230" Padding="14,0"
+                    Click="BtnAcceptAll_Click" Background="#2E7D32" Foreground="White" FontSize="14"
+                    FontWeight="SemiBold" BorderBrush="#256428"/>
+            <Button x:Name="BtnDismiss" Content="本次不加了" Height="40" Margin="12,0,0,0" Padding="10,0"
+                    Click="BtnDismiss_Click" Background="Transparent" Foreground="#777"
+                    BorderThickness="0" FontSize="13"/>
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="14,0,0,0" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- 4. 折叠：听录音 / 找文件 -->
+        <Expander x:Name="AudioExpander" Grid.Row="4" Header="▶ 听录音 / 找录音文件" Margin="0,12,0,0" IsExpanded="False">
+            <Border Background="#F4FAFE" BorderBrush="#CFE3F2" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,6,0,0">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="BtnPlayMic" Content="▶ 播放人声（麦克风）" Width="150" Height="30" Margin="0,0,8,0" Click="BtnPlayMic_Click"/>
+                        <Button x:Name="BtnPlaySystem" Content="▶ 播放对方声音" Width="130" Height="30" Margin="0,0,8,0" Click="BtnPlaySystem_Click"/>
+                        <Button x:Name="BtnStopPlay" Content="■ 停止" Width="76" Height="30" Margin="0,0,8,0" Click="BtnStopPlay_Click" IsEnabled="False"/>
+                        <Button x:Name="BtnOpenFolder" Content="打开文件夹" Width="96" Height="30" Click="BtnOpenFolder_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PlayStatus" Foreground="#555" FontSize="11" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="RetentionNote" Foreground="#999" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Expander>
+
+        <!-- 5. 折叠：转写全文 + 手动补记兜底 -->
+        <Expander x:Name="TranscriptExpander" Grid.Row="5" Header="▶ 文字都说了什么（全文）" Margin="0,8,0,0" IsExpanded="False">
             <StackPanel>
-                <TextBlock x:Name="MinutesSummary" FontSize="12" TextWrapping="Wrap" Foreground="#444" Margin="0,2,0,6"/>
+                <TextBox x:Name="TranscriptBox" Height="120" IsReadOnly="True" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" FontSize="12" Background="#F7F7F7" Margin="0,6,0,4"/>
+                <!-- 没能自动转成文字时的手动兜底：完全离线、不依赖任何模型 -->
+                <Expander x:Name="ManualExpander" Header="✍ 没有自动文字？回放后把听到的话敲进来，一样能提取" Margin="0,2,0,0" IsExpanded="False">
+                    <StackPanel Margin="0,6,0,0">
+                        <TextBox x:Name="ManualTextBox" Height="90" TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto" FontSize="12"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button x:Name="BtnExtractFromText" Content="从这些文字提取事项" Width="150" Height="32" Click="BtnExtractFromText_Click" Background="#1565C0" Foreground="White"/>
+                            <Button x:Name="BtnClearManual" Content="清空" Width="70" Height="32" Margin="8,0,0,0" Click="BtnClearManual_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </Expander>
+
+        <!-- 6. 折叠：会议纪要 -->
+        <Expander x:Name="MinutesExpander" Grid.Row="6" Header="▶ 会议纪要（聊到的新概念 / 待讨论 / 做出的决定）" Margin="0,8,0,0" IsExpanded="False">
+            <StackPanel>
+                <TextBlock x:Name="MinutesSummary" FontSize="12" TextWrapping="Wrap" Foreground="#444" Margin="0,6,0,6"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -85,7 +163,7 @@
                         </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                        <TextBlock Text="✅ 决策" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="✅ 决定" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinDecisions">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -95,7 +173,7 @@
                         </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="3">
-                        <TextBlock Text="📌 行动项" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="📌 要做的事" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinActions">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -107,50 +185,5 @@
                 </Grid>
             </StackPanel>
         </Expander>
-
-        <Expander Grid.Row="3" Header="转写摘要 / 原文" Margin="0,4,0,4" IsExpanded="True">
-            <StackPanel>
-                <TextBox x:Name="TranscriptBox" Height="120" IsReadOnly="True" TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto" FontSize="12" Background="#F7F7F7" Margin="0,4,0,4"/>
-                <!-- 无 ASR / 无文本时的手动转写兜底：完全离线、不依赖任何模型 -->
-                <Expander x:Name="ManualExpander" Header="没有自动转写？手动录入文本并抽取行动项" Margin="0,4,0,0" IsExpanded="False">
-                    <StackPanel Margin="0,6,0,0">
-                        <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4">
-                            回放上方录音后，把听到的话逐句粘贴/输入到这里（每行一句或贴一整段均可），点击“提取行动项”即可走完整闭环，与自动转写完全等价。
-                        </TextBlock>
-                        <TextBox x:Name="ManualTextBox" Height="90" TextWrapping="Wrap" AcceptsReturn="True"
-                                 VerticalScrollBarVisibility="Auto" FontSize="12"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button x:Name="BtnExtractFromText" Content="从文本提取行动项" Width="150" Height="32" Click="BtnExtractFromText_Click" Background="#1565C0" Foreground="White"/>
-                            <Button x:Name="BtnClearManual" Content="清空" Width="70" Height="32" Margin="8,0,0,0" Click="BtnClearManual_Click"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
-            </StackPanel>
-        </Expander>
-
-        <DataGrid x:Name="Grid" Grid.Row="4" AutoGenerateColumns="False" CanUserAddRows="False"
-                  CanUserDeleteRows="False" Margin="0,4,0,4" SelectionMode="Single"
-                  HeadersVisibility="Column" BorderThickness="1" BorderBrush="#DDD">
-            <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="接受" Binding="{Binding Accepted, Mode=TwoWay}" Width="50"/>
-                <DataGridTextColumn Header="行动项" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
-                <DataGridComboBoxColumn x:Name="QuadrantColumn" Header="象限" SelectedItemBinding="{Binding Quadrant, Mode=TwoWay}" Width="120"/>
-                <DataGridTemplateColumn Header="提醒日期" Width="120">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <DatePicker SelectedDate="{Binding Reminder, Mode=TwoWay}" BorderThickness="0"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTextColumn Header="置信度" Binding="{Binding ConfidenceDisplay}" IsReadOnly="True" Width="60"/>
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-            <Button x:Name="BtnAcceptAll" Content="全部接受" Width="96" Height="32" Margin="0,0,8,0" Click="BtnAcceptAll_Click" Background="#2E7D32" Foreground="White"/>
-            <Button x:Name="BtnAcceptSelected" Content="接受选中" Width="96" Height="32" Margin="0,0,8,0" Click="BtnAcceptSelected_Click"/>
-            <Button x:Name="BtnDismiss" Content="忽略" Width="80" Height="32" Click="BtnDismiss_Click"/>
-        </StackPanel>
     </Grid>
 </Window>
