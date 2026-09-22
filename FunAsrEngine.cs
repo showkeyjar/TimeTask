@@ -2,6 +2,7 @@ using System;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -126,15 +127,25 @@ namespace TimeTask
     }
 
     /// <summary>
-    /// FunASR 常驻识别进程的精简封装：scripts/funasr_asr.py --server。
-    /// 协议：stdin 发 {"wav":路径}，stdout 回 {"ok":true,"text":...}；模型加载完成后发 {"event":"ready"}。
-    /// 进程跨会话常驻（模型只加载一次，之后的录音秒级可用），服务 Dispose 时才停机。
-    /// 运行环境（python + 依赖）复用 FunAsrRuntimeManager 的引导与缓存。
+    /// FunASR 常驻识别进程的封装：scripts/funasr_asr.py --server。
+    /// 协议：stdin 发 {"wav":路径}，stdout 回 {"ok":true,"text":...}；模型加载完成后先发 {"event":"ready"}。
     ///
-    /// 失败策略：任何读写超时即重启 worker（流上留下悬空读取会错位，重启是最可靠的自愈）。
+    /// 就绪策略（按优先级）：
+    /// 1. 已在跑且已 ready 的 worker 直接复用（跨会话常驻，模型只加载一次）；
+    /// 2. 直接用本机 python 启动（FunAsrPythonExe 配置 / PATH 上的 python / py 启动器）——
+    ///    依赖缺失时脚本会快速退出，自动换下一个候选；
+    /// 3. FunAsrRuntimeManager 的预置运行包（data\funasr-runtime-bundle.zip）——
+    ///    注意其 allowOnlineInstallFallback 默认关闭，本机已装 python 的场景走第 2 条即可命中。
+    ///
+    /// 关键教训（2026-09-22 实测「一直提示高精度模型准备中」的根因）：
+    /// - 就绪等待超时**绝不杀进程**——首次要从 modelscope 下载约 230MB 模型，杀掉就前功尽弃、
+    ///   每场录音重新下载永远到不了头。超时只意味着「本轮会话先回落」，worker 继续后台准备。
+    /// - ready 之前 worker 不接识别请求（此时请求会与 ready 行错位）。
     /// </summary>
     public sealed class FunAsrEngine : IDisposable
     {
+        private const string ReadyMarker = "\"event\""; // {"event":"ready"}
+
         private readonly string _scriptPath;
         private readonly string _model;
         private readonly string _device;
@@ -145,8 +156,9 @@ namespace TimeTask
         private Process _proc;
         private StreamWriter _stdin;
         private StreamReader _stdout;
-        private string _pythonExe;
         private Task _stderrDrain;
+        private Task<bool> _readyWatcher;
+        private volatile bool _workerReady;
 
         public FunAsrEngine()
         {
@@ -156,124 +168,89 @@ namespace TimeTask
             _timeoutSeconds = ReadInt("FunAsrTimeoutSeconds", 60);
         }
 
+        /// <summary>worker 已就绪可接识别请求（进程活着 ≠ 就绪：ready 事件之前不接请求）。</summary>
         public bool IsRunning
         {
             get
             {
-                lock (_startLock) { return IsRunningLocked(); }
+                lock (_startLock)
+                {
+                    return _workerReady && _proc != null && !_proc.HasExited && _stdin != null && _stdout != null;
+                }
             }
         }
 
-        /// <summary>脚本路径解析（相对路径基于 exe 目录）；找不到返回 null。</summary>
+        /// <summary>worker 正在启动/下载模型（尚未就绪）。用于给用户准确的状态文案。</summary>
+        public bool IsPreparing
+        {
+            get
+            {
+                lock (_startLock)
+                {
+                    var watcher = _readyWatcher;
+                    return !_workerReady && watcher != null && !watcher.IsCompleted
+                        && _proc != null && !_proc.HasExited;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 脚本路径解析。按序探测：配置原值（相对当前目录）→ exe 目录 → exe 目录向上两级
+        /// （开发布局 bin\Debug → 仓库根）→ exe 目录下的 scripts\funasr_asr.py（csproj 拷贝产物）。
+        /// </summary>
         public static string ResolveScriptPath(string configured)
         {
             if (string.IsNullOrWhiteSpace(configured)) return null;
             try
             {
                 if (File.Exists(configured)) return Path.GetFullPath(configured);
-                string candidate = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured);
-                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string byBase = Path.Combine(baseDir, configured);
+                if (File.Exists(byBase)) return Path.GetFullPath(byBase);
+
+                string byRepoRoot = Path.GetFullPath(Path.Combine(baseDir, @"..\..", configured));
+                if (File.Exists(byRepoRoot)) return Path.GetFullPath(byRepoRoot);
+
+                string byScripts = Path.Combine(baseDir, "scripts", "funasr_asr.py");
+                if (File.Exists(byScripts)) return Path.GetFullPath(byScripts);
             }
             catch { }
             return null;
         }
 
         /// <summary>
-        /// 确保 worker 可用：运行环境就绪（可能触发首次 pip 安装，较慢）→ 启动进程 → 等 ready。
-        /// 任一步在 startupTimeout 内未完成即返回 false（引导任务继续后台跑，下次录音再用）。
+        /// 确保 worker 可用。startupTimeout 内未就绪即返回 false（本轮回落），
+        /// 但 worker 继续在后台准备（首次模型下载不中断），之后的会话直接复用。
         /// </summary>
         public async Task<bool> EnsureReadyAsync(TimeSpan startupTimeout)
         {
+            if (IsRunning) return true;
             if (string.IsNullOrWhiteSpace(_scriptPath))
             {
                 VoiceRuntimeLog.Info("FunASR 脚本缺失：高精度引擎不可用（检查 scripts/funasr_asr.py）。");
                 return false;
             }
 
-            try
+            Task<bool> watcher;
+            lock (_startLock)
             {
-                lock (_startLock)
+                if (IsRunningLocked()) return true;
+                if (_readyWatcher == null || _readyWatcher.IsCompleted)
                 {
-                    if (IsRunningLocked()) return true;
+                    _readyWatcher = StartWorkerAndWatchReadyAsync();
                 }
-
-                // 1) 运行环境（python + funasr/torch）：EnsureReadyAsync 有缓存，多路调用共享同一次引导
-                var runtime = FunAsrRuntimeManager.EnsureReadyAsync();
-                var winner = await Task.WhenAny(runtime, Task.Delay(startupTimeout)).ConfigureAwait(false);
-                if (winner != runtime)
-                {
-                    VoiceRuntimeLog.Info($"FunASR 运行环境 {startupTimeout.TotalSeconds:F0}s 内未就绪（首次安装较慢），本轮先回落 Vosk。");
-                    return false;
-                }
-                var rt = runtime.Status == TaskStatus.RanToCompletion ? runtime.Result : null;
-                if (rt == null || !rt.IsReady || string.IsNullOrWhiteSpace(rt.PythonExe))
-                {
-                    VoiceRuntimeLog.Info($"FunASR 运行环境不可用：{rt?.Message}");
-                    return false;
-                }
-                _pythonExe = rt.PythonExe;
-
-                // 2) 启动常驻 worker（--server：stdin/stdout JSON 行协议）
-                lock (_startLock)
-                {
-                    if (IsRunningLocked()) return true;
-                    StopLocked();
-
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = _pythonExe,
-                        Arguments = $"\"{_scriptPath}\" --server --model \"{_model}\" --device \"{_device}\"",
-                        UseShellExecute = false,
-                        RedirectStandardInput = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
-                    psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-                    psi.EnvironmentVariables["PYTHONUTF8"] = "1";
-
-                    _proc = new Process { StartInfo = psi };
-                    _proc.Start();
-                    _stdin = _proc.StandardInput;
-                    _stdout = _proc.StandardOutput;
-                    _stdin.AutoFlush = false;
-                    // stderr 必须持续排空，否则 pip/推理的告警会撑爆管道缓冲区、卡死 worker
-                    _stderrDrain = Task.Run(() =>
-                    {
-                        try
-                        {
-                            string line;
-                            while ((line = _proc.StandardError.ReadLine()) != null)
-                            {
-                                if (line.IndexOf("warning", StringComparison.OrdinalIgnoreCase) < 0)
-                                {
-                                    VoiceRuntimeLog.Info("[funasr-worker] " + line);
-                                }
-                            }
-                        }
-                        catch { }
-                    });
-                }
-
-                // 3) 等模型加载完成的 ready 事件（首次会从 modelscope 拉模型，可能较久，同样有界）
-                string readyLine = await ReadLineWithTimeoutAsync(_stdout, startupTimeout).ConfigureAwait(false);
-                if (readyLine == null || readyLine.IndexOf("\"event\"", StringComparison.Ordinal) < 0)
-                {
-                    VoiceRuntimeLog.Info($"FunASR worker 启动超时/异常：{(readyLine ?? "no-ready-line")}");
-                    StopWorker();
-                    return false;
-                }
-                VoiceRuntimeLog.Info($"FunASR worker 就绪：model={_model}, device={_device}");
-                return true;
+                watcher = _readyWatcher;
             }
-            catch (Exception ex)
+
+            var done = await Task.WhenAny(watcher, Task.Delay(startupTimeout)).ConfigureAwait(false);
+            if (done != watcher)
             {
-                VoiceRuntimeLog.Error("FunASR worker 启动失败。", ex);
-                StopWorker();
+                VoiceRuntimeLog.Info(
+                    $"FunASR worker {startupTimeout.TotalSeconds:F0}s 内未就绪（首次需下载约 230MB 模型）：本轮回落，worker 继续后台准备。");
                 return false;
             }
+            return watcher.Status == TaskStatus.RanToCompletion && watcher.Result;
         }
 
         /// <summary>识别一个 WAV 文件（调用方负责生成与删除临时文件）。</summary>
@@ -281,7 +258,7 @@ namespace TimeTask
         {
             if (!IsRunning)
             {
-                return FunAsrResult.Fail("worker-not-running");
+                return FunAsrResult.Fail("worker-not-ready");
             }
 
             await _ioLock.WaitAsync().ConfigureAwait(false);
@@ -291,7 +268,7 @@ namespace TimeTask
                 StreamReader stdout;
                 lock (_startLock)
                 {
-                    if (!IsRunningLocked()) return FunAsrResult.Fail("worker-not-running");
+                    if (!IsRunningLocked()) return FunAsrResult.Fail("worker-not-ready");
                     stdin = _stdin;
                     stdout = _stdout;
                 }
@@ -350,10 +327,21 @@ namespace TimeTask
         /// <summary>温和停机（shutdown 指令 + 有界等待），超时杀进程树（torch 可能派生子进程）。</summary>
         public void Shutdown()
         {
+            Task<bool> watcher;
             lock (_startLock)
             {
+                watcher = _readyWatcher;
                 StopLocked();
             }
+            // 启动观察者自身最多等 3 秒（它可能正卡在模型下载的长等待里）
+            try
+            {
+                if (watcher != null && !watcher.IsCompleted)
+                {
+                    Task.WhenAny(watcher, Task.Delay(TimeSpan.FromSeconds(3))).Wait();
+                }
+            }
+            catch { }
         }
 
         public void Dispose()
@@ -361,11 +349,209 @@ namespace TimeTask
             Shutdown();
         }
 
-        // ---------- 内部 ----------
+        // ---------- worker 启动与就绪观察 ----------
+
+        /// <summary>
+        /// 依次尝试各 python 候选启动 worker 并等待 ready（首次含模型下载，最长 15 分钟）。
+        /// 任一候选就绪即成功；候选进程快速退出（依赖缺失）则自动换下一个。
+        /// </summary>
+        private async Task<bool> StartWorkerAndWatchReadyAsync()
+        {
+            try
+            {
+                foreach (var python in await ResolvePythonCandidatesAsync().ConfigureAwait(false))
+                {
+                    Process proc;
+                    StreamWriter stdin;
+                    StreamReader stdout;
+                    lock (_startLock)
+                    {
+                        // 上一候选的残留先清干净
+                        StopLocked();
+                        if (!TryStartWorkerLocked(python, out proc, out stdin, out stdout))
+                        {
+                            VoiceRuntimeLog.Info($"FunASR worker 进程启动失败：python={python}");
+                            continue;
+                        }
+                        // 提交给实例字段（RecognizeWavAsync 在 ready 前不会消费它们）
+                        _proc = proc;
+                        _stdin = stdin;
+                        _stdout = stdout;
+                    }
+
+                    string outcome = await WaitReadyAsync(proc, stdout, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+                    if (outcome == "ready")
+                    {
+                        lock (_startLock)
+                        {
+                            if (!ReferenceEquals(_proc, proc))
+                            {
+                                // 等待期间被并发重启过：这个进程作废
+                                KillProcessTree(proc, stdin);
+                                continue;
+                            }
+                            _workerReady = true;
+                        }
+                        VoiceRuntimeLog.Info($"FunASR worker 就绪：python={python}, model={_model}, device={_device}");
+                        return true;
+                    }
+
+                    VoiceRuntimeLog.Info($"FunASR worker 未就绪（python={python}, reason={outcome}）：尝试下一个候选。");
+                    lock (_startLock)
+                    {
+                        if (ReferenceEquals(_proc, proc))
+                        {
+                            StopLocked(); // 清掉本候选，进入下一个
+                        }
+                        else
+                        {
+                            KillProcessTree(proc, stdin);
+                        }
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(_scriptPath))
+                {
+                    VoiceRuntimeLog.Info("FunASR 脚本缺失：所有 python 候选跳过。");
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("FunASR worker 启动流程异常。", ex);
+                return false;
+            }
+        }
+
+        /// <summary>python 候选：运行环境管理器已就绪的（预置包）优先，其次本机配置的 python / PATH 上的 python / py 启动器。</summary>
+        private static async Task<System.Collections.Generic.List<string>> ResolvePythonCandidatesAsync()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            try
+            {
+                var runtime = FunAsrRuntimeManager.EnsureReadyAsync();
+                var done = await Task.WhenAny(runtime, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(false);
+                if (done == runtime && runtime.Status == TaskStatus.RanToCompletion
+                    && runtime.Result != null && runtime.Result.IsReady
+                    && !string.IsNullOrWhiteSpace(runtime.Result.PythonExe))
+                {
+                    list.Add(runtime.Result.PythonExe); // 已验证的预置包优先
+                    VoiceRuntimeLog.Info($"FunASR python 候选：预置运行包 {runtime.Result.PythonExe}");
+                }
+            }
+            catch { }
+
+            AddCandidate(list, ReadString("FunAsrPythonExe", "python"));
+            AddCandidate(list, "python");
+            AddCandidate(list, "py");
+            return list;
+        }
+
+        private static void AddCandidate(System.Collections.Generic.List<string> list, string exe)
+        {
+            if (!string.IsNullOrWhiteSpace(exe)
+                && !list.Contains(exe, StringComparer.OrdinalIgnoreCase))
+            {
+                list.Add(exe);
+            }
+        }
+
+        private bool TryStartWorkerLocked(string pythonExe, out Process proc, out StreamWriter stdin, out StreamReader stdout)
+        {
+            proc = null;
+            stdin = null;
+            stdout = null;
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = $"\"{_scriptPath}\" --server --model \"{_model}\" --device \"{_device}\"",
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+
+                proc = new Process { StartInfo = psi };
+                proc.Start();
+                stdin = proc.StandardInput;
+                stdout = proc.StandardOutput;
+                var captured = proc;
+                _stderrDrain = Task.Run(() =>
+                {
+                    try
+                    {
+                        string line;
+                        while ((line = captured.StandardError.ReadLine()) != null)
+                        {
+                            if (line.IndexOf("warning", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                VoiceRuntimeLog.Info("[funasr-worker] " + line);
+                            }
+                        }
+                    }
+                    catch { }
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Info($"FunASR worker 启动异常：python={pythonExe}, {ex.Message}");
+                try { proc?.Dispose(); } catch { }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 等 ready 事件。单挂起读取（StreamReader 不支持并发异步读）：一行读完成再读下一行；
+        /// 进程退出（依赖缺失时脚本数秒内退掉）→ 立即返回让调用方换候选；最长 maxWait。
+        /// </summary>
+        private static async Task<string> WaitReadyAsync(Process proc, StreamReader stdout, TimeSpan maxWait)
+        {
+            var deadline = DateTime.UtcNow + maxWait;
+            Task<string> pending = stdout.ReadLineAsync();
+            while (DateTime.UtcNow < deadline)
+            {
+                if (proc.HasExited)
+                {
+                    return "process-exited:" + proc.ExitCode;
+                }
+
+                var step = await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(false);
+                if (step == pending)
+                {
+                    if (pending.IsFaulted)
+                    {
+                        return "stream-error";
+                    }
+                    string line = pending.Status == TaskStatus.RanToCompletion ? pending.Result : null;
+                    if (line == null)
+                    {
+                        return "stream-closed";
+                    }
+                    if (line.IndexOf(ReadyMarker, StringComparison.Ordinal) >= 0)
+                    {
+                        return "ready"; // 注意：不再发起新的读取，把流干净地交给识别请求
+                    }
+                    // 其他输出（库日志等）：继续等
+                    pending = stdout.ReadLineAsync();
+                }
+                // 3 秒无输出：回到循环头检查进程状态
+            }
+            return "timeout";
+        }
+
+        // ---------- 停机 ----------
 
         private bool IsRunningLocked()
         {
-            return _proc != null && !_proc.HasExited && _stdin != null && _stdout != null;
+            return _workerReady && _proc != null && !_proc.HasExited && _stdin != null && _stdout != null;
         }
 
         private void StopWorker()
@@ -375,19 +561,25 @@ namespace TimeTask
 
         private void StopLocked()
         {
+            _workerReady = false;
             var proc = _proc;
             var stdin = _stdin;
             _proc = null;
             _stdin = null;
             _stdout = null;
+            _readyWatcher = null;
 
             if (proc == null) return;
+            KillProcessTree(proc, stdin);
+        }
 
+        private static void KillProcessTree(Process proc, StreamWriter stdin)
+        {
             try
             {
                 if (stdin != null)
                 {
-                    // 优雅停机：让 python 正常退出、释放模型显存/内存
+                    // 优雅停机：让 python 正常退出、释放模型内存
                     var req = Newtonsoft.Json.Linq.JObject.FromObject(new { cmd = "shutdown" })
                         .ToString(Newtonsoft.Json.Formatting.None);
                     stdin.WriteLine(req);

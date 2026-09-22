@@ -226,6 +226,18 @@ namespace TimeTask
             // 避免“录音能录、但收件箱永远为空”的问题。初始化本身是异步的，不阻塞构造函数。
             try { InitRecognizerBackground(); }
             catch { }
+
+            // 高精度引擎（auto/funasr 时）也在应用启动即预热：首次需下载约 230MB 模型，
+            // 从启动就开始下载（而不是等第一场录音），用户开录时大概率已就绪。
+            if (AsrEngineChoice.Resolve(ConfigurationManager.AppSettings["ConversationCaptureAsrEngine"]).Kind
+                == AsrEngineKind.FunAsr)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await _funasr.EnsureReadyAsync(TimeSpan.FromSeconds(1)).ConfigureAwait(false); }
+                    catch { }
+                });
+            }
         }
 
         public bool IsRecording => _recording;
@@ -1637,8 +1649,19 @@ namespace TimeTask
                     // 未就绪：auto 模式回落 Vosk（模型已就绪则立即开转写，否则等模型下载完成时自动接入）
                     if (_engineAllowVoskFallback)
                     {
-                        VoiceRuntimeLog.Info("FunASR 本轮未就绪：已回落 Vosk（运行环境继续后台准备，之后的录音自动升级）。");
-                        VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading, "高精度引擎准备中，本轮用快速识别");
+                        // 文案区分「仍在准备（下载继续，别担心）」与「确实不可用」
+                        if (_funasr.IsPreparing)
+                        {
+                            VoiceRuntimeLog.Info("FunASR 本轮未就绪（模型仍在准备）：已回落 Vosk，准备完成后下场录音自动升级。");
+                            VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading,
+                                "高精度模型首次准备中（约230MB，仅需一次），本轮用快速识别");
+                        }
+                        else
+                        {
+                            VoiceRuntimeLog.Info("FunASR 本轮不可用：已回落 Vosk。");
+                            VoiceListenerStatusCenter.Publish(VoiceListenerState.Loading,
+                                "高精度引擎暂不可用，本轮用快速识别");
+                        }
                         _engineKind = AsrEngineKind.Vosk;
                         TryCreateSessionRecognizer();
                         RaiseStatus();

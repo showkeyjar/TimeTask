@@ -1,5 +1,32 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-22 ~19:00 +08:00] 修复「一直提示高精度模型准备中」
+- 根因（读 voice-runtime.log 定位）：`FunAsrRuntimeManager` 的策略是
+  `preferPrebuiltRuntime=True + allowOnlineInstallFallback=False` —— 只认
+  data\funasr-runtime-bundle.zip 预置包（本机没有）→ 永远返回
+  `prebuilt-runtime-not-ready:bundle-not-found`。而本机 python3.12 + funasr + torch
+  早已装好、SenseVoiceSmall 模型也早已缓存（~/.cache/modelscope/models/iic--SenseVoiceSmall，
+  注意是 models\ 不是 hub\），旧接入把 manager 当唯一入口，绕过了完全可用的本机环境。
+- 修复（重写 FunAsrEngine 的启动链）：
+  1. python 候选按序尝试：manager 已就绪的预置包 → FunAsrPythonExe 配置 → PATH python → py 启动器；
+     依赖缺失时脚本数秒内退出，自动换下一个候选（自探测，无需预先 pip 检查）。
+  2. 就绪等待超时**不再杀进程**：首次模型下载不中断，本轮会话回落 Vosk、worker 继续后台准备，
+     之后会话直接复用（watcher 模式，单挂起读取避免 StreamReader 并发读）。
+  3. `IsRunning` 语义收紧 = 「进程活着且已 ready」（此前进程活着就算 running，ready 前发请求会
+     与 ready 行错位）；识别请求前置 `_workerReady` 守卫。
+  4. 应用启动即预热引擎（不等第一场录音才下载模型）。
+  5. 脚本路径多级探测：CWD → exe 目录 → exe 上两级（开发布局 bin\Debug）→ exe\scripts\。
+  6. 回落文案区分「首次准备中（约230MB，仅需一次）」与「暂不可用」（用 IsPreparing）。
+- 实测验证（本机）：
+  - worker --server 5 秒内输出 {"ok":true,"event":"ready"}（模型从缓存加载，无需下载）；
+  - 一次性模式端到端识别 1 秒静音 WAV → {"ok":true,"text":"嗯。","confidence":0.65}，
+    python→funasr→SenseVoice→JSON 协议全链路通。
+  - 回归：MSBuild 0 错；vstest 162 项 / 160 过 / 0 败 / 2 跳过。
+- 下一步：用户重启应用实测——启动日志应出现「FunASR worker 就绪：python=…」，
+  录音时托盘显示「实时转写就绪」且无回落提示。
+- 教训：环境探测类逻辑不能「只认一种部署形态」——预置包、本机 pip 环境都是合法形态，
+  应按可用性依次尝试；就绪等待超时 ≠ 失败，长耗时初始化（下载/加载）绝不能被超时杀掉。
+
 ## [2026-09-22 ~19:30 +08:00] 高精度识别引擎接入（用户反馈：识别能力太弱）
 - 目标：Vosk 小模型（40MB）精度不足是收件箱质量差的根因——把 FunASR(SenseVoiceSmall)
   接到主录音链路 ConversationCaptureService，Vosk 降为回落引擎。
