@@ -100,7 +100,7 @@ namespace TimeTask
                     {
                         ScenarioId = "voice_task_intro",
                         Title = "解放双手：语音添加任务",
-                        Description = "开启语音监听，你可以通过说话快速添加任务。比如：'提醒我明天下午3点开会'。",
+                        Description = "开启语音监听，你可以通过说话快速添加任务。比如：'提醒我明天下午3点开会',",
                         TriggerCondition = "voice_enabled",
                         RecommendedSkills = new List<string>(),
                         Priority = 70,
@@ -290,7 +290,19 @@ namespace TimeTask
 
         private bool CheckVoiceEnabledCondition()
         {
-            return true;
+            // 仅当语音能力已配置（VoiceAsrProvider 非空且未显式关闭，或 FunAsr 自动引导开启）时才触发语音引导
+            string provider = System.Configuration.ConfigurationManager.AppSettings["VoiceAsrProvider"];
+            string bootstrap = System.Configuration.ConfigurationManager.AppSettings["FunAsrAutoBootstrap"];
+
+            bool providerEnabled = !string.IsNullOrWhiteSpace(provider)
+                && !string.Equals(provider, "off", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(provider, "disabled", StringComparison.OrdinalIgnoreCase);
+            if (providerEnabled)
+            {
+                return true;
+            }
+
+            return string.Equals(bootstrap, "true", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool CheckPeriodicGoalCheckCondition()
@@ -357,13 +369,9 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_onboardingDataPath))
-                {
-                    string json = File.ReadAllText(_onboardingDataPath);
-                    var serializer = new JavaScriptSerializer();
-                    var obj = serializer.Deserialize<List<OnboardingScenario>>(json);
-                    _scenarios = obj ?? new List<OnboardingScenario>();
-                }
+                _scenarios = JsonStore.Load(_onboardingDataPath,
+                    json => new JavaScriptSerializer().Deserialize<List<OnboardingScenario>>(json))
+                    ?? new List<OnboardingScenario>();
             }
             catch (Exception ex)
             {
@@ -378,7 +386,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_scenarios);
-                File.WriteAllText(_onboardingDataPath, json);
+                AtomicFile.WriteAllText(_onboardingDataPath, json);
             }
             catch (Exception ex)
             {

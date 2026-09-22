@@ -190,7 +190,7 @@ namespace TimeTask
                 return true;
             }
 
-            if (tracker.TimeRemaining.TotalDays < 7 && tracker.CompletionRate < 0.5)
+            if (goal.EndDate.HasValue && tracker.TimeRemaining.TotalDays < 7 && tracker.CompletionRate < 0.5)
             {
                 return true;
             }
@@ -251,7 +251,7 @@ namespace TimeTask
                 });
             }
 
-            if (tracker.TimeRemaining.TotalDays < 7 && tracker.CompletionRate < 0.5)
+            if (goal.EndDate.HasValue && tracker.TimeRemaining.TotalDays < 7 && tracker.CompletionRate < 0.5)
             {
                 suggestions.Add(new GoalAdjustmentSuggestion
                 {
@@ -413,7 +413,7 @@ namespace TimeTask
         {
             string goalsPath = Path.Combine(_dataPath, "long_term_goals.csv");
             var goals = HelperClass.ReadLongTermGoalsCsv(goalsPath) ?? new List<LongTermGoal>();
-            
+
             var existingGoal = goals.FirstOrDefault(g => g.Id == goal.Id);
             if (existingGoal != null)
             {
@@ -421,17 +421,8 @@ namespace TimeTask
             }
             goals.Add(goal);
 
-            var csvLines = new List<string>
-            {
-                "id,description,startDate,endDate,isActive,lastReviewDate"
-            };
-
-            foreach (var g in goals)
-            {
-                csvLines.Add($"{g.Id},{g.Description},{g.StartDate?.ToString("o") ?? ""},{g.EndDate?.ToString("o") ?? ""},{g.IsActive},{g.LastReviewDate:o}");
-            }
-
-            File.WriteAllLines(goalsPath, csvLines);
+            // 复用统一的长期目标 CSV 写入器，确保 EndDate/LastReviewDate 正确持久化且字段顺序与读取器一致。
+            HelperClass.WriteLongTermGoalsCsv(goals, goalsPath);
         }
 
         private void SaveGoalTasks(string goalId, List<ItemGrid> tasks)
@@ -514,19 +505,13 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_suggestionsPath))
-                {
-                    string json = File.ReadAllText(_suggestionsPath);
-                    var serializer = new JavaScriptSerializer();
-                    _suggestions = serializer.Deserialize<List<GoalAdjustmentSuggestion>>(json) ?? new List<GoalAdjustmentSuggestion>();
-                }
+                _suggestions = JsonStore.Load(_suggestionsPath,
+                    json => new JavaScriptSerializer().Deserialize<List<GoalAdjustmentSuggestion>>(json))
+                    ?? new List<GoalAdjustmentSuggestion>();
 
-                if (File.Exists(_progressHistoryPath))
-                {
-                    string json = File.ReadAllText(_progressHistoryPath);
-                    var serializer = new JavaScriptSerializer();
-                    _progressHistory = serializer.Deserialize<List<GoalProgressTracker>>(json) ?? new List<GoalProgressTracker>();
-                }
+                _progressHistory = JsonStore.Load(_progressHistoryPath,
+                    json => new JavaScriptSerializer().Deserialize<List<GoalProgressTracker>>(json))
+                    ?? new List<GoalProgressTracker>();
 
                 CleanupOldData();
             }
@@ -542,7 +527,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_suggestions);
-                File.WriteAllText(_suggestionsPath, json);
+                AtomicFile.WriteAllText(_suggestionsPath, json);
             }
             catch (Exception ex)
             {
@@ -556,7 +541,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_progressHistory);
-                File.WriteAllText(_progressHistoryPath, json);
+                AtomicFile.WriteAllText(_progressHistoryPath, json);
             }
             catch (Exception ex)
             {

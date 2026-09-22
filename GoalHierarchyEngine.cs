@@ -43,7 +43,7 @@ namespace TimeTask
                 try
                 {
                     var options = new JsonSerializerOptions { WriteIndented = true };
-                    File.WriteAllText(_filePath, JsonSerializer.Serialize(snapshot, options));
+                    AtomicFile.WriteAllText(_filePath, JsonSerializer.Serialize(snapshot, options));
                 }
                 catch (Exception ex)
                 {

@@ -885,10 +885,21 @@ namespace TimeTask
                 process.BeginErrorReadLine();
                 int timeoutMs = Math.Max(5, timeoutSeconds) * 1000;
 
-                bool exited = await Task.Run(() => process.WaitForExit(timeoutMs), cancellationToken).ConfigureAwait(false);
+                bool exited;
+                try
+                {
+                    exited = await Task.Run(() => process.WaitForExit(timeoutMs), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 取消等待时必须主动杀进���树：Dispose 不会终止还在跑的进程，
+                    // pip/torch 的子孙进程会变孤儿，后续重试会越积越多
+                    ProcessUtils.KillTree(process, "bootstrap-cancelled");
+                    throw;
+                }
                 if (!exited)
                 {
-                    try { process.Kill(); } catch { }
+                    ProcessUtils.KillTree(process, "bootstrap-timeout");
                     string timeoutStdout;
                     string timeoutStderr;
                     lock (stdoutBuilder) { timeoutStdout = stdoutBuilder.ToString(); }

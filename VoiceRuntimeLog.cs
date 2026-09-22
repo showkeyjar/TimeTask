@@ -34,6 +34,12 @@ namespace TimeTask
             Write("INFO", message);
         }
 
+        public static void Warn(string message, Exception ex = null)
+        {
+            string full = ex == null ? message : $"{message} | {ex.GetType().Name}: {ex.Message}";
+            Write("WARN", full);
+        }
+
         public static void Error(string message, Exception ex = null)
         {
             string full = ex == null ? message : $"{message} | {ex.GetType().Name}: {ex.Message}";

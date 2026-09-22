@@ -212,14 +212,11 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_draftsFilePath))
-                {
-                    string json = File.ReadAllText(_draftsFilePath);
-                    _drafts = JsonSerializer.Deserialize<List<TaskDraft>>(json) ?? new List<TaskDraft>();
+                _drafts = JsonStore.Load(_draftsFilePath, json => JsonSerializer.Deserialize<List<TaskDraft>>(json))
+                    ?? new List<TaskDraft>();
 
-                    // 清理过期草稿
-                    CleanupOldDrafts();
-                }
+                // 清理过期草稿
+                CleanupOldDrafts();
             }
             catch (Exception ex)
             {
@@ -234,7 +231,7 @@ namespace TimeTask
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(_drafts, options);
-                File.WriteAllText(_draftsFilePath, json);
+                AtomicFile.WriteAllText(_draftsFilePath, json);
             }
             catch (Exception ex)
             {

@@ -354,6 +354,28 @@ namespace TimeTask
                     report.Actions.Add(NewAction("约定中间检查点与反馈方式。", "中", "减少末端风险。"));
                     report.ReviewPrompt = "复盘问题：对方是否可在不额外问询下独立执行？";
                     break;
+                case "priority_rebalance":
+                    report.Diagnostic = stale ? "任务长期未推进，且当前事项过多，需要重新排序。" : "当前任务集合可能被低价值事项挤占，优先级失衡。";
+                    report.Hypothesis = "按重要×紧急重排并削减低价值事项后，关键路径会更清晰。";
+                    report.DecisionRule = "高重要任务优先执行，低重要低紧急任务一律延期、合并或删除。";
+                    report.Risks.Add("低价值任务挤占关键时间，造成“忙而无果”。");
+                    report.Risks.Add("只排序不删减，优先级很快再次失衡。");
+                    report.Actions.Add(NewAction("列出当前所有任务并按重要×紧急排出顺序。", "高", "先建立全局排序依据。"));
+                    report.Actions.Add(NewAction("圈定本周必须推进的3个核心任务并冻结优先级。", "高", "防止执行中临时切换。"));
+                    report.Actions.Add(NewAction("对低价值任务做延期、合并或删除决策。", "中", "释放关键时间。"));
+                    report.ReviewPrompt = "复盘问题：本周时间是否真的投入在最重要的3件事上？";
+                    break;
+                case "clarify_goal":
+                    report.Diagnostic = "任务描述与目标边界仍不清晰，影响执行效率。";
+                    report.Hypothesis = "先澄清目标、边界和完成标准可显著减少返工。";
+                    report.DecisionRule = "没有清晰完成标准时，不进入高成本执行阶段。";
+                    report.Risks.Add("目标模糊导致优先级反复变更。");
+                    report.Risks.Add("执行动作与目标脱节。");
+                    report.Actions.Add(NewAction("补全目标、截止时间和完成标准。", "高", "统一执行预期。"));
+                    report.Actions.Add(NewAction("识别任务边界：要做/不做清单。", "高", "避免范围蔓延。"));
+                    report.Actions.Add(NewAction("确认第一个可执行动作。", "中", "降低启动成本。"));
+                    report.ReviewPrompt = "复盘问题：团队是否对“完成”有一致定义？";
+                    break;
                 default:
                     report.Diagnostic = "任务描述与目标边界仍不清晰，影响执行效率。";
                     report.Hypothesis = "先澄清目标、边界和完成标准可显著减少返工。";

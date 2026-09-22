@@ -215,7 +215,7 @@ namespace TimeTask
             UpdateOrCreatePattern(
                 "task_creation_frequency",
                 "任务创建频率",
-                $"平均每天创建{avgTasksPerDay:F1}个任务",
+                $"平均每天创建{avgTasksPerDay:F1}个任务。",
                 dailyTaskCount.Count,
                 dailyTaskCount.ToDictionary(d => d.Date.ToString("yyyy-MM-dd"), d => d.Count)
             );
@@ -618,26 +618,17 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_interactionsPath))
-                {
-                    string json = File.ReadAllText(_interactionsPath);
-                    var serializer = new JavaScriptSerializer();
-                    _interactions = serializer.Deserialize<List<UserInteraction>>(json) ?? new List<UserInteraction>();
-                }
+                _interactions = JsonStore.Load(_interactionsPath,
+                    json => new JavaScriptSerializer().Deserialize<List<UserInteraction>>(json))
+                    ?? new List<UserInteraction>();
 
-                if (File.Exists(_patternsPath))
-                {
-                    string json = File.ReadAllText(_patternsPath);
-                    var serializer = new JavaScriptSerializer();
-                    _patterns = serializer.Deserialize<List<BehaviorPattern>>(json) ?? new List<BehaviorPattern>();
-                }
+                _patterns = JsonStore.Load(_patternsPath,
+                    json => new JavaScriptSerializer().Deserialize<List<BehaviorPattern>>(json))
+                    ?? new List<BehaviorPattern>();
 
-                if (File.Exists(_insightsPath))
-                {
-                    string json = File.ReadAllText(_insightsPath);
-                    var serializer = new JavaScriptSerializer();
-                    _insights = serializer.Deserialize<List<WorkHabitInsight>>(json) ?? new List<WorkHabitInsight>();
-                }
+                _insights = JsonStore.Load(_insightsPath,
+                    json => new JavaScriptSerializer().Deserialize<List<WorkHabitInsight>>(json))
+                    ?? new List<WorkHabitInsight>();
 
                 CleanupOldInteractions();
             }
@@ -653,7 +644,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_interactions);
-                File.WriteAllText(_interactionsPath, json);
+                AtomicFile.WriteAllText(_interactionsPath, json);
             }
             catch (Exception ex)
             {
@@ -667,7 +658,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_patterns);
-                File.WriteAllText(_patternsPath, json);
+                AtomicFile.WriteAllText(_patternsPath, json);
             }
             catch (Exception ex)
             {
@@ -681,7 +672,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_insights);
-                File.WriteAllText(_insightsPath, json);
+                AtomicFile.WriteAllText(_insightsPath, json);
             }
             catch (Exception ex)
             {

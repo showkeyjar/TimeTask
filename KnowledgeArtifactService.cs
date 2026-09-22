@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Configuration;
 using System.IO;
 using System.Security.Cryptography;
@@ -238,7 +238,7 @@ namespace TimeTask
 
                     string updatedBlock = block.TrimEnd() + Environment.NewLine + line + Environment.NewLine;
                     string updated = existing.Substring(0, contentStart) + Environment.NewLine + updatedBlock + existing.Substring(endIdx);
-                    File.WriteAllText(filePath, updated, Encoding.UTF8);
+                    AtomicFile.WriteAllText(filePath, updated, Encoding.UTF8);
                     return;
                 }
 

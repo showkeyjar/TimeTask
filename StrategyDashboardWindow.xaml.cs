@@ -71,8 +71,8 @@ namespace TimeTask
                 return;
             }
 
-            string json = File.ReadAllText(path);
-            var profile = JsonSerializer.Deserialize<LifeProfileSnapshot>(json) ?? new LifeProfileSnapshot();
+            var profile = JsonStore.Load(path, json => JsonSerializer.Deserialize<LifeProfileSnapshot>(json))
+                ?? new LifeProfileSnapshot();
             GeneratedAtText.Text = I18n.Tf("Strategy_LastUpdatedFormat", profile.GeneratedAt);
             ProfileHeadlineText.Text = I18n.Tf("Strategy_ProfileHeadlineFormat", profile.ExecutionReliability, profile.InterruptionSensitivity, profile.ActiveTaskCount);
             StrengthsList.ItemsSource = profile.Strengths?.Any() == true ? profile.Strengths : new List<string> { I18n.T("Strategy_None") };
@@ -94,8 +94,8 @@ namespace TimeTask
                 return;
             }
 
-            string json = File.ReadAllText(path);
-            var hierarchy = JsonSerializer.Deserialize<GoalHierarchySnapshot>(json) ?? new GoalHierarchySnapshot();
+            var hierarchy = JsonStore.Load(path, json => JsonSerializer.Deserialize<GoalHierarchySnapshot>(json))
+                ?? new GoalHierarchySnapshot();
             var first = hierarchy.Goals?.FirstOrDefault();
             if (first == null)
             {
@@ -122,10 +122,19 @@ namespace TimeTask
                 return;
             }
 
-            string json = File.ReadAllText(path);
-            using var doc = JsonDocument.Parse(json);
+            string json = JsonStore.LoadText(path);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                FocusTasksGrid.ItemsSource = new List<StrategyFocusTaskView>();
+                ThinkingToolsText.Text = I18n.T("Strategy_ThinkingToolHintWaiting");
+                return;
+            }
+
             var list = new List<StrategyFocusTaskView>();
             var toolHints = new List<string>();
+            try
+            {
+            using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("top", out JsonElement top) && top.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in top.EnumerateArray())
@@ -164,6 +173,14 @@ namespace TimeTask
             ThinkingToolsText.Text = toolHints.Count > 0
                 ? string.Join(Environment.NewLine, toolHints.Take(4))
                 : I18n.T("Strategy_NoSuggestion");
+            }
+            catch (Exception ex)
+            {
+                // 快照可读但内容异常（截断/结构不符）：降级为空态，不让窗口崩掉
+                VoiceRuntimeLog.Warn("决策快照解析失败，降级为空态。", ex);
+                FocusTasksGrid.ItemsSource = new List<StrategyFocusTaskView>();
+                ThinkingToolsText.Text = I18n.T("Strategy_NoSuggestion");
+            }
         }
 
         private void LoadWeeklyReview()
@@ -184,8 +201,7 @@ namespace TimeTask
                 return;
             }
 
-            string json = File.ReadAllText(latest);
-            var report = JsonSerializer.Deserialize<WeeklyReviewReport>(json);
+            var report = JsonStore.Load(latest, text => JsonSerializer.Deserialize<WeeklyReviewReport>(text));
             if (report == null)
             {
                 WeeklyStrategyText.Text = I18n.T("Strategy_WeeklyReviewReadFailed");

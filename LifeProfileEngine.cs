@@ -50,18 +50,14 @@ namespace TimeTask
             {
                 try
                 {
-                    if (File.Exists(_profilePath))
+                    var loaded = JsonStore.Load(_profilePath, json => JsonSerializer.Deserialize<LifeProfileSnapshot>(json));
+                    if (loaded != null)
                     {
-                        string json = File.ReadAllText(_profilePath);
-                        var loaded = JsonSerializer.Deserialize<LifeProfileSnapshot>(json);
-                        if (loaded != null)
-                        {
-                            loaded.Strengths ??= new List<string>();
-                            loaded.RiskTriggers ??= new List<string>();
-                            loaded.TopFocusTopics ??= new List<string>();
-                            loaded.PeakHours ??= new List<int>();
-                            return loaded;
-                        }
+                        loaded.Strengths ??= new List<string>();
+                        loaded.RiskTriggers ??= new List<string>();
+                        loaded.TopFocusTopics ??= new List<string>();
+                        loaded.PeakHours ??= new List<int>();
+                        return loaded;
                     }
                 }
                 catch (Exception ex)
@@ -168,7 +164,7 @@ namespace TimeTask
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(_profilePath, JsonSerializer.Serialize(snapshot, options));
+                AtomicFile.WriteAllText(_profilePath, JsonSerializer.Serialize(snapshot, options));
             }
             catch (Exception ex)
             {

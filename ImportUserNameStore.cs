@@ -55,9 +55,7 @@ namespace TimeTask
         {
             try
             {
-                if (!File.Exists(_filePath)) return new ImportUserNameProfile();
-                string json = File.ReadAllText(_filePath);
-                var profile = JsonSerializer.Deserialize<ImportUserNameProfile>(json);
+                var profile = JsonStore.Load(_filePath, json => JsonSerializer.Deserialize<ImportUserNameProfile>(json));
                 return profile ?? new ImportUserNameProfile();
             }
             catch
@@ -71,7 +69,7 @@ namespace TimeTask
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(_filePath, JsonSerializer.Serialize(profile, options));
+                AtomicFile.WriteAllText(_filePath, JsonSerializer.Serialize(profile, options));
             }
             catch
             {

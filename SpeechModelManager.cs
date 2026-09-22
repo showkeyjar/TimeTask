@@ -31,7 +31,7 @@ namespace TimeTask
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             ModelRootPath = Path.Combine(appData, "TimeTask", "speech-models");
-            ModelName = ReadAppSetting("SpeechModelName", "vosk-model-cn-0.22");
+            ModelName = ReadAppSetting("SpeechModelName", "vosk-model-small-cn-0.22");
             AutoDownloadEnabled = ReadBoolAppSetting("SpeechModelAutoDownload", true);
         }
 
@@ -270,7 +270,7 @@ namespace TimeTask
                     "明天",
                     "提醒我"
                 };
-                File.WriteAllLines(hintsPath, lines);
+                AtomicFile.WriteAllLines(hintsPath, lines);
                 VoiceRuntimeLog.Info($"Default phrases.txt created: {hintsPath}");
                 MergeUserLexicon(hintsPath);
             }
@@ -307,7 +307,7 @@ namespace TimeTask
                     .Take(500)
                     .ToList();
 
-                File.WriteAllLines(hintsPath, merged);
+                AtomicFile.WriteAllLines(hintsPath, merged);
                 VoiceRuntimeLog.Info($"Merged user lexicon into phrases.txt, count={merged.Count}");
             }
             catch (Exception ex)

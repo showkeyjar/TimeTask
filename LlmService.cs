@@ -104,193 +104,13 @@ namespace TimeTask
         private string _apiBaseUrl; // New field for API Base URL
         private string _modelName;  // New field for Model Name
         private TimeSpan _httpClientTimeout = TimeSpan.FromSeconds(120); // Default value
-        private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE"; 
+        private const string PlaceholderApiKey = "YOUR_API_KEY_GOES_HERE";
         private const string DefaultModelName = "gpt-3.5-turbo"; // Default model
 
-        // Prompts remain the same
-        private const string PrioritizationSystemPrompt = 
-            "Analyze the following task description and determine its importance and urgency. " +
-            "Return your answer strictly in the format: \"Importance: [High/Medium/Low], Urgency: [High/Medium/Low]\". " +
-            "Do not add any other text, explanations, or elaborations. Just the single line in the specified format.\n" +
-            "For example, if the task is 'Fix critical login bug', you should respond with: \"Importance: High, Urgency: High\".\n" +
-            "Task: ";
+        // 智谱路径共享 HTTP 客户端：每次调用 new HttpClient 会耗尽套接字（TIME_WAIT 堆积），
+        // 长会话/高频调用下表现为「用了几十分钟就再也连不上」。认证头与超时改为每请求设置。
+        private static readonly HttpClient _sharedHttpClient = new HttpClient();
 
-        private const string ClarityAnalysisSystemPrompt =
-            "Analyze the following task description for clarity, specificity, and actionability. " +
-            "Respond in the following format ONLY:\n" +
-            "Status: [Clear/NeedsClarification]\n" +
-            "Question: [If Status is NeedsClarification, provide a concise question to the user to get the necessary details. Otherwise, write N/A]\n" +
-            "Examples:\n" +
-            "Input Task: Organize event.\n" +
-            "Status: NeedsClarification\n" +
-            "Question: What kind of event is it and what are the key objectives or desired outcomes?\n\n" +
-            "Input Task: Draft a project proposal for Q3 by Friday.\n" +
-            "Status: Clear\n" +
-            "Question: N/A\n\n" +
-            "Input Task: ";
-
-        private const string TaskDecompositionSystemPrompt =
-            "Analyze the following task description. If the task is too broad or complex, break it down into 2-5 actionable sub-tasks. " +
-            "If the task is already granular and actionable, indicate that it is sufficient. " +
-            "Respond in the following format ONLY:\n" +
-            "Status: [Sufficient/NeedsDecomposition]\n" +
-            "Subtasks: [If NeedsDecomposition, provide a list of sub-tasks, each on a new line, optionally prefixed with '-' or '*'. If Sufficient, write N/A.]\n" +
-            "Examples:\n" +
-            "Input Task: Plan company retreat.\n" +
-            "Status: NeedsDecomposition\n" +
-            "Subtasks:\n" +
-            "- Define budget and objectives\n" +
-            "- Research and select venue\n" +
-            "- Plan agenda and activities\n" +
-            "- Coordinate logistics (transport, accommodation)\n\n" +
-            "Input Task: Email John about the meeting report.\n" +
-            "Status: Sufficient\n" +
-            "Subtasks: N/A\n\n" +
-            "Input Task: ";
-
-        private const string TaskReminderSystemPrompt =
-            "You are an assistant helping a user review a task. The task is described below, and you're given how old it is (time since last modification). " +
-            "Generate a brief, friendly, encouraging reminder about the task. " +
-            "Then, provide 2-3 actionable, concise suggestions for the user. " +
-            "Respond in the following format ONLY:\n" +
-            "Reminder: [Generated reminder text]\n" +
-            "Suggestion1: [Text for suggestion 1]\n" +
-            "Suggestion2: [Text for suggestion 2]\n" +
-            "(Optional) Suggestion3: [Text for suggestion 3]\n\n" +
-            "Task Description: {taskDescription}\n" +
-            "Task Age: {taskAge}\n\n" +
-            "Example output:\n" +
-            "Reminder: Just checking in on the '{taskDescription}' task. It's been about {taskAge}. How's it going?\n" +
-            "Suggestion1: Ready to complete it now?\n" +
-            "Suggestion2: Need to adjust its plan or priority?\n" +
-            "Suggestion3: Want to break it into smaller pieces?";
-
-        private const string ReminderProfileHintTemplate =
-            "\n\nUser behavior context (local profile, use as soft guidance only):\n{userContext}\n" +
-            "Adapt tone and suggestions to reduce interruption. Keep one clear next step.";
-
-        private const string SkillRecommendationSystemPromptTemplate =
-            "You are a task execution copilot. Based on the task and context, recommend 1-3 skills that best help the user move forward now. " +
-            "Allowed skill_id values ONLY: {allowedSkillIds}. " +
-            "Return ONLY a valid JSON array. Each item must contain: " +
-            "\"skill_id\", \"title\", \"why\", \"next_step\", \"confidence\" (0 to 1). " +
-            "Keep title/why/next_step concise and actionable.\n" +
-            "Task: {taskDescription}\n" +
-            "Importance: {importance}\n" +
-            "Urgency: {urgency}\n" +
-            "InactiveDuration: {inactiveDuration}\n" +
-            "UserContext: {userContext}";
-
-        private const string ConversationTaskExtractPrompt =
-            "You are an assistant helping a user capture personal action items from a multi-speaker conversation. " +
-            "Extract ONLY tasks that the user should do. " +
-            "Return a JSON array of strings. Do not include any extra text.\n" +
-            "Conversation:\n";
-
-        private const string ImportTaskParsePrompt = @"
-You are an assistant helping extract personal tasks from project plan text.
-Return ONLY a JSON object with fields: ""title"", ""owner"", ""start_date"", ""confidence"".
-- ""title"": concise task title.
-- ""owner"": person responsible, or empty string if not mentioned.
-- ""start_date"": yyyy-MM-dd if found, else empty string.
-- ""confidence"": 0 to 1.
-
-Raw Text:
-{raw}
-
-Context:
-{context}
-
-Return only JSON, no extra text.";
-
-        private const string GoalDecompositionSystemPrompt = @"
-      You are an expert goal planning assistant. Your task is to take a user's long-term goal and a specified duration, and break it down into a series of smaller, actionable daily tasks. For each task, you must also categorize it into one of four quadrants based on its importance and urgency, and provide an estimated time for completion.
-
-      The four quadrants are:
-      1.  ""Important & Urgent""
-      2.  ""Important & Not Urgent""
-      3.  ""Not Important & Urgent""
-      4.  ""Not Important & Not Urgent""
-
-      The user will provide the goal and duration. You need to generate a plan of daily (or near-daily) tasks that will help the user achieve their goal within the given timeframe.
-
-      Respond with a JSON array of task objects. Each object should have the following fields:
-      -   ""task_description"": A string describing the task.
-      -   ""quadrant"": A string representing one of the four quadrant categories (e.g., ""Important & Urgent"").
-      -   ""estimated_time"": A string describing the estimated time to complete the task (e.g., ""1 hour"", ""30 minutes"").
-      -   ""day"": An integer representing the day number in the plan (e.g., 1, 2, 3...). This is relative to the start of the plan.
-
-      Example Input from User:
-      Goal: ""I want to learn Python programming for web development.""
-      Duration: ""3 months""
-
-      Example JSON Output:
-      [
-        {
-          ""day"": 1,
-          ""task_description"": ""Set up Python development environment (install Python, VS Code, Git)."",
-          ""quadrant"": ""Important & Urgent"",
-          ""estimated_time"": ""2 hours""
-        },
-        {
-          ""day"": 1,
-          ""task_description"": ""Complete Chapter 1 of Python basics tutorial (variables, data types)."",
-          ""quadrant"": ""Important & Not Urgent"",
-          ""estimated_time"": ""1.5 hours""
-        }
-      ]
-
-      Ensure the tasks are logically sequenced and contribute towards the main goal. Distribute tasks reasonably across the duration. For this request, please provide a detailed daily task plan for the **first 2 weeks** only, based on the user's goal of '{userGoal}' (total duration '{userDuration}'). This 2-week plan should be very detailed.
-      User Input:
-      Goal: ""{userGoal}""
-      Duration: ""{userDuration}""
-
-IMPORTANT: Your entire response MUST be a valid JSON array of task objects for the first 2 weeks, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {userGoal} and {userDuration} placeholders.
-
-        private const string LearningPlanDecompositionSystemPrompt = @"
-      You are an expert learning plan assistant. Your task is to take a user's learning subject and goal, along with a specified duration, and break it down into a series of progressive learning milestones. For each milestone, you must provide a title, description, and estimated time for completion.
-
-      The user will provide the subject, goal, and duration. You need to generate a structured learning plan with milestones that will help the user achieve their learning goal within the given timeframe.
-
-      Respond with a JSON array of milestone objects. Each object should have the following fields:
-      -   ""stage"": An integer representing the stage number in the learning plan (e.g., 1, 2, 3...).
-      -   ""title"": A string title for the milestone.
-      -   ""description"": A string describing what will be learned in this milestone.
-      -   ""estimated_time"": A string describing the estimated time to complete this milestone (e.g., ""2 weeks"", ""1 month"").
-      -   ""is_completed"": A boolean indicating completion status (always false for new plans).
-
-      Example Input from User:
-      Subject: ""Python Programming""
-      Goal: ""Learn Python for web development""
-      Duration: ""3 months""
-
-      Example JSON Output:
-      [
-        {
-          ""stage"": 1,
-          ""title"": ""Python Fundamentals"",
-          ""description"": ""Master Python basics including variables, data types, control flow, functions, and object-oriented programming concepts."",
-          ""estimated_time"": ""3 weeks"",
-          ""is_completed"": false
-        },
-        {
-          ""stage"": 2,
-          ""title"": ""Web Development with Flask"",
-          ""description"": ""Learn Flask framework, routing, templates, and building RESTful APIs."",
-          ""estimated_time"": ""4 weeks"",
-          ""is_completed"": false
-        }
-      ]
-
-      Ensure the milestones are logically sequenced and progressively build upon each other. Distribute milestones reasonably across the duration. For this request, please provide a comprehensive learning plan for the subject '{subject}' with the goal '{goal}' (total duration '{duration}').
-
-      User Input:
-      Subject: ""{subject}""
-      Goal: ""{goal}""
-      Duration: ""{duration}""
-
-IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting outside of this JSON array. Be direct in your JSON output."; // Note the {subject}, {goal}, and {duration} placeholders.
-        
         public LlmService()
         {
             LoadLlmConfig(); // Renamed from LoadApiKeyFromConfig
@@ -322,7 +142,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 return new List<ProposedDailyTask>();
             }
 
-            string fullPrompt = GoalDecompositionSystemPrompt
+            string fullPrompt = LlmPromptTemplates.GoalDecompositionSystemPrompt
                 .Replace("{userGoal}", goal)
                 .Replace("{userDuration}", durationString);
 
@@ -412,7 +232,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 return new List<LlmLearningMilestone>();
             }
 
-            string fullPrompt = LearningPlanDecompositionSystemPrompt
+            string fullPrompt = LlmPromptTemplates.LearningPlanDecompositionSystemPrompt
                 .Replace("{subject}", subject)
                 .Replace("{goal}", goal)
                 .Replace("{duration}", durationString);
@@ -496,80 +316,10 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             return "less than an hour old";
         }
 
+        // 以下四个 Parse* 已拆分到 LlmResponseParsers（纯函数、可独立测试），
+        // 这里保留转发签名以兼容既有调用方与测试。
         internal static (string reminder, List<string> suggestions) ParseReminderResponse(string llmResponse)
-        {
-            Console.WriteLine($"Parsing LLM reminder response: \"{llmResponse}\"");
-            var suggestions = new List<string>();
-            string reminder = string.Empty;
-
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                Console.WriteLine("LLM response is null or whitespace. Returning empty reminder and suggestions.");
-                return (reminder, suggestions);
-            }
-
-            try
-            {
-                var reminderRegex = new Regex(@"Reminder\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                var suggestion1Regex = new Regex(@"Suggestion1\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                var suggestion2Regex = new Regex(@"Suggestion2\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                var suggestion3Regex = new Regex(@"Suggestion3\s*:\s*(.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-                var reminderMatch = reminderRegex.Match(llmResponse);
-                if (reminderMatch.Success)
-                {
-                    reminder = reminderMatch.Groups[1].Value.Trim();
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Reminder:' pattern in LLM response.");
-                }
-
-                var suggestion1Match = suggestion1Regex.Match(llmResponse);
-                if (suggestion1Match.Success)
-                {
-                    suggestions.Add(suggestion1Match.Groups[1].Value.Trim());
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Suggestion1:' pattern in LLM response.");
-                }
-
-                var suggestion2Match = suggestion2Regex.Match(llmResponse);
-                if (suggestion2Match.Success)
-                {
-                    suggestions.Add(suggestion2Match.Groups[1].Value.Trim());
-                }
-                else
-                {
-                     Console.WriteLine("Could not find 'Suggestion2:' pattern in LLM response.");
-                }
-
-                var suggestion3Match = suggestion3Regex.Match(llmResponse);
-                if (suggestion3Match.Success)
-                {
-                    string sug3 = suggestion3Match.Groups[1].Value.Trim();
-                    if (!string.IsNullOrWhiteSpace(sug3) && !sug3.Equals("N/A", StringComparison.OrdinalIgnoreCase))
-                    {
-                        suggestions.Add(sug3);
-                    }
-                }
-                // Optional: Log if Suggestion3 is not found, but it's optional so might be too noisy.
-
-                if (string.IsNullOrWhiteSpace(reminder) && !suggestions.Any())
-                {
-                    Console.WriteLine($"Could not parse any reminder or suggestions from LLM response using regex: '{llmResponse}'.");
-                }
-                Console.WriteLine($"Parsed Reminder: \"{reminder}\", Suggestions: {suggestions.Count}");
-                return (reminder, suggestions);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing LLM reminder response with regex: {ex.Message}. Response was: {llmResponse}");
-                Console.WriteLine($"Defaulted Reminder/Suggestions due to exception: Reminder='', Suggestions=[]");
-                return (string.Empty, new List<string>());
-            }
-        }
+            => LlmResponseParsers.ParseReminderResponse(llmResponse);
         
         public async Task<(string reminder, List<string> suggestions)> GenerateTaskReminderAsync(string taskDescription, TimeSpan timeSinceLastModified)
         {
@@ -580,10 +330,10 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (string.Empty, new List<string>());
             string formattedAge = FormatTimeSpan(timeSinceLastModified);
-            string fullPrompt = TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
+            string fullPrompt = LlmPromptTemplates.TaskReminderSystemPrompt.Replace("{taskDescription}", taskDescription).Replace("{taskAge}", formattedAge);
             if (!string.IsNullOrWhiteSpace(userContext))
             {
-                fullPrompt += ReminderProfileHintTemplate.Replace("{userContext}", userContext);
+                fullPrompt += LlmPromptTemplates.ReminderProfileHintTemplate.Replace("{userContext}", userContext);
             }
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
@@ -608,7 +358,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             }
 
             string context = string.IsNullOrWhiteSpace(userContext) ? "N/A" : userContext;
-            string prompt = SkillRecommendationSystemPromptTemplate
+            string prompt = LlmPromptTemplates.SkillRecommendationSystemPromptTemplate
                 .Replace("{allowedSkillIds}", ThinkingToolAdvisor.GetAllowedSkillIdsCsv())
                 .Replace("{taskDescription}", taskDescription)
                 .Replace("{importance}", string.IsNullOrWhiteSpace(importance) ? "Unknown" : importance)
@@ -698,87 +448,12 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         }
 
         internal static (DecompositionStatus status, List<string> subtasks) ParseDecompositionResponse(string llmResponse)
-        {
-            Console.WriteLine($"Parsing LLM decomposition response: \"{llmResponse}\"");
-            var subtasks = new List<string>();
-            DecompositionStatus status = DecompositionStatus.Unknown;
-
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown status and empty subtasks.");
-                return (status, subtasks);
-            }
-
-            try
-            {
-                var statusRegex = new Regex(@"Status\s*:\s*(Sufficient|NeedsDecomposition)", RegexOptions.IgnoreCase);
-                var statusMatch = statusRegex.Match(llmResponse);
-
-                if (statusMatch.Success)
-                {
-                    string statusStr = statusMatch.Groups[1].Value;
-                    if (!Enum.TryParse(statusStr, true, out status))
-                    {
-                        status = DecompositionStatus.Unknown;
-                        Console.WriteLine($"Could not parse decomposition status value '{statusStr}' from LLM response. Defaulting to Unknown.");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"Could not find 'Status:' for decomposition in LLM response. Defaulting to Unknown.");
-                    // No early return, will log final status and subtasks at the end
-                }
-
-                if (status == DecompositionStatus.NeedsDecomposition)
-                {
-                    var subtasksRegex = new Regex(@"Subtasks\s*:\s*((?:.|\n)*)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                    var subtasksMatch = subtasksRegex.Match(llmResponse);
-
-                    if (subtasksMatch.Success)
-                    {
-                        string subtasksBlock = subtasksMatch.Groups[1].Value.Trim();
-                        if (!string.IsNullOrWhiteSpace(subtasksBlock) && !subtasksBlock.Equals("N/A", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string[] lines = subtasksBlock.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                            foreach (string line in lines)
-                            {
-                                string trimmedLine = line.Trim();
-                                if (trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*"))
-                                {
-                                    trimmedLine = trimmedLine.Substring(1).Trim();
-                                }
-                                if (!string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.Equals("N/A", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    subtasks.Add(trimmedLine);
-                                }
-                            }
-                        }
-                        if (!subtasks.Any())
-                        {
-                            Console.WriteLine($"Decomposition status is NeedsDecomposition but no valid subtasks found or parsed from block: '{subtasksBlock}'.");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Decomposition status is NeedsDecomposition but 'Subtasks:' block not found in LLM response.");
-                        // Status might remain NeedsDecomposition but subtasks list will be empty.
-                    }
-                }
-                Console.WriteLine($"Parsed Decomposition: Status={status}, Subtasks Count={subtasks.Count}");
-                return (status, subtasks);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing LLM decomposition response with regex: {ex.Message}. Response was: {llmResponse}");
-                Console.WriteLine($"Defaulted Decomposition due to exception: Status=Unknown, Subtasks=[]");
-                return (DecompositionStatus.Unknown, new List<string>());
-            }
-        }
+            => LlmResponseParsers.ParseDecompositionResponse(llmResponse);
 
         public async Task<(DecompositionStatus status, List<string> subtasks)> DecomposeTaskAsync(string taskDescription)
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (DecompositionStatus.Unknown, new List<string>());
-            string fullPrompt = TaskDecompositionSystemPrompt + taskDescription;
+            string fullPrompt = LlmPromptTemplates.TaskDecompositionSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
             {
@@ -789,86 +464,12 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         }
 
         internal static (ClarityStatus status, string question) ParseClarityResponse(string llmResponse)
-        {
-            Console.WriteLine($"Parsing LLM clarity response: \"{llmResponse}\"");
-            ClarityStatus status = ClarityStatus.Unknown;
-            string question = string.Empty; // Default to empty string
-
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown status and empty question.");
-                question = "LLM response was empty."; // Keep original error message for this specific case
-                return (status, question);
-            }
-
-            try
-            {
-                var statusRegex = new Regex(@"Status\s*:\s*(Clear|NeedsClarification)", RegexOptions.IgnoreCase);
-                var questionRegex = new Regex(@"Question\s*:\s*((?:.|\n)*)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-
-                var statusMatch = statusRegex.Match(llmResponse);
-                if (statusMatch.Success)
-                {
-                    string statusStr = statusMatch.Groups[1].Value;
-                    if (Enum.TryParse(statusStr, true, out ClarityStatus parsedStatus))
-                    {
-                        status = parsedStatus;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Could not parse clarity status value '{statusStr}' from LLM response. Defaulting to Unknown.");
-                        status = ClarityStatus.Unknown;
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Status:' pattern in LLM response. Defaulting to Unknown status.");
-                    // No early return, will log final status and question at the end
-                }
-
-                var questionMatch = questionRegex.Match(llmResponse);
-                if (questionMatch.Success)
-                {
-                    question = questionMatch.Groups[1].Value.Trim();
-                    if (status == ClarityStatus.Clear && (string.IsNullOrWhiteSpace(question) || question.Equals("N/A", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        question = string.Empty; // Clear question if status is Clear and question is N/A or empty
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Question:' pattern in LLM response.");
-                    if (status == ClarityStatus.NeedsClarification)
-                    {
-                        question = "Question expected but not found in response."; // More specific if status indicated a question was expected
-                    } else if (status == ClarityStatus.Unknown) {
-                        question = "Failed to parse status and question from LLM response.";
-                    }
-                }
-
-                if (status == ClarityStatus.Unknown && !statusMatch.Success) { // If status is still unknown because regex failed
-                     question = "Failed to parse status from LLM response.";
-                } else if (status == ClarityStatus.NeedsClarification && string.IsNullOrWhiteSpace(question)) {
-                    Console.WriteLine("Warning: Status is NeedsClarification, but question is empty or N/A.");
-                    // question = "Clarification needed, but no specific question was parsed."; // Optionally override if needed
-                }
-
-
-                Console.WriteLine($"Parsed Clarity: Status={status}, Question=\"{question}\"");
-                return (status, question);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing LLM clarity response with regex: {ex.Message}. Response was: {llmResponse}");
-                Console.WriteLine($"Defaulted Clarity due to exception: Status=Unknown, Question='Failed to analyze task clarity due to an exception.'");
-                return (ClarityStatus.Unknown, "Failed to analyze task clarity due to an exception.");
-            }
-        }
+            => LlmResponseParsers.ParseClarityResponse(llmResponse);
 
         public async Task<(string importance, string urgency)> AnalyzeTaskPriorityAsync(string taskDescription)
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return ("Medium", "Medium");
-            string fullPrompt = PrioritizationSystemPrompt + taskDescription;
+            string fullPrompt = LlmPromptTemplates.PrioritizationSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
             {
@@ -881,7 +482,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         public async Task<(ClarityStatus status, string question)> AnalyzeTaskClarityAsync(string taskDescription)
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return (ClarityStatus.Unknown, "Task description cannot be empty.");
-            string fullPrompt = ClarityAnalysisSystemPrompt + taskDescription;
+            string fullPrompt = LlmPromptTemplates.ClarityAnalysisSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
             {
@@ -892,84 +493,12 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         }
 
         internal static (string Importance, string Urgency) ParsePriorityResponse(string llmResponse)
-        {
-            Console.WriteLine($"Parsing LLM priority response: \"{llmResponse}\"");
-            if (string.IsNullOrWhiteSpace(llmResponse))
-            {
-                Console.WriteLine("LLM response is null or whitespace. Defaulting to Unknown/Unknown.");
-                return ("Unknown", "Unknown");
-            }
-
-            string importance = "Unknown";
-            string urgency = "Unknown";
-
-            try
-            {
-                // Regex to find "Importance: [value]" and "Urgency: [value]", case-insensitive labels, flexible whitespace
-                var importanceRegex = new Regex(@"Importance\s*:\s*([A-Za-z]+)", RegexOptions.IgnoreCase);
-                var urgencyRegex = new Regex(@"Urgency\s*:\s*([A-Za-z]+)", RegexOptions.IgnoreCase);
-
-                var importanceMatch = importanceRegex.Match(llmResponse);
-                var urgencyMatch = urgencyRegex.Match(llmResponse);
-
-                string[] validPriorities = { "High", "Medium", "Low" };
-                var validPrioritySet = new HashSet<string>(validPriorities, StringComparer.OrdinalIgnoreCase);
-
-                if (importanceMatch.Success)
-                {
-                    string extractedImportance = importanceMatch.Groups[1].Value.Trim();
-                    if (validPrioritySet.Contains(extractedImportance))
-                    {
-                        // Normalize to title case e.g. "high" -> "High"
-                        importance = validPriorities.First(p => p.Equals(extractedImportance, StringComparison.OrdinalIgnoreCase));
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Extracted importance '{extractedImportance}' is not a valid priority. Defaulting to Unknown.");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Importance:' pattern in LLM response.");
-                }
-
-                if (urgencyMatch.Success)
-                {
-                    string extractedUrgency = urgencyMatch.Groups[1].Value.Trim();
-                    if (validPrioritySet.Contains(extractedUrgency))
-                    {
-                        // Normalize to title case
-                        urgency = validPriorities.First(p => p.Equals(extractedUrgency, StringComparison.OrdinalIgnoreCase));
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Extracted urgency '{extractedUrgency}' is not a valid priority. Defaulting to Unknown.");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Could not find 'Urgency:' pattern in LLM response.");
-                }
-
-                if (importance == "Unknown" && urgency == "Unknown" && !importanceMatch.Success && !urgencyMatch.Success)
-                {
-                     Console.WriteLine($"Could not parse Importance or Urgency from LLM response using regex: '{llmResponse}'. Both remain Unknown.");
-                }
-                Console.WriteLine($"Parsed Priority: Importance={importance}, Urgency={urgency}");
-                return (importance, urgency);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing LLM priority response with regex: {ex.Message}. Response was: {llmResponse}");
-                Console.WriteLine($"Defaulted Priority due to exception: Importance=Unknown, Urgency=Unknown");
-                return ("Unknown", "Unknown");
-            }
-        }
+            => LlmResponseParsers.ParsePriorityResponse(llmResponse);
 
         public async Task<(string Importance, string Urgency)> GetTaskPriorityAsync(string taskDescription)
         {
             if (string.IsNullOrWhiteSpace(taskDescription)) return ("Unknown", "Unknown");
-            string fullPrompt = PrioritizationSystemPrompt + taskDescription;
+            string fullPrompt = LlmPromptTemplates.PrioritizationSystemPrompt + taskDescription;
             string llmResponse = await GetCompletionAsync(fullPrompt);
             if (IsErrorResponse(llmResponse))
             {
@@ -984,7 +513,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             if (string.IsNullOrWhiteSpace(conversation))
                 return new List<string>();
 
-            string prompt = ConversationTaskExtractPrompt + conversation;
+            string prompt = LlmPromptTemplates.ConversationTaskExtractPrompt + conversation;
             string llmResponse = await GetCompletionAsync(prompt);
 
             if (IsErrorResponse(llmResponse))
@@ -1016,7 +545,7 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 return null;
             }
 
-            string prompt = ImportTaskParsePrompt
+            string prompt = LlmPromptTemplates.ImportTaskParsePrompt
                 .Replace("{raw}", rawText)
                 .Replace("{context}", contextText ?? string.Empty);
 
@@ -1074,7 +603,24 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
         {
             try
             {
-                _apiKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
+                // Key 读取优先级：DPAPI 加密存储（用户数据目录）→ 配置明文（首次自动迁入加密存储）。
+                // 明文配置在 Program Files 下改不动，且随目录拷贝/备份会泄露。
+                string configuredKey = ConfigurationManager.AppSettings["OpenAIApiKey"];
+                if (configuredKey == "(migrated-to-secure-store)")
+                {
+                    // 加密存储已被删除而配置只剩标记：视为未配置，避免把标记字符串当 Key 发出去
+                    configuredKey = null;
+                }
+                _apiKey = SecureApiKeyStore.Load();
+                if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == PlaceholderApiKey)
+                {
+                    _apiKey = configuredKey;
+                    if (!string.IsNullOrWhiteSpace(_apiKey) && _apiKey != PlaceholderApiKey)
+                    {
+                        SecureApiKeyStore.MigrateFromPlaintextConfig("OpenAIApiKey", _apiKey);
+                    }
+                }
+
                 _apiBaseUrl = ConfigurationManager.AppSettings["LlmApiBaseUrl"]; // Load new setting
                 _modelName = ConfigurationManager.AppSettings["LlmModelName"];   // Load new setting
 
@@ -1121,13 +667,23 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
 
         private bool IsErrorResponse(string llmResponse)
         {
-            return string.IsNullOrWhiteSpace(llmResponse) || 
-                   llmResponse.StartsWith("LLM dummy response") || 
-                   llmResponse.StartsWith("Error from LLM") || 
+            return string.IsNullOrWhiteSpace(llmResponse) ||
+                   llmResponse.StartsWith("LLM dummy response") ||
+                   llmResponse.StartsWith("Error from LLM") ||
                    llmResponse.StartsWith("Error from Zhipu AI");
         }
 
-        private async Task<string> CallZhipuAiApiAsync(string prompt)
+        /// <summary>日志截断：请求/响应正文含用户对话原文，只留开头用于排查。</summary>
+        private static string TruncateForLog(string text, int maxChars)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxChars)
+            {
+                return text;
+            }
+            return text.Substring(0, maxChars) + $"...(truncated, total {text.Length} chars)";
+        }
+
+        private async Task<string> CallZhipuAiApiAsync(string prompt, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
@@ -1150,18 +706,24 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
                 var jsonBody = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
-                using (var httpClient = new HttpClient { Timeout = _httpClientTimeout })
+                // 共享 HttpClient + 每请求认证/超时：避免 TIME_WAIT 套接字耗尽，
+                // 也避免 Authorization 头被缓存到客户端实例上（换 Key 后串号）。
+                using (var request = new HttpRequestMessage(HttpMethod.Post, apiUrl))
+                using (var timeoutCts = new System.Threading.CancellationTokenSource(_httpClientTimeout))
+                using (var linkedCts = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken))
                 {
-                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+                    request.Content = content;
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
 
                     Console.WriteLine($"Calling Zhipu AI API: {apiUrl}");
-                    Console.WriteLine($"Request body: {jsonBody}");
+                    // 日志截断：请求体包含用户对话原文，全量落日志是隐私泄露面
+                    Console.WriteLine($"Request body (truncated): {TruncateForLog(jsonBody, 200)}");
 
-                    var response = await httpClient.PostAsync(apiUrl, content);
+                    var response = await _sharedHttpClient.SendAsync(request, linkedCts.Token);
                     string responseContent = await response.Content.ReadAsStringAsync();
 
                     Console.WriteLine($"Zhipu AI API Response Status: {response.StatusCode}");
-                    Console.WriteLine($"Zhipu AI API Response Content: {responseContent}");
+                    Console.WriteLine($"Zhipu AI API Response Content (truncated): {TruncateForLog(responseContent, 400)}");
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -1180,6 +742,11 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
 
                     return "Error from Zhipu AI: Invalid response format";
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                VoiceRuntimeLog.Info("智谱 LLM 请求被调用方取消。");
+                return "Error from Zhipu AI: request cancelled.";
             }
             catch (Exception ex)
             {
@@ -1212,13 +779,24 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
 
         public async Task<string> GetCompletionAsync(string prompt)
         {
+            return await GetCompletionAsync(prompt, System.Threading.CancellationToken.None);
+        }
+
+        /// <summary>
+        /// 带 cooperative 取消的补全入口。
+        /// net472 + Betalgo SDK 不接受 CancellationToken，OpenAI 兼容路径用 WhenAny 竞速实现
+        /// 「调用方立即返回」（被放弃的底层请求最多再跑到 HttpClient 超时为止，有上界）；
+        /// 智谱 HTTP 路径是真正的网络层取消。取消/超时一律返回 Error 字符串，保持既有调用方契约（不抛异常）。
+        /// </summary>
+        public async Task<string> GetCompletionAsync(string prompt, System.Threading.CancellationToken cancellationToken)
+        {
             // Check if using Zhipu AI
             bool isZhipuAi = !string.IsNullOrWhiteSpace(_apiBaseUrl) && _apiBaseUrl.Contains("bigmodel.cn");
-            
+
             if (isZhipuAi)
             {
                 Console.WriteLine("Detected Zhipu AI provider, using custom API client");
-                return await CallZhipuAiApiAsync(prompt);
+                return await CallZhipuAiApiAsync(prompt, cancellationToken);
             }
 
             // Original OpenAI-compatible API path
@@ -1248,22 +826,36 @@ IMPORTANT: Your entire response MUST be a valid JSON array of milestone objects,
             Console.WriteLine($"LLM Request: Target URL: {targetUrl}");
             Console.WriteLine($"LLM Request: Model Name: {_modelName}");
             bool apiKeyLoaded = !string.IsNullOrWhiteSpace(_apiKey) && _apiKey != PlaceholderApiKey;
-            string apiKeyFirstChars = apiKeyLoaded && _apiKey.Length >= 5 ? _apiKey.Substring(0, 5) : "N/A";
-            Console.WriteLine($"LLM Request: ApiKey Loaded: {apiKeyLoaded}, First 5 chars: {(apiKeyLoaded ? apiKeyFirstChars : "N/A")}");
+            // 不再输出 Key 的任何片段（哪怕前缀也算泄露面）：只记录是否加载与长度
+            Console.WriteLine($"LLM Request: ApiKey Loaded: {apiKeyLoaded}, Length: {(apiKeyLoaded ? _apiKey.Length.ToString() : "N/A")}");
 
             try
             {
                 int currentMaxTokens = 8192; // Define MaxTokens
                 Console.WriteLine($"LLM Request: Using MaxTokens = {currentMaxTokens}"); // Log MaxTokens
-                var completionResult = await _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+                var completionTask = _openAiService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
                 {
-                    Messages = new List<ChatMessage> 
+                    Messages = new List<ChatMessage>
                     {
-                        ChatMessage.FromUser(prompt) 
+                        ChatMessage.FromUser(prompt)
                     },
                     Model = _modelName, // Use configured model name
                     MaxTokens = currentMaxTokens
                 });
+
+                // Betalgo SDK 不接受 CancellationToken：与「取消信号」竞速，先到先得。
+                // 调用方取消时立即返回；被放弃的底层请求最多跑到 HttpClient 超时为止（有上界）。
+                var cancelSignal = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+                using (cancellationToken.Register(() => cancelSignal.TrySetResult(null)))
+                {
+                    var winner = await Task.WhenAny(completionTask, cancelSignal.Task).ConfigureAwait(false);
+                    if (winner == cancelSignal.Task)
+                    {
+                        VoiceRuntimeLog.Info("OpenAI 兼容 LLM 请求被调用方取消。");
+                        return "Error from LLM: request cancelled by caller.";
+                    }
+                }
+                var completionResult = await completionTask.ConfigureAwait(false);
 
                 if (completionResult.Successful)
                 {

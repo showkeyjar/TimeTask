@@ -558,22 +558,18 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_profilePath))
+                var loaded = JsonStore.Load(_profilePath, json => JsonSerializer.Deserialize<UserProfileSnapshot>(json));
+                if (loaded != null)
                 {
-                    string json = File.ReadAllText(_profilePath);
-                    var loaded = JsonSerializer.Deserialize<UserProfileSnapshot>(json);
-                    if (loaded != null)
-                    {
-                        loaded.ActiveHourHistogram ??= new Dictionary<int, int>();
-                        loaded.TaskKeywordHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        loaded.ProgressSourceHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        loaded.SuggestionAcceptedHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        loaded.SuggestionDeferredHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        loaded.SuggestionRejectedHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        loaded.SuggestionEvents ??= new List<SuggestionEventRecord>();
-                        loaded.EvolutionPolicy ??= new SelfEvolutionPolicyState();
-                        return loaded;
-                    }
+                    loaded.ActiveHourHistogram ??= new Dictionary<int, int>();
+                    loaded.TaskKeywordHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    loaded.ProgressSourceHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    loaded.SuggestionAcceptedHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    loaded.SuggestionDeferredHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    loaded.SuggestionRejectedHistogram ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    loaded.SuggestionEvents ??= new List<SuggestionEventRecord>();
+                    loaded.EvolutionPolicy ??= new SelfEvolutionPolicyState();
+                    return loaded;
                 }
             }
             catch (Exception ex)
@@ -590,7 +586,7 @@ namespace TimeTask
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(_profile, options);
-                File.WriteAllText(_profilePath, json);
+                AtomicFile.WriteAllText(_profilePath, json);
             }
             catch (Exception ex)
             {

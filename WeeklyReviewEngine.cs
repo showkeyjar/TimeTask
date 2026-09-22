@@ -126,7 +126,7 @@ namespace TimeTask
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(jsonPath, JsonSerializer.Serialize(report, options));
+                AtomicFile.WriteAllText(jsonPath, JsonSerializer.Serialize(report, options));
 
                 var sb = new StringBuilder();
                 sb.AppendLine($"# 周复盘 {report.WeekKey}");
@@ -171,7 +171,7 @@ namespace TimeTask
                     }
                 }
 
-                File.WriteAllText(mdPath, sb.ToString(), Encoding.UTF8);
+                AtomicFile.WriteAllText(mdPath, sb.ToString(), Encoding.UTF8);
             }
             catch (Exception ex)
             {

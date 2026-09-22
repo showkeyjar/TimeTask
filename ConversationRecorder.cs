@@ -428,12 +428,9 @@ namespace TimeTask
         {
             try
             {
-                if (File.Exists(_sessionsDataPath))
-                {
-                    string json = File.ReadAllText(_sessionsDataPath);
-                    var serializer = new JavaScriptSerializer();
-                    _sessions = serializer.Deserialize<List<ConversationSession>>(json) ?? new List<ConversationSession>();
-                }
+                _sessions = JsonStore.Load(_sessionsDataPath,
+                    json => new JavaScriptSerializer().Deserialize<List<ConversationSession>>(json))
+                    ?? new List<ConversationSession>();
             }
             catch (Exception ex)
             {
@@ -448,7 +445,7 @@ namespace TimeTask
             {
                 var serializer = new JavaScriptSerializer();
                 string json = serializer.Serialize(_sessions);
-                File.WriteAllText(_sessionsDataPath, json);
+                AtomicFile.WriteAllText(_sessionsDataPath, json);
             }
             catch (Exception ex)
             {

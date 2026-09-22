@@ -104,14 +104,9 @@ namespace TimeTask
         {
             try
             {
-                if (!File.Exists(_sessionsPath))
-                {
-                    return new List<ConversationSession>();
-                }
-
-                string json = File.ReadAllText(_sessionsPath);
-                var serializer = new JavaScriptSerializer();
-                return serializer.Deserialize<List<ConversationSession>>(json) ?? new List<ConversationSession>();
+                return JsonStore.Load(_sessionsPath,
+                    json => new JavaScriptSerializer().Deserialize<List<ConversationSession>>(json))
+                    ?? new List<ConversationSession>();
             }
             catch (Exception ex)
             {
@@ -125,7 +120,7 @@ namespace TimeTask
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(_jsonPath, JsonSerializer.Serialize(report, options));
+                AtomicFile.WriteAllText(_jsonPath, JsonSerializer.Serialize(report, options));
 
                 var sb = new StringBuilder();
                 sb.AppendLine("# 语音识别质量报告");
@@ -158,7 +153,7 @@ namespace TimeTask
                     sb.AppendLine($"- {item}");
                 }
 
-                File.WriteAllText(_mdPath, sb.ToString(), Encoding.UTF8);
+                AtomicFile.WriteAllText(_mdPath, sb.ToString(), Encoding.UTF8);
             }
             catch (Exception ex)
             {

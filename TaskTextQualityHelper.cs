@@ -94,8 +94,36 @@ namespace TimeTask
             return AnalyzeVoiceTaskCandidate(text).IsMeaningfulTask;
         }
 
+        /// <summary>
+        /// 判断文本是否为"纯噪声"：空白、纯标点/数字，或恰好是已知口头应答词（如"对啊"、"嗯"）。
+        /// 与 IsMeaningfulTaskText 的区别：本方法不做激进的"像不像任务"判断，
+        /// 只排除明确无意义的占位文本，适用于筛选用户手动创建/导入的任务
+        /// （语音转写质量启发式只应作用于 ASR 产物，不应吞掉用户自己写的任务）。
+        /// </summary>
+        public static bool IsNoiseTaskText(string text)
+        {
+            string normalized = Normalize(text);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return true;
+            }
+            if (NoisePhrases.Contains(normalized))
+            {
+                return true;
+            }
+            if (Regex.IsMatch(normalized, @"^[\p{P}\p{S}\d\s]+$"))
+            {
+                return true;
+            }
+            return false;
+        }
+
         public static VoiceTaskAnalysis AnalyzeVoiceTaskCandidate(string text)
         {
+            // 注意：提醒词（"提醒我"/"记得"）与句尾语气词（"呢"/"哦"…）正是 SanitizeTaskText
+            // 会剥掉的内容，因此这两类信号必须在剥离前的原始规范化文本上判定，
+            // 否则会出现"先删掉信号、再检测信号"永远检测不到的问题。
+            string normalizedRaw = Normalize(text);
             string sanitized = SanitizeTaskText(text);
             var analysis = new VoiceTaskAnalysis
             {
@@ -112,8 +140,8 @@ namespace TimeTask
             analysis.HasStrongAction = StrongActionWords.Any(word => sanitized.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0);
             analysis.HasTaskSignal = TaskSignals.Any(word => sanitized.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0);
             analysis.HasTimeExpression = Regex.IsMatch(sanitized, @"(今天|明天|后天|本周|下周|周[一二三四五六日天]|上午|下午|晚上|明早|明晚|现在|\d+\s*(点|分|号|日|月)|半小时后|\d+\s*(分钟|小时|天)后)");
-            analysis.IsReminderCandidate = ReminderSignals.Any(word => sanitized.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0);
-            analysis.IsQuestionLike = Regex.IsMatch(sanitized, @"(吗|么|呢|是不是|能不能|要不要|为什么|怎么|啥|什么)$") || sanitized.Contains("？") || sanitized.Contains("?");
+            analysis.IsReminderCandidate = ReminderSignals.Any(word => normalizedRaw.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0);
+            analysis.IsQuestionLike = Regex.IsMatch(normalizedRaw, @"(吗|么|呢|是不是|能不能|要不要|为什么|怎么|啥|什么)$") || normalizedRaw.Contains("？") || normalizedRaw.Contains("?");
             analysis.IsLongFreeformSpeech = sanitized.Length > 28 && !analysis.IsReminderCandidate && !analysis.HasTimeExpression && !analysis.HasStrongAction;
 
             if (sanitized.Length < 4 || sanitized.Length > 48)

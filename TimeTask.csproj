@@ -40,6 +40,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Security" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
@@ -77,6 +78,14 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="AdaptiveGoalManager.cs" />
+    <Compile Include="AtomicFile.cs" />
+    <Compile Include="JsonStore.cs" />
+    <Compile Include="ProcessUtils.cs" />
+    <Compile Include="LlmResponseParsers.cs" />
+    <Compile Include="LlmPromptTemplates.cs" />
+    <Compile Include="QuadrantStore.cs" />
+    <Compile Include="SecureApiKeyStore.cs" />
+    <Compile Include="AppPaths.cs" />
     <Compile Include="DecisionEngine.cs" />
     <Compile Include="GoalHierarchyEngine.cs" />
     <Compile Include="ConfirmGoalTasksWindow.xaml.cs">
@@ -199,6 +208,8 @@
     <Compile Include="ObsidianKnowledgeConnector.cs" />
     <Compile Include="DatabaseService.cs" />
     <Compile Include="AudioCaptureService.cs" />
+    <Compile Include="ConversationCaptureService.cs" />
+    <Compile Include="GlobalHotkeyService.cs" />
     <Compile Include="AutoUpdateService.cs" />
     <Compile Include="EnhancedAudioCaptureService.cs" />
     <Compile Include="SpeechModelManager.cs" />
@@ -221,6 +232,10 @@
     <Compile Include="WeeklyReviewEngine.cs" />
     <Compile Include="DraftViewerWindow.xaml.cs">
       <DependentUpon>DraftViewerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ActionInboxWindow.xaml.cs">
+      <DependentUpon>ActionInboxWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
     </Compile>
     <Compile Include="ImportPlanTaskService.cs" />
     <Compile Include="ImportUserNameStore.cs" />
@@ -250,6 +265,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="DraftViewerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ActionInboxWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

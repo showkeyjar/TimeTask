@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -66,7 +66,7 @@ namespace TimeTask
                     .Where(p => !string.IsNullOrWhiteSpace(p))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
-                File.WriteAllLines(_userLexiconPath, lines);
+                AtomicFile.WriteAllLines(_userLexiconPath, lines);
             }
             catch { }
         }
@@ -93,7 +93,7 @@ namespace TimeTask
                     .Take(500)
                     .ToList();
 
-                File.WriteAllLines(hintsPath, merged);
+                AtomicFile.WriteAllLines(hintsPath, merged);
                 VoiceRuntimeLog.Info($"Voice lexicon merged into phrases.txt, count={merged.Count}");
             }
             catch (Exception ex)

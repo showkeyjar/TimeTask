@@ -29,22 +29,55 @@ namespace TimeTask
 
         public static List<ItemGrid> ReadCsv(string filepath)
         {
-            if (!File.Exists(filepath))
+            var (items, badLines) = ReadCsvCore(filepath);
+            if (items == null)
             {
                 return null;
             }
-            int parseScore = 0;
-            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg));
-            var result =
-                from line in allLines.Skip(1).Take(allLines.Count() - 1)
-                let temparry = line.Split(',')
-                let parse = int.TryParse(temparry[1], out parseScore)
-                let isCompleted = temparry.Length > 3 && temparry[3] != null && temparry[3] == "True"
-                let parsedLastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now
-                select new ItemGrid {
-                    Task = temparry[0],
+            if (badLines > 0)
+            {
+                // 主文件有坏行：AtomicFile 留下的 .bak 是上一代完整数据。
+                // 只有当备份更干净（坏行更少）且好行数不减少时才回退，避免用旧备份丢掉新录入。
+                var (bakItems, bakBad) = ReadCsvCore(filepath + ".bak");
+                if (bakItems != null && bakBad < badLines && bakItems.Count >= items.Count)
+                {
+                    VoiceRuntimeLog.Warn(
+                        $"ReadCsv 主文件有 {badLines} 个坏行，已回退备份（{bakBad} 个坏行）：{filepath}");
+                    return bakItems;
+                }
+            }
+            return items;
+        }
+
+        private static (List<ItemGrid> items, int badLines) ReadCsvCore(string filepath)
+        {
+            if (!File.Exists(filepath))
+            {
+                return (null, 0);
+            }
+            var result_list = new List<ItemGrid>();
+            int badLines = 0;
+            var allLines = File.ReadAllLines(filepath).Where(arg => !string.IsNullOrWhiteSpace(arg)).ToList();
+            // 逐行解析，坏行跳过并记录日志——绝不能往任务列表里注入"csv文件错误"之类的
+            // 占位任务（它会被写回 CSV 固化，污染真实数据），也不能让一行坏数据炸掉整个文件。
+            foreach (var line in allLines.Skip(1))
+            {
+                var temparry = line.Split(',');
+                if (temparry.Length < 4)
+                {
+                    badLines++;
+                    VoiceRuntimeLog.Error($"ReadCsv 跳过格式异常的行（字段数 {temparry.Length} < 4）：{filepath}", null);
+                    continue;
+                }
+
+                int parseScore = int.TryParse(temparry[1], out parseScore) ? parseScore : 0;
+                bool isCompleted = temparry[3] != null && temparry[3] == "True";
+                DateTime parsedLastModifiedDate = temparry.Length > 7 && DateTime.TryParse(temparry[7], out DateTime lmd) ? lmd : DateTime.Now;
+                result_list.Add(new ItemGrid
+                {
+                    Task = temparry[0].Replace(";;;", ","),
                     Score = parseScore,
-                    Result = temparry[2],
+                    Result = temparry[2].Replace(";;;", ","),
                     IsActive = !isCompleted, // IsActive is the opposite of is_completed
                     Importance = temparry.Length > 4 && !string.IsNullOrWhiteSpace(temparry[4]) ? temparry[4] : "Unknown",
                     Urgency = temparry.Length > 5 && !string.IsNullOrWhiteSpace(temparry[5]) ? temparry[5] : "Unknown",
@@ -60,30 +93,34 @@ namespace TimeTask
                     ReminderSnoozeUntil = temparry.Length > 15 && DateTime.TryParse(temparry[15], out DateTime rsu) ? rsu : (DateTime?)null,
                     LastReminderDate = temparry.Length > 16 && DateTime.TryParse(temparry[16], out DateTime lrd) ? lrd : (DateTime?)null,
                     SourceTaskID = temparry.Length > 17 && !string.IsNullOrWhiteSpace(temparry[17]) ? temparry[17] : null
-                };
-            var result_list = new List<ItemGrid>();
-            try
+                });
+            }
+            return (result_list, badLines);
+        }
+
+        /// <summary>
+        /// CSV 单元格规范化：换行符折叠为空格（本 CSV 格式按行解析，单元格内换行会
+        /// 让后续所有列错位且静默损坏），逗号沿用历史 ";;;" 转义。
+        /// </summary>
+        private static string CsvCell(string value)
+        {
+            if (string.IsNullOrEmpty(value))
             {
-                result_list = result.ToList();
+                return "";
             }
-            catch (Exception ex) { // Catch specific exceptions if possible, or log general ones
-                Console.WriteLine($"Error parsing CSV lines: {ex.Message}");
-                // Add a default item or handle error as appropriate
-                result_list.Add(new ItemGrid { Task = "csv文件错误", Score = 0, Result= "", IsActive = true, Importance = "Unknown", Urgency = "Unknown", CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now, IsActiveInQuadrant = true, InactiveWarningCount = 0 });
-            }
-            return result_list;
+            return value.Replace("\r\n", " ").Replace("\r", " ").Replace("\n", " ").Replace(",", ";;;");
         }
 
         public static void WriteCsv(IEnumerable<ItemGrid> items, string filepath)
         {
             var temparray = items.Select(item =>
-                $"{item.Task},{item.Score},{item.Result},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount},{item.LastProgressDate:o},{item.LastInteractionDate:o},{item.ReminderSnoozeUntil?.ToString("o") ?? ""},{item.LastReminderDate?.ToString("o") ?? ""},{item.SourceTaskID ?? ""}"
+                $"{CsvCell(item.Task)},{item.Score},{CsvCell(item.Result)},{(item.IsActive ? "False" : "True")},{item.Importance ?? "Unknown"},{item.Urgency ?? "Unknown"},{item.CreatedDate:o},{item.LastModifiedDate:o},{item.ReminderTime?.ToString("o") ?? ""},{item.LongTermGoalId ?? ""},{item.OriginalScheduledDay},{item.IsActiveInQuadrant},{item.InactiveWarningCount},{item.LastProgressDate:o},{item.LastInteractionDate:o},{item.ReminderSnoozeUntil?.ToString("o") ?? ""},{item.LastReminderDate?.ToString("o") ?? ""},{item.SourceTaskID ?? ""}"
             ).ToArray();
-            var contents = new string[temparray.Length + 2];
+            var contents = new string[temparray.Length + 1];
             Array.Copy(temparray, 0, contents, 1, temparray.Length);
             // Updated header
             contents[0] = "task,score,result,is_completed,importance,urgency,createdDate,lastModifiedDate,reminderTime,longTermGoalId,originalScheduledDay,isActiveInQuadrant,inactiveWarningCount,lastProgressDate,lastInteractionDate,reminderSnoozeUntil,lastReminderDate,sourceTaskId";
-            File.WriteAllLines(filepath, contents);
+            AtomicFile.WriteAllLines(filepath, contents);
         }
 
         public static List<LongTermGoal> ReadLongTermGoalsCsv(string filepath)
@@ -118,7 +155,9 @@ namespace TimeTask
                             Subject = fields.Length > 6 ? fields[6].Replace(";;;", ",") : null,
                             StartDate = fields.Length > 7 && DateTime.TryParse(fields[7], out DateTime sd) ? sd : (DateTime?)null,
                             TotalStages = fields.Length > 8 && int.TryParse(fields[8], out int ts) ? ts : 0,
-                            CompletedStages = fields.Length > 9 && int.TryParse(fields[9], out int cs) ? cs : 0
+                            CompletedStages = fields.Length > 9 && int.TryParse(fields[9], out int cs) ? cs : 0,
+                            EndDate = fields.Length > 10 && DateTime.TryParse(fields[10], out DateTime ed) ? ed : (DateTime?)null,
+                            LastReviewDate = fields.Length > 11 && DateTime.TryParse(fields[11], out DateTime lrd) ? lrd : DateTime.Now
                         };
                         goals.Add(goal);
                     }
@@ -139,14 +178,13 @@ namespace TimeTask
                 Directory.CreateDirectory(directory);
             }
 
-            var lines = new List<string> { "Id,Description,TotalDuration,CreationDate,IsActive,IsLearningPlan,Subject,StartDate,TotalStages,CompletedStages" };
+            // 追加 EndDate/LastReviewDate 列（追加在末尾，向前向后均兼容：旧文件缺列时按默认值解析）
+            var lines = new List<string> { "Id,Description,TotalDuration,CreationDate,IsActive,IsLearningPlan,Subject,StartDate,TotalStages,CompletedStages,EndDate,LastReviewDate" };
             foreach (var goal in goals)
             {
-                string safeDescription = goal.Description?.Replace(",", ";;;") ?? "";
-                string safeSubject = goal.Subject?.Replace(",", ";;;") ?? "";
-                lines.Add($"{goal.Id},{safeDescription},{goal.TotalDuration},{goal.CreationDate:o},{goal.IsActive},{goal.IsLearningPlan},{safeSubject},{goal.StartDate?.ToString("o") ?? ""},{goal.TotalStages},{goal.CompletedStages}");
+                lines.Add($"{goal.Id},{CsvCell(goal.Description)},{goal.TotalDuration},{goal.CreationDate:o},{goal.IsActive},{goal.IsLearningPlan},{CsvCell(goal.Subject)},{goal.StartDate?.ToString("o") ?? ""},{goal.TotalStages},{goal.CompletedStages},{goal.EndDate?.ToString("o") ?? ""},{goal.LastReviewDate:o}");
             }
-            File.WriteAllLines(filepath, lines);
+            AtomicFile.WriteAllLines(filepath, lines);
         }
 
         public static List<LearningPlan> ReadLearningPlansCsv(string filepath)
@@ -205,11 +243,9 @@ namespace TimeTask
             var lines = new List<string> { "Id,Subject,Goal,Duration,CreationDate,StartDate,EndDate,IsActive,TotalStages,CompletedStages" };
             foreach (var plan in plans)
             {
-                string safeSubject = plan.Subject?.Replace(",", ";;;") ?? "";
-                string safeGoal = plan.Goal?.Replace(",", ";;;") ?? "";
-                lines.Add($"{plan.Id},{safeSubject},{safeGoal},{plan.Duration},{plan.CreationDate:o},{plan.StartDate?.ToString("o") ?? ""},{plan.EndDate?.ToString("o") ?? ""},{plan.IsActive},{plan.TotalStages},{plan.CompletedStages}");
+                lines.Add($"{plan.Id},{CsvCell(plan.Subject)},{CsvCell(plan.Goal)},{plan.Duration},{plan.CreationDate:o},{plan.StartDate?.ToString("o") ?? ""},{plan.EndDate?.ToString("o") ?? ""},{plan.IsActive},{plan.TotalStages},{plan.CompletedStages}");
             }
-            File.WriteAllLines(filepath, lines);
+            AtomicFile.WriteAllLines(filepath, lines);
         }
 
         public static List<LearningMilestone> ReadLearningMilestonesCsv(string filepath)
@@ -267,11 +303,9 @@ namespace TimeTask
             var lines = new List<string> { "Id,LearningPlanId,StageName,Description,StageNumber,TargetDate,IsCompleted,CompletedDate,AssociatedTaskId" };
             foreach (var milestone in milestones)
             {
-                string safeStageName = milestone.StageName?.Replace(",", ";;;") ?? "";
-                string safeDescription = milestone.Description?.Replace(",", ";;;") ?? "";
-                lines.Add($"{milestone.Id},{milestone.LearningPlanId},{safeStageName},{safeDescription},{milestone.StageNumber},{milestone.TargetDate?.ToString("o") ?? ""},{milestone.IsCompleted},{milestone.CompletedDate?.ToString("o") ?? ""},{milestone.AssociatedTaskId ?? ""}");
+                lines.Add($"{milestone.Id},{milestone.LearningPlanId},{CsvCell(milestone.StageName)},{CsvCell(milestone.Description)},{milestone.StageNumber},{milestone.TargetDate?.ToString("o") ?? ""},{milestone.IsCompleted},{milestone.CompletedDate?.ToString("o") ?? ""},{milestone.AssociatedTaskId ?? ""}");
             }
-            File.WriteAllLines(filepath, lines);
+            AtomicFile.WriteAllLines(filepath, lines);
         }
     }
 
@@ -359,6 +393,9 @@ namespace TimeTask
         private System.Windows.Threading.DispatcherTimer _reminderTimer;
         private System.Windows.Threading.DispatcherTimer _draftBadgeTimer;
         private System.Windows.Threading.DispatcherTimer _voiceStatusAnimTimer;
+        private ConversationCaptureService _capture;
+        private System.Windows.Threading.DispatcherTimer _meetingToastTimer;
+        private System.Windows.Threading.DispatcherTimer _recordUiTimer;
         private VoiceListenerState _voiceListenerState = VoiceListenerState.Unknown;
         private TaskDraftManager _draftBadgeManager;
         private UserProfileManager _userProfileManager;
@@ -394,6 +431,17 @@ namespace TimeTask
         private readonly Dictionary<Border, SystemSkillNodeSnapshot> _skillTreeNodeMap = new Dictionary<Border, SystemSkillNodeSnapshot>();
         private readonly List<string> _systemTickerMessages = new List<string>();
         private System.Windows.Threading.DispatcherTimer _systemTickerTimer;
+
+        // 选择变化防抖：单击选中就全量重写 CSV 会造成写盘风暴（加载时也会级联触发），
+        // 改为静默 400ms 后才真正落盘一次。
+        private System.Windows.Threading.DispatcherTimer _selectionSaveDebounceTimer;
+        private System.Windows.Controls.DataGrid _pendingSaveGrid;
+        private string _pendingSaveNumber;
+        private bool _isLoadingGrids;
+
+        // 窗口位置保存防抖：拖动窗口每个像素都会触发 LocationChanged，
+        // 不防抖的话拖一次窗口要写几百次 Settings。
+        private System.Windows.Threading.DispatcherTimer _locationSaveDebounceTimer;
         private int _systemTickerIndex;
         private bool _isSystemPanelCompactMode = true;
 
@@ -454,7 +502,7 @@ namespace TimeTask
 
         private void LoadActiveLongTermGoalAndRefreshDisplay()
         {
-            string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            string longTermGoalsCsvPath = AppPaths.GetDataFile("long_term_goals.csv");
             if (File.Exists(longTermGoalsCsvPath))
             {
                 List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
@@ -487,7 +535,7 @@ namespace TimeTask
                     string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
                     for (int i = 0; i < csvFiles.Length; i++)
                     {
-                        string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
+                        string filePath = AppPaths.GetDataFile(csvFiles[i]);
                         if (File.Exists(filePath))
                         {
                             List<ItemGrid> items = HelperClass.ReadCsv(filePath);
@@ -514,31 +562,25 @@ namespace TimeTask
 
         public void loadDataGridView()
         {
+            _isLoadingGrids = true;
+            try
+            {
             LoadActiveLongTermGoalAndRefreshDisplay(); // Load active goal and update its display
             _llmConfigErrorDetectedInLoad = false;
 
-            string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" };
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
 
-            for (int i = 0; i < csvFiles.Length; i++)
+            for (int i = 0; i < dataGrids.Length; i++)
             {
-                string filePath = Path.Combine(currentPath, "data", csvFiles[i]);
-                List<ItemGrid> allItemsInCsv = HelperClass.ReadCsv(filePath);
+                // QuadrantStore.Load：统一的数据目录解析 + 损坏回退（无文件返回空列表）
+                List<ItemGrid> allItemsInCsv = QuadrantStore.Load(i + 1);
                 List<ItemGrid> itemsToDisplayInQuadrant;
 
-                if (allItemsInCsv == null)
+                foreach (var item in allItemsInCsv)
                 {
-                    Console.WriteLine($"Error reading CSV file: {filePath}. Or file is empty/new.");
-                    allItemsInCsv = new List<ItemGrid>();
-                }
-                else
-                {
-                    foreach (var item in allItemsInCsv)
+                    if (!string.IsNullOrWhiteSpace(item.SourceTaskID) && !_syncedTaskSourceIDs.Contains(item.SourceTaskID))
                     {
-                        if (!string.IsNullOrWhiteSpace(item.SourceTaskID) && !_syncedTaskSourceIDs.Contains(item.SourceTaskID))
-                        {
-                            _syncedTaskSourceIDs.Add(item.SourceTaskID);
-                        }
+                        _syncedTaskSourceIDs.Add(item.SourceTaskID);
                     }
                 }
 
@@ -559,6 +601,14 @@ namespace TimeTask
                                     "LLM Configuration Issue", MessageBoxButton.OK, MessageBoxImage.Warning);
                     // As per requirement, not resetting _llmConfigErrorDetectedInLoad here.
                 }
+            }
+
+            // 初始加载完成后同步各象限计数与空态引导提示。
+            UpdateQuadrantCounts();
+            }
+            finally
+            {
+                _isLoadingGrids = false;
             }
         }
 
@@ -760,6 +810,200 @@ namespace TimeTask
             {
                 Console.WriteLine($"Voice status indicator init failed: {ex.Message}");
             }
+
+            InitializeRecordToggle();
+        }
+
+        // ---- 录音/停止切换按钮（主窗口，作为全局热键之外的可靠手动入口）----
+
+        private ConversationCaptureService GetCapture()
+        {
+            if (_capture == null)
+            {
+                _capture = App.Instance?.CaptureService;
+                if (_capture != null)
+                {
+                    _capture.StatusChanged += OnCaptureStatusChangedForButton;
+                    _capture.MeetingStateChanged += OnMeetingStateChanged;
+                    _capture.MeetingPrompt += OnMeetingPrompt;
+                }
+            }
+            return _capture;
+        }
+
+        private void InitializeRecordToggle()
+        {
+            try
+            {
+                _recordUiTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                _recordUiTimer.Tick += (s, e) => RefreshRecordButton();
+                _recordUiTimer.Start();
+                this.Closed += (s, e) => { try { _recordUiTimer.Stop(); } catch { } };
+                RefreshRecordButton();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Record toggle button init failed: {ex.Message}");
+            }
+        }
+
+        private void RecordToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            var svc = GetCapture();
+            if (svc == null)
+            {
+                System.Windows.MessageBox.Show("录音服务尚未就绪，请稍候再试。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+            // 开录零前置：直接开录，主题/术语可在会议进行中于面板里后补（SetContext 录音中即时生效）。
+            // 不强制填主题，留空则走通用语境——临时突然开会也能 1 次操作即开录。
+            // 面板显隐由录音状态统一驱动（见 ApplyRecordingUiState），按钮/热键/托盘三种入口行为一致。
+            if (svc.IsRecording) svc.Stop();
+            else svc.Start(svc.DefaultMode);
+            RefreshRecordButton();
+            ApplyRecordingUiState(svc.IsRecording);
+        }
+
+        private void OnCaptureStatusChangedForButton()
+        {
+            // 状态事件可能来自后台线程（如超时自动停止、ASR 就绪），统一切回 UI 线程处理。
+            if (!Dispatcher.CheckAccess())
+            {
+                try { Dispatcher.BeginInvoke(new Action(OnCaptureStatusChangedForButton)); } catch { }
+                return;
+            }
+            RefreshRecordButton();
+            var svc = GetCapture();
+            if (svc != null)
+                ApplyRecordingUiState(svc.IsRecording);
+        }
+
+        /// <summary>
+        /// 会议助手面板的显隐与“录音中”状态一一对应：
+        /// 无论从按钮、全局热键还是托盘开始录音，面板都会出现；停止后自动收起。
+        /// </summary>
+        private void ApplyRecordingUiState(bool recording)
+        {
+            try
+            {
+                if (recording)
+                {
+                    if (MeetingAssistantPanel.Visibility != Visibility.Visible)
+                    {
+                        MeetingAssistantPanel.Visibility = Visibility.Visible;
+                        MaTopicRow.Visibility = Visibility.Collapsed;
+                        MeetingAssistantStatus.Text = "录音中…（实时提炼需在设置中配置 LLM，可忽略）";
+                    }
+                }
+                else
+                {
+                    MeetingAssistantPanel.Visibility = Visibility.Collapsed;
+                }
+            }
+            catch { }
+        }
+
+        // ---------- 会议助手：实时状态面板 + 气泡提示（事件在后台线程触发，统一到 UI 线程）--------
+
+        private void OnMeetingStateChanged(ConversationCaptureService.MeetingState state)
+        {
+            try { Dispatcher.BeginInvoke(new Action(() => UpdateMeetingAssistant(state))); } catch { }
+        }
+
+        private void UpdateMeetingAssistant(ConversationCaptureService.MeetingState state)
+        {
+            if (state == null) return;
+            MaConcepts.ItemsSource = state.Concepts;
+            MaQuestions.ItemsSource = state.Questions;
+            MaDecisions.ItemsSource = state.Decisions;
+            MaActions.ItemsSource = state.Actions;
+            int total = state.Concepts.Count + state.Questions.Count + state.Decisions.Count + state.Actions.Count;
+            MeetingAssistantStatus.Text = total == 0 ? "实时提炼未启用（可忽略）" : $"已提炼 {total} 条。";
+            // 可见性完全由录音状态控制（开录显示 / 停止收起），这里只刷新内容。
+        }
+
+        private void OnMeetingPrompt(string msg)
+        {
+            try { Dispatcher.BeginInvoke(new Action(() => ShowMeetingToast(msg))); } catch { }
+        }
+
+        private void ShowMeetingToast(string msg)
+        {
+            try
+            {
+                MeetingToastText.Text = msg;
+                MeetingToast.Visibility = Visibility.Visible;
+                if (_meetingToastTimer == null)
+                {
+                    _meetingToastTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+                    _meetingToastTimer.Tick += (s, e) => { _meetingToastTimer.Stop(); MeetingToast.Visibility = Visibility.Collapsed; };
+                }
+                _meetingToastTimer.Stop();
+                _meetingToastTimer.Start();
+            }
+            catch { }
+        }
+
+        // “＋ 主题（可选）”链接：默认隐藏主题输入框，用户主动点开才展开，避免一个孤立输入框让人费解。
+        private void MaTopicToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (MaTopicRow.Visibility == Visibility.Visible)
+            {
+                MaTopicRow.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                MaTopicRow.Visibility = Visibility.Visible;
+                MaTopicBox.Focus();
+            }
+        }
+
+        // 会议进行中后补主题术语：回车把焦点移走（触发 LostFocus 提交），或直接失焦即生效。
+        private void MaTopicBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                var tb = sender as System.Windows.Controls.TextBox;
+                tb?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+            }
+        }
+
+        private void MaTopicBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var svc = GetCapture();
+            var tb = sender as System.Windows.Controls.TextBox;
+            if (svc == null || tb == null) return;
+            var t = tb.Text?.Trim();
+            svc.SetContext(!string.IsNullOrWhiteSpace(t) ? t : string.Empty, string.Empty);
+        }
+
+        private void RefreshRecordButton()
+        {
+            try
+            {
+                if (RecordToggleButton == null) return;
+                var svc = GetCapture();
+                if (svc == null || !svc.IsRecording)
+                {
+                    RecordToggleIcon.Text = "⏺";
+                    RecordToggleText.Text = "记录";
+                    RecordToggleButton.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
+                    RecordToggleButton.Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
+                    RecordToggleButton.BorderBrush = new SolidColorBrush(Color.FromRgb(0x90, 0xCA, 0xF9));
+                }
+                else
+                {
+                    RecordToggleIcon.Text = "■";
+                    RecordToggleText.Text = "停止 " + svc.Elapsed.ToString(@"mm\:ss");
+                    RecordToggleButton.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0xE0));
+                    RecordToggleButton.Foreground = new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
+                    RecordToggleButton.BorderBrush = new SolidColorBrush(Color.FromRgb(0xEF, 0x9A, 0x9A));
+                }
+
+                // 每次刷新同时校正“会议助手面板”的显隐（自愈：窗口在录音中途被打开/重开也能正确显示）。
+                ApplyRecordingUiState(svc != null && svc.IsRecording);
+            }
+            catch { }
         }
 
         private void VoiceListenerStatusCenter_StatusChanged(object sender, VoiceListenerStatus status)
@@ -956,38 +1200,42 @@ namespace TimeTask
                 I18n.LanguageChanged -= I18n_LanguageChanged;
                 VoiceListenerStatusCenter.RecognitionCaptured -= VoiceListenerStatusCenter_RecognitionCaptured;
                 TaskDraftManager.DraftsChanged -= TaskDraftManager_DraftsChanged;
-                if (_voiceStatusAnimTimer != null)
+
+                // 退订采集服务事件：CaptureService 是 App 级单例，不退订会永久持有 MainWindow
+                var capture = GetCapture();
+                if (capture != null)
                 {
-                    _voiceStatusAnimTimer.Stop();
-                    _voiceStatusAnimTimer.Tick -= VoiceStatusAnimTimer_Tick;
-                    _voiceStatusAnimTimer = null;
+                    capture.StatusChanged -= OnCaptureStatusChangedForButton;
+                    capture.MeetingStateChanged -= OnMeetingStateChanged;
+                    capture.MeetingPrompt -= OnMeetingPrompt;
                 }
 
-                if (_systemTickerTimer != null)
+                // 停掉全部 DispatcherTimer（此前只停了 5 个，漏掉的定时器会让窗口对象泄漏）
+                foreach (var timer in new[]
                 {
-                    _systemTickerTimer.Stop();
-                    _systemTickerTimer.Tick -= SystemTickerTimer_Tick;
-                    _systemTickerTimer = null;
-                }
-
-                if (_conversationIdleTimer != null)
+                    _voiceStatusAnimTimer, _systemTickerTimer, _conversationIdleTimer,
+                    _knowledgeSyncTimer, _knowledgeSyncDebounceTimer, _reminderTimer,
+                    _taskReminderTimer, _draftBadgeTimer, _smartSystemTimer, _syncTimer,
+                    _meetingToastTimer, _recordUiTimer
+                })
                 {
-                    _conversationIdleTimer.Stop();
-                    _conversationIdleTimer.Tick -= ConversationIdleTimer_Tick;
-                    _conversationIdleTimer = null;
+                    if (timer != null)
+                    {
+                        timer.Stop();
+                    }
                 }
-
-                if (_knowledgeSyncTimer != null)
-                {
-                    _knowledgeSyncTimer.Stop();
-                    _knowledgeSyncTimer = null;
-                }
-
-                if (_knowledgeSyncDebounceTimer != null)
-                {
-                    _knowledgeSyncDebounceTimer.Stop();
-                    _knowledgeSyncDebounceTimer = null;
-                }
+                _voiceStatusAnimTimer = null;
+                _systemTickerTimer = null;
+                _conversationIdleTimer = null;
+                _knowledgeSyncTimer = null;
+                _knowledgeSyncDebounceTimer = null;
+                _reminderTimer = null;
+                _taskReminderTimer = null;
+                _draftBadgeTimer = null;
+                _smartSystemTimer = null;
+                _syncTimer = null;
+                _meetingToastTimer = null;
+                _recordUiTimer = null;
 
                 if (_obsidianWatcher != null)
                 {
@@ -998,8 +1246,17 @@ namespace TimeTask
 
                 _conversationRecorder?.EndSession();
                 _draftBadgeManager?.Dispose();
+
+                // 兜底：把防抖中的窗口位置立刻落盘（窗口关闭后防抖计时器不会再触发）
+                _locationSaveDebounceTimer?.Stop();
+                _selectionSaveDebounceTimer?.Stop();
+                PersistWindowLocation();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 关闭清理失败不能吞得无声无息——至少留一条日志
+                VoiceRuntimeLog.Error("MainWindow_Closed 清理失败。", ex);
+            }
         }
 
         private void ApplyQuickImprovements()
@@ -1175,7 +1432,7 @@ namespace TimeTask
         {
             try
             {
-                string dataPath = Path.Combine(currentPath, "data");
+                string dataPath = AppPaths.DataDir;
                 Directory.CreateDirectory(dataPath);
 
                 _behaviorObserver = new UserBehaviorObserver(dataPath);
@@ -1601,7 +1858,7 @@ namespace TimeTask
         {
             try
             {
-                string goalsPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+                string goalsPath = AppPaths.GetDataFile("long_term_goals.csv");
                 if (!File.Exists(goalsPath))
                 {
                     return new List<LongTermGoal>();
@@ -2079,13 +2336,13 @@ namespace TimeTask
 
         private void OpenLongTermGoalManager()
         {
-            var goalsPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            var goalsPath = AppPaths.GetDataFile("long_term_goals.csv");
             var goals = File.Exists(goalsPath) ? HelperClass.ReadLongTermGoalsCsv(goalsPath) : new List<LongTermGoal>();
             var activeGoal = goals.FirstOrDefault(g => g.IsActive);
             
             if (activeGoal != null)
             {
-                var managerWindow = new LongTermGoalManagerWindow(activeGoal, Path.Combine(currentPath, "data"));
+                var managerWindow = new LongTermGoalManagerWindow(activeGoal, AppPaths.DataDir);
                 managerWindow.ShowDialog();
                 _behaviorObserver?.RecordGoalOperation("review", activeGoal.Description, activeGoal.Id);
             }
@@ -2132,7 +2389,64 @@ namespace TimeTask
             {
                 ShowHelpDialog();
                 e.Handled = true;
+                return;
             }
+
+            // Ctrl+S：立即保存四个象限（原先帮助里宣传了但从未实现）
+            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                SaveAllQuadrantsNow();
+                e.Handled = true;
+                return;
+            }
+
+            // Del：删除焦点所在象限的选中任务（正在编辑单元格文本时不拦截）
+            if (e.Key == Key.Delete)
+            {
+                var focused = Keyboard.FocusedElement as System.Windows.DependencyObject;
+                bool editingText = focused is System.Windows.Controls.TextBox
+                    || focused is System.Windows.Controls.PasswordBox
+                    || focused is System.Windows.Controls.ComboBox;
+                if (!editingText)
+                {
+                    if (DeleteSelectedTaskInFocusedGrid())
+                    {
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        /// <summary>立即把四个象限的数据落盘（Ctrl+S）。</summary>
+        private void SaveAllQuadrantsNow()
+        {
+            try
+            {
+                update_csv(task1, "1");
+                update_csv(task2, "2");
+                update_csv(task3, "3");
+                update_csv(task4, "4");
+                ShowPassiveNotification("保存", "已保存全部任务");
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("Ctrl+S 保存失败。", ex);
+                MessageBox.Show(this, "保存失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>删除当前有选中项的象限里的选中任务（Del 快捷键）。</summary>
+        private bool DeleteSelectedTaskInFocusedGrid()
+        {
+            foreach (var grid in new[] { task1, task2, task3, task4 })
+            {
+                if (grid?.SelectedItem is ItemGrid candidate)
+                {
+                    DeleteTaskFromGrid(candidate);
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void ShowHelpDialog()
@@ -2143,10 +2457,11 @@ namespace TimeTask
 • Ctrl+N: 快速添加新任务
 • Ctrl+F: 搜索任务
 • Ctrl+S: 保存所有任务
-• Del: 删除选中任务
-• F2: 编辑选中任务
-• Tab/Shift+Tab: 在象限间切换
+• Del: 删除选中任务（会先确认）
+• F2: 编辑选中任务（焦点在任务列表时）
 • Escape: 清除选择
+• Ctrl+E: 导出任务
+• F5: 刷新任务列表
 • F1: 显示此帮助
 
 鼠标操作:
@@ -2165,7 +2480,7 @@ namespace TimeTask
             {
                 if (_activeLongTermGoal.IsLearningPlan)
                 {
-                    string dataFolderPath = Path.Combine(currentPath, "data");
+                    string dataFolderPath = AppPaths.DataDir;
                     LearningPlanManagerWindow managerWindow = new LearningPlanManagerWindow(_activeLongTermGoal, dataFolderPath)
                     {
                         Owner = this
@@ -2175,7 +2490,7 @@ namespace TimeTask
                 }
                 else
                 {
-                    string dataFolderPath = Path.Combine(currentPath, "data");
+                    string dataFolderPath = AppPaths.DataDir;
                     TimeTask.LongTermGoalManagerWindow managerWindow = new TimeTask.LongTermGoalManagerWindow(_activeLongTermGoal, dataFolderPath)
                     {
                         Owner = this
@@ -2199,6 +2514,15 @@ namespace TimeTask
         {
             try
             {
+                // 与到期提醒共用互斥：模态提醒窗已打开时改走被动气泡，绝不堆叠第二个模态窗
+                if (_reminderDialogActive)
+                {
+                    ShowSimpleNotification(task, message);
+                    return;
+                }
+                _reminderDialogActive = true;
+                try
+                {
                 // Generate AI-powered reminder and suggestions
                 TimeSpan taskAge = DateTime.Now - task.CreatedDate;
                 TimeSpan inactiveDuration = DateTime.Now - task.LastProgressDate;
@@ -2242,6 +2566,11 @@ namespace TimeTask
                 else
                 {
                     await HandleTaskReminderResult(task, TaskReminderResult.Dismissed);
+                }
+                }
+                finally
+                {
+                    _reminderDialogActive = false;
                 }
             }
             catch (Exception ex)
@@ -2289,6 +2618,16 @@ namespace TimeTask
                     task.ReminderSnoozeUntil = null;
                     TrackTaskInteraction(task, "progress");
                     PersistKnowledgeArtifact(task);
+                    // 同步四象限界面，让已完成状态（淡化）立即呈现并落盘
+                    foreach (var grid in new[] { task1, task2, task3, task4 })
+                    {
+                        if (grid.ItemsSource is List<ItemGrid> items && items.Contains(task))
+                        {
+                            update_csv(grid, GetQuadrantNumber(grid.Name));
+                            RefreshDataGrid(grid);
+                            break;
+                        }
+                    }
                     break;
                     
                 case TaskReminderResult.Updated:
@@ -3242,7 +3581,7 @@ namespace TimeTask
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.BeginInvoke(new Action(async () => await RunKnowledgeSyncAsync(showSummary)));
+                _ = Dispatcher.InvokeAsync(() => RunKnowledgeSyncAsync(showSummary));
                 return;
             }
 
@@ -3561,6 +3900,13 @@ namespace TimeTask
             }
         }
 
+        /// <summary>
+        /// 提醒弹窗互斥：TaskReminderWindow 是模态的，而 ShowDialog 会泵消息——
+        /// 定时器在弹窗打开期间照样触发，无互斥时 N 个到期提醒会排队弹 N 个模态窗互相卡死。
+        /// 置位期间新的到期提醒改走被动气泡，绝不堆叠。
+        /// </summary>
+        private bool _reminderDialogActive;
+
         private void ReminderTimer_Tick(object sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
@@ -3568,10 +3914,14 @@ namespace TimeTask
             DataGrid[] dataGrids = { task1, task2, task3, task4 };
             string[] csvFiles = { "1.csv", "2.csv", "3.csv", "4.csv" }; // To identify which CSV to update
 
+            ItemGrid firstDue = null;
+            DataGrid firstDueGrid = null;
+            string firstDueCsv = null;
+            int dueCount = 0;
+
             for (int i = 0; i < dataGrids.Length; i++)
             {
                 DataGrid currentGrid = dataGrids[i];
-                bool changesMadeInCurrentGrid = false; // Track changes for the current grid/CSV
 
                 if (currentGrid.ItemsSource is List<ItemGrid> tasks)
                 {
@@ -3579,22 +3929,56 @@ namespace TimeTask
                     {
                         if (task.IsActive && task.ReminderTime.HasValue && task.ReminderTime.Value <= now)
                         {
-                            var dueTime = task.ReminderTime.Value;
-                            var dueReminderWindow = new TaskReminderWindow(task, dueTime)
+                            dueCount++;
+                            if (firstDue == null)
                             {
-                                Owner = this
-                            };
-                            dueReminderWindow.ShowDialog();
-                            changesMadeInCurrentGrid = HandleDueReminderDecision(task, dueReminderWindow.Result, now) || changesMadeInCurrentGrid;
+                                firstDue = task;
+                                firstDueGrid = currentGrid;
+                                firstDueCsv = csvFiles[i].Replace(".csv", "");
+                            }
                         }
                     }
-
-                    if (changesMadeInCurrentGrid)
-                    {
-                        update_csv(currentGrid, csvFiles[i].Replace(".csv", ""));
-                        RefreshDataGrid(currentGrid);
-                    }
                 }
+            }
+
+            if (firstDue == null)
+            {
+                return;
+            }
+
+            if (_reminderDialogActive)
+            {
+                // 已有提醒窗在展示：本轮只发一条被动气泡，避免模态窗排队堆叠
+                ShowSimpleNotification(firstDue, dueCount > 1
+                    ? $"你有 {dueCount} 个提醒到期（正在展示第一个），其余将依次提醒。"
+                    : "你有 1 个提醒到期，稍后弹窗提醒。");
+                return;
+            }
+
+            _reminderDialogActive = true;
+            try
+            {
+                var dueReminderWindow = new TaskReminderWindow(firstDue, firstDue.ReminderTime.Value)
+                {
+                    Owner = this
+                };
+                dueReminderWindow.ShowDialog();
+                bool changed = HandleDueReminderDecision(firstDue, dueReminderWindow.Result, now);
+                if (changed)
+                {
+                    update_csv(firstDueGrid, firstDueCsv);
+                    RefreshDataGrid(firstDueGrid);
+                }
+            }
+            finally
+            {
+                _reminderDialogActive = false;
+            }
+
+            // 本轮还有其他到期提醒：气泡告知（它们保持到期状态，下一个 tick 依次弹出）
+            if (dueCount > 1)
+            {
+                ShowSimpleNotification(firstDue, $"还有 {dueCount - 1} 个提醒到期，将按节奏依次弹出。");
             }
         }
 
@@ -3996,7 +4380,7 @@ namespace TimeTask
             // and dgv.Items might not be populated if the DataGrid is not rendered.
             // Iterating dgv.ItemsSource is generally more reliable for data access.
 
-            string dirPath = basePath ?? Path.Combine(currentPath, "data");
+            string dirPath = basePath ?? AppPaths.DataDir;
             if (!Directory.Exists(dirPath) && basePath != null) // Create test data directory if specified and not exists
             {
                 Directory.CreateDirectory(dirPath);
@@ -4007,25 +4391,57 @@ namespace TimeTask
         private void task1_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             task1_selected_indexs = task1.SelectedIndex;
-            update_csv(task1, "1");
+            ScheduleCsvSave(task1, "1");
         }
 
         private void task2_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             task2_selected_indexs = task2.SelectedIndex;
-            update_csv(task2, "2");
+            ScheduleCsvSave(task2, "2");
         }
 
         private void task3_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             task3_selected_indexs = task3.SelectedIndex;
-            update_csv(task3, "3");
+            ScheduleCsvSave(task3, "3");
         }
 
         private void task4_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             task4_selected_indexs = task4.SelectedIndex;
-            update_csv(task4, "4");
+            ScheduleCsvSave(task4, "4");
+        }
+
+        /// <summary>
+        /// 防抖保存：选择变化只是 UI 状态，不必立刻全量重写 CSV。
+        /// 加载期间（_isLoadingGrids）完全不触发，避免 ItemsSource 重置造成级联写盘。
+        /// </summary>
+        private void ScheduleCsvSave(System.Windows.Controls.DataGrid grid, string number)
+        {
+            if (_isLoadingGrids || grid == null) return;
+
+            if (_selectionSaveDebounceTimer == null)
+            {
+                _selectionSaveDebounceTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(400)
+                };
+                _selectionSaveDebounceTimer.Tick += (s, e) =>
+                {
+                    _selectionSaveDebounceTimer.Stop();
+                    var gridToSave = _pendingSaveGrid;
+                    var numberToSave = _pendingSaveNumber;
+                    _pendingSaveGrid = null;
+                    _pendingSaveNumber = null;
+                    if (gridToSave == null) return;
+                    try { update_csv(gridToSave, numberToSave); }
+                    catch (Exception ex) { VoiceRuntimeLog.Error($"防抖保存 CSV 失败：{numberToSave}.csv", ex); }
+                };
+            }
+            _pendingSaveGrid = grid;
+            _pendingSaveNumber = number;
+            _selectionSaveDebounceTimer.Stop();
+            _selectionSaveDebounceTimer.Start();
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -4062,10 +4478,37 @@ namespace TimeTask
 
         private void location_Save(object sender, EventArgs e)
         {
-            var normalizedPosition = NormalizeWindowPosition(this.Left, this.Top, this.ActualWidth, this.ActualHeight);
-            Properties.Settings.Default.Top = normalizedPosition.Y;
-            Properties.Settings.Default.Left = normalizedPosition.X;
-            Properties.Settings.Default.Save();
+            // 拖动窗口期间每个像素都会触发一次本事件，这里只刷新缓存值并重启防抖计时器，
+            // 真正写盘推迟到位置稳定 500ms 之后（关闭窗口时在 MainWindow_Closed 里兜底刷新）。
+            if (_locationSaveDebounceTimer == null)
+            {
+                _locationSaveDebounceTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(500)
+                };
+                _locationSaveDebounceTimer.Tick += (s, ev) =>
+                {
+                    _locationSaveDebounceTimer.Stop();
+                    PersistWindowLocation();
+                };
+            }
+            _locationSaveDebounceTimer.Stop();
+            _locationSaveDebounceTimer.Start();
+        }
+
+        private void PersistWindowLocation()
+        {
+            try
+            {
+                var normalizedPosition = NormalizeWindowPosition(this.Left, this.Top, this.ActualWidth, this.ActualHeight);
+                Properties.Settings.Default.Top = normalizedPosition.Y;
+                Properties.Settings.Default.Left = normalizedPosition.X;
+                Properties.Settings.Default.Save();
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Error("保存窗口位置失败。", ex);
+            }
         }
 
         private static Point NormalizeWindowPosition(double left, double top, double width, double height)
@@ -4156,6 +4599,24 @@ namespace TimeTask
             ItemGrid taskToDelete = deleteButton.DataContext as ItemGrid;
             if (taskToDelete == null) return;
 
+            DeleteTaskFromGrid(taskToDelete);
+        }
+
+        /// <summary>
+        /// 删除一条任务（按钮和 Del 快捷键共用）：
+        /// 先确认，再从所在象限移除并落盘，同时记录行为数据。
+        /// </summary>
+        private void DeleteTaskFromGrid(ItemGrid taskToDelete)
+        {
+            if (taskToDelete == null) return;
+
+            // 删除不可恢复，先请求用户确认再执行。
+            if (MessageBox.Show(this, I18n.Tf("Task_ConfirmDeleteFormat", taskToDelete.Task), I18n.T("Title_Confirm"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
             DataGrid sourceGrid = null;
 
             if (task1.ItemsSource is List<ItemGrid> tasks1List && tasks1List.Remove(taskToDelete)) sourceGrid = task1;
@@ -4171,6 +4632,41 @@ namespace TimeTask
                 if (taskToDelete.LongTermGoalId == _activeLongTermGoal?.Id) // Check if deleted task was part of the active goal
                 {
                     UpdateLongTermGoalBadge();
+                }
+            }
+        }
+
+        public void MarkTaskDone_Click(object sender, RoutedEventArgs e)
+        {
+            Button doneButton = sender as Button;
+            if (doneButton == null) return;
+
+            ItemGrid taskToComplete = doneButton.DataContext as ItemGrid;
+            if (taskToComplete == null || !taskToComplete.IsActive) return;
+
+            // 复用提醒完成的同一套完成语义：不删除数据，仅标记完成与统计时间。
+            DateTime now = DateTime.Now;
+            taskToComplete.IsActive = false;
+            taskToComplete.CompletionTime = now;
+            taskToComplete.CompletionStatus = "Completed";
+            taskToComplete.LastModifiedDate = now;
+            taskToComplete.LastProgressDate = now;
+            taskToComplete.LastInteractionDate = now;
+            taskToComplete.InactiveWarningCount = 0;
+            taskToComplete.ReminderSnoozeUntil = null;
+
+            TrackTaskInteraction(taskToComplete, "progress");
+            PersistKnowledgeArtifact(taskToComplete);
+            _behaviorObserver?.RecordTaskOperation("complete", taskToComplete.Task, GetTaskTrackingKey(taskToComplete));
+
+            // 持久化完成状态（is_completed=True），并在界面上即时呈现淡化效果。
+            foreach (var grid in new[] { task1, task2, task3, task4 })
+            {
+                if (grid.ItemsSource is List<ItemGrid> items && items.Contains(taskToComplete))
+                {
+                    update_csv(grid, GetQuadrantNumber(grid.Name));
+                    RefreshDataGrid(grid);
+                    break;
                 }
             }
         }
@@ -4708,13 +5204,13 @@ namespace TimeTask
 
         private void UpdateQuadrantCounts()
         {
-            UpdateQuadrantCountText(Quadrant1CountText, task1?.ItemsSource as IEnumerable<ItemGrid>);
-            UpdateQuadrantCountText(Quadrant2CountText, task2?.ItemsSource as IEnumerable<ItemGrid>);
-            UpdateQuadrantCountText(Quadrant3CountText, task3?.ItemsSource as IEnumerable<ItemGrid>);
-            UpdateQuadrantCountText(Quadrant4CountText, task4?.ItemsSource as IEnumerable<ItemGrid>);
+            UpdateQuadrantCountText(Quadrant1CountText, task1?.ItemsSource as IEnumerable<ItemGrid>, Quadrant1EmptyHint);
+            UpdateQuadrantCountText(Quadrant2CountText, task2?.ItemsSource as IEnumerable<ItemGrid>, Quadrant2EmptyHint);
+            UpdateQuadrantCountText(Quadrant3CountText, task3?.ItemsSource as IEnumerable<ItemGrid>, Quadrant3EmptyHint);
+            UpdateQuadrantCountText(Quadrant4CountText, task4?.ItemsSource as IEnumerable<ItemGrid>, Quadrant4EmptyHint);
         }
 
-        private static void UpdateQuadrantCountText(TextBlock target, IEnumerable<ItemGrid> tasks)
+        private static void UpdateQuadrantCountText(TextBlock target, IEnumerable<ItemGrid> tasks, TextBlock emptyHint)
         {
             if (target == null)
             {
@@ -4723,6 +5219,12 @@ namespace TimeTask
 
             int count = tasks?.Count(t => t != null && t.IsActive && !string.IsNullOrWhiteSpace(t.Task)) ?? 0;
             target.Text = count.ToString(CultureInfo.InvariantCulture);
+
+            // 空象限展示引导提示，帮助用户快速上手。
+            if (emptyHint != null)
+            {
+                emptyHint.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         private static void ApplyFocusCard(
@@ -5034,20 +5536,9 @@ namespace TimeTask
                 string targetQuadrantNumber = GetQuadrantNumber(targetDataGrid.Name);
                 RecordQuadrantMoveProfile(draggedItem, sourceQuadrantNumber, targetQuadrantNumber);
 
-                // Update scores for the source list (optional, but good for consistency if scores mean global order)
-                // For now, let's assume scores are quadrant-local unless specified otherwise
-                // Update scores for the target list (ProcessTaskDrop doesn't do this, but should it?)
-                // The requirement implies scores are relative to the list they are in.
-                // Let's add score recalculation for the target list here as well.
-                for (int i = 0; i < targetList.Count; i++)
-                {
-                    targetList[i].Score = targetList.Count - i;
-                }
-                 // And for source list
-                for (int i = 0; i < sourceList.Count; i++)
-                {
-                    sourceList[i].Score = sourceList.Count - i;
-                }
+                // 评分规则统一收口到 QuadrantStore（显示顺序即优先级）
+                QuadrantStore.Rescore(targetList);
+                QuadrantStore.Rescore(sourceList);
 
 
                 if (sourceQuadrantNumber != null) update_csv(_sourceDataGrid, sourceQuadrantNumber);
@@ -5400,7 +5891,7 @@ namespace TimeTask
                     return;
                 }
 
-                string dataDir = Path.Combine(currentPath, "data");
+                string dataDir = AppPaths.DataDir;
                 Directory.CreateDirectory(dataDir);
 
                 if (package.Tasks != null)
@@ -5457,7 +5948,7 @@ namespace TimeTask
 
         private DataExportPackage BuildExportPackage()
         {
-            string dataDir = Path.Combine(currentPath, "data");
+            string dataDir = AppPaths.DataDir;
             var package = new DataExportPackage
             {
                 ExportedAt = DateTime.Now,
@@ -5664,7 +6155,7 @@ namespace TimeTask
                     IsLearningPlan = false
                 };
 
-                string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+                string longTermGoalsCsvPath = AppPaths.GetDataFile("long_term_goals.csv");
                 List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
 
                 foreach (var goal in allLongTermGoals)
@@ -5695,7 +6186,7 @@ namespace TimeTask
                 foreach (var group in tasksByQuadrant)
                 {
                     string targetCsvNumber = group.Key;
-                    string quadrantCsvPath = Path.Combine(currentPath, "data", $"{targetCsvNumber}.csv");
+                    string quadrantCsvPath = AppPaths.GetDataFile($"{targetCsvNumber}.csv");
                     List<ItemGrid> quadrantTasks = HelperClass.ReadCsv(quadrantCsvPath);
                     if (quadrantTasks == null) quadrantTasks = new List<ItemGrid>();
 
@@ -5835,7 +6326,7 @@ namespace TimeTask
                 CompletedStages = 0
             };
 
-            string longTermGoalsCsvPath = Path.Combine(currentPath, "data", "long_term_goals.csv");
+            string longTermGoalsCsvPath = AppPaths.GetDataFile("long_term_goals.csv");
             List<LongTermGoal> allLongTermGoals = HelperClass.ReadLongTermGoalsCsv(longTermGoalsCsvPath);
 
             foreach (var plan in allLongTermGoals)
@@ -5863,12 +6354,12 @@ namespace TimeTask
                 });
             }
 
-            string milestonesCsvPath = Path.Combine(currentPath, "data", $"learning_milestones_{newLearningPlan.Id}.csv");
+            string milestonesCsvPath = AppPaths.GetDataFile($"learning_milestones_{newLearningPlan.Id}.csv");
             HelperClass.WriteLearningMilestonesCsv(convertedMilestones, milestonesCsvPath);
 
             LoadActiveLongTermGoalAndRefreshDisplay();
 
-            var learningPlanManager = new LearningPlanManagerWindow(newLearningPlan, Path.Combine(currentPath, "data"));
+            var learningPlanManager = new LearningPlanManagerWindow(newLearningPlan, AppPaths.DataDir);
             learningPlanManager.Owner = this;
             learningPlanManager.ShowDialog();
         }
@@ -5914,7 +6405,7 @@ namespace TimeTask
 
         private void OpenStrategyDashboard()
         {
-            var window = new StrategyDashboardWindow(Path.Combine(currentPath, "data"))
+            var window = new StrategyDashboardWindow(AppPaths.DataDir)
             {
                 Owner = this
             };

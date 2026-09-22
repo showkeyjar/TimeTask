@@ -1451,4 +1451,7 @@
   <data name="SkillTree_UnnamedTask" xml:space="preserve">
     <value>未命名任务</value>
   </data>
+  <data name="Tooltip_MarkTaskDone" xml:space="preserve">
+    <value>标记为已完成</value>
+  </data>
 </root>

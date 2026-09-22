@@ -379,8 +379,8 @@ namespace TimeTask
 
         private static string GetRecordingDir()
         {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            return Path.Combine(baseDir, "Recordings");
+            // 便携模式 = exe 旁 Recordings\；漫游模式 = %AppData%\TimeTask\Recordings（安装目录只读也能录音）。
+            return AppPaths.RecordingsDir;
         }
 
         private void TryUpdateRecognizerSetting(string name, TimeSpan value)

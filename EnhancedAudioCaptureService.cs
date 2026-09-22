@@ -516,7 +516,7 @@ namespace TimeTask
             var format = _waveIn?.WaveFormat ?? (_wasapi?.WaveFormat);
             if (format == null || e.BytesRecorded <= 0) return;
 
-            // 在 funasr-only 且运行时未就绪时，不进入分段录音流程，避免“界面不可用但后台在录音”的矛盾状态。
+            // 若 funasr-only 且运行时未就绪时，不进入分段录音流程，避免“界面不可用但后台在录音”的矛盾状态。
             if (!IsRecognitionPipelineAvailable())
             {
                 lock (_lock)
@@ -963,7 +963,7 @@ namespace TimeTask
             score += ScoreHintMatch(normalized);
             score += TaskTextQualityHelper.AnalyzeVoiceTaskCandidate(normalized).StructureScore * 0.2;
 
-            if (Regex.IsMatch(normalized, @"^(嗯+|啊+|额+|哦+|那个|就是)$", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(normalized, @"^(好的|嗯|对|是|那个|就是)$", RegexOptions.IgnoreCase))
             {
                 score -= 0.25;
             }
@@ -1146,7 +1146,7 @@ namespace TimeTask
                 }
 
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string dataDir = Path.Combine(baseDir, "data");
+                string dataDir = AppPaths.DataDir;
                 Directory.CreateDirectory(dataDir);
 
                 string csvNumber = (quadrantIndex + 1).ToString();
@@ -1479,7 +1479,8 @@ namespace TimeTask
                     bool exited = await Task.Run(() => process.WaitForExit(Math.Max(5, _funAsrTimeoutSeconds) * 1000)).ConfigureAwait(false);
                     if (!exited)
                     {
-                        try { process.Kill(); } catch { }
+                        // torch/funasr 可能再派生子进程：普通 Kill 会留孤儿，用进程树终止
+                        ProcessUtils.KillTree(process, "funasr-inference-timeout");
                         VoiceRuntimeLog.Info($"FunASR subprocess timeout. timeoutSec={_funAsrTimeoutSeconds}");
                         VoiceListenerStatusCenter.Publish(VoiceListenerState.Unavailable, "语音识别超时");
                         return;
@@ -1746,9 +1747,10 @@ namespace TimeTask
 
             try
             {
-                if (_funAsrWorkerProcess != null && !_funAsrWorkerProcess.HasExited)
+                if (_funAsrWorkerProcess != null)
                 {
-                    try { _funAsrWorkerProcess.Kill(); } catch { }
+                    // 常驻 worker 可能派生推理子进程：整树终止，避免孤儿进程
+                    ProcessUtils.KillTree(_funAsrWorkerProcess, "worker-stop");
                 }
             }
             catch { }
@@ -2243,7 +2245,7 @@ namespace TimeTask
             if (minutes <= 0)
                 return $"{seconds}秒";
             if (seconds == 0)
-                return $"{minutes}分";
+                return $"{minutes}分钟";
             return $"{minutes}分{seconds}秒";
         }
 

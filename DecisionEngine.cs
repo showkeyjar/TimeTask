@@ -53,13 +53,11 @@ namespace TimeTask
         public List<TaskDecisionScore> RankTasks(List<ItemGrid> tasks, LifeProfileSnapshot lifeProfile, string activeGoalId, DateTime now)
         {
             tasks ??= new List<ItemGrid>();
+            // 只排除纯噪声占位（空串/标点/口头应答词），不套用语音转写质量启发式——
+            // 用户手动创建的任务（如"紧急救火"）不该因为"缺少动作动词"而被吞掉。
             var activeTasks = tasks
-                .Where(t => t != null && t.IsActive && TaskTextQualityHelper.IsMeaningfulTaskText(t.Task))
+                .Where(t => t != null && t.IsActive && !TaskTextQualityHelper.IsNoiseTaskText(t.Task))
                 .ToList();
-            if (!activeTasks.Any())
-            {
-                activeTasks = tasks.Where(t => t != null && t.IsActive).ToList();
-            }
             lifeProfile ??= new LifeProfileSnapshot();
 
             var ranked = activeTasks
@@ -101,7 +99,7 @@ namespace TimeTask
                         top = ranked.Take(Math.Max(1, _options.SnapshotTopCount)).ToList()
                     };
                     var options = new JsonSerializerOptions { WriteIndented = true };
-                    File.WriteAllText(_decisionPath, JsonSerializer.Serialize(payload, options));
+                    AtomicFile.WriteAllText(_decisionPath, JsonSerializer.Serialize(payload, options));
                 }
                 catch (Exception ex)
                 {

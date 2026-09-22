@@ -47,6 +47,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <SelectiveScrollingGrid Grid.Column="0">
                                     <SelectiveScrollingGrid.ColumnDefinitions>
@@ -64,10 +65,14 @@
                                 <Button x:Name="PART_ReminderButton" Grid.Column="1" Content="⏰" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="EditReminderTime_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_EditReminderTime}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
                                 <Button x:Name="PART_DecomposeButton" Grid.Column="2" Content="🧩" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="QuickDecomposeTask_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_QuickDecompose}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
                                 <Button x:Name="PART_ThinkingButton" Grid.Column="3" Content="🧠" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="ToolQuickAction_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" ToolTip="{local:Loc Key=Tooltip_ThinkingTools}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
-                                <Button x:Name="PART_DeleteButton" Grid.Column="4" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+                                <Button x:Name="PART_DoneButton" Grid.Column="4" Content="✓" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,2,0" Click="MarkTaskDone_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="#3E8E41" ToolTip="{local:Loc Key=Tooltip_MarkTaskDone}" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+                                <Button x:Name="PART_DeleteButton" Grid.Column="5" Content="X" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Click="DeleteTaskRow_Click" Background="Transparent" BorderBrush="{x:Null}" FontWeight="Bold" Foreground="Gray" Visibility="{Binding Task, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding CompletionStatus}" Value="Completed">
+                                <Setter TargetName="DGR_Border" Property="Opacity" Value="0.55"/>
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding InactiveWarningCount}" Value="0">
                                 <!-- Default background is #FFFFE0 set on DGR_Border -->
                             </DataTrigger>
@@ -97,12 +102,48 @@
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Settings Button -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="100" Margin="0,10,10,0">
+            <Button x:Name="RecordToggleButton"
+                    Width="Auto"
+                    Height="30"
+                    Padding="10,0"
+                    Margin="0,0,10,0"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Click="RecordToggleButton_Click"
+                    ToolTip="开始/停止记录（Ctrl+Alt+R）">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="15"/>
+                    </Style>
+                </Button.Resources>
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#E3F2FD"/>
+                        <Setter Property="BorderBrush" Value="#90CAF9"/>
+                        <Setter Property="Foreground" Value="#1E88E5"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#D0E8FB"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="RecordToggleIcon" Text="⏺" Grid.Column="0" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="RecordToggleText" Text="记录" Grid.Column="1" VerticalAlignment="Center"/>
+                </Grid>
+            </Button>
             <Button x:Name="VoiceStatusButton"
                     Width="Auto"
                     Height="30"
@@ -390,8 +431,134 @@
             </Grid>
         </Border>
 
+        <!-- 会议实时要点：录制中内嵌显示（不遮挡四象限），停止后自动收起。 -->
+        <Border x:Name="MeetingAssistantPanel" Grid.Row="1" Grid.ColumnSpan="2"
+                Background="#F4FBFE" BorderBrush="#BFE0EE" BorderThickness="1" CornerRadius="10"
+                Padding="12" Margin="5,6,5,0" Visibility="Collapsed">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="🤖 会议实时要点" FontWeight="Bold" FontSize="13" Foreground="#0B6E8F"/>
+                        <TextBlock x:Name="MeetingAssistantStatus" Margin="10,0,0,0" Foreground="#8A8A8A" FontSize="11" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button x:Name="MaTopicToggle" Grid.Column="1" Content="＋ 主题（可选）"
+                            Height="24" FontSize="11" Padding="8,0"
+                            Foreground="#0B6E8F" Background="#E8F6FB" BorderBrush="#BFE0EE"
+                            ToolTip="点开可补充会议主题/术语，提升识别准确率（不填也完全可用）"
+                            Click="MaTopicToggle_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="12"/></Style></Button.Resources>
+                    </Button>
+                </Grid>
+                <!-- 主题/术语：默认隐藏，点击“＋ 主题（可选）”才展开；回车或失焦即生效；不强制、不阻塞开录 -->
+                <Grid x:Name="MaTopicRow" Visibility="Collapsed" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="MaTopicBox" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontSize="11"
+                             Margin="0,0,8,0" KeyDown="MaTopicBox_KeyDown" LostFocus="MaTopicBox_LostFocus"
+                             ToolTip="会议主题/术语（可选）：补充后回车或点别处即生效，用于提升同音词/专有名词识别。">
+                        <TextBox.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="13"/></Style></TextBox.Resources>
+                    </TextBox>
+                    <TextBlock Grid.Column="1" Text="回车生效" FontSize="10" Foreground="#9A9A9A" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                </Grid>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
+                        <StackPanel>
+                            <TextBlock Text="💡 新概念" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="MaConcepts">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,4">
+                                                <TextBlock Text="{Binding Term}" FontWeight="SemiBold" FontSize="11" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Explanation}" FontSize="10" Foreground="#666" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
+                        <StackPanel>
+                            <TextBlock Text="❓ 待讨论" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="MaQuestions">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4">
+                                                <TextBlock.Text>
+                                                    <Binding Path="Question"/>
+                                                </TextBlock.Text>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Resolved}" Value="True">
+                                                                <Setter Property="Foreground" Value="#2E7D32"/>
+                                                                <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
+                        <StackPanel>
+                            <TextBlock Text="✅ 决策" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="MaDecisions">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="3" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6">
+                        <StackPanel>
+                            <TextBlock Text="📌 行动项" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="MaActions">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 新概念/问题气泡提示（录制中弹出，数秒后自动消失） -->
+        <Border x:Name="MeetingToast" Grid.Row="2" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,52,12,0" Panel.ZIndex="70"
+                Background="#0B6E8F" CornerRadius="10" Padding="12,8" Visibility="Collapsed" MaxWidth="320">
+            <TextBlock x:Name="MeetingToastText" Foreground="White" FontSize="12" TextWrapping="Wrap"/>
+        </Border>
+
         <!-- Quadrant 1: Important & Urgent -->
-        <Border Grid.Row="1" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="2" Grid.Column="0" Background="#33FFDADA" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -402,7 +569,7 @@
                     <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock x:Name="Quadrant1CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
                     </Border>
-                    <Button x:Name="AddUrgentImportantTaskButton" Content="+" Tag="0" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAFFDADA" BorderBrush="#88FFDADA" Foreground="White">
+                    <Button x:Name="AddUrgentImportantTaskButton" Content="+" Tag="0" Click="AddQuickTask_Click" ToolTip="{local:Loc Key=Tooltip_AddTaskQuick}" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAFFDADA" BorderBrush="#88FFDADA" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="12.5"/>
@@ -410,6 +577,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
+                <TextBlock x:Name="Quadrant1EmptyHint" Grid.Row="1" Text="{local:Loc Key=Quadrant_EmptyHint}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#66888888" FontSize="13" FontWeight="SemiBold" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <DataGrid Grid.Row="1" x:Name="task1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task1_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
@@ -437,7 +605,7 @@
         </Border>
 
         <!-- Quadrant 2: Important & Not Urgent -->
-        <Border Grid.Row="1" Grid.Column="1" Background="#33D4E8FF" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="2" Grid.Column="1" Background="#33D4E8FF" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -453,7 +621,7 @@
                         <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
                             <TextBlock x:Name="Quadrant2CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
                         </Border>
-                        <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
+                        <Button x:Name="AddImportantNotUrgentTaskButton" Content="+" Tag="1" Click="AddQuickTask_Click" ToolTip="{local:Loc Key=Tooltip_AddTaskQuick}" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD4E8FF" BorderBrush="#88D4E8FF" Foreground="White">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="12.5"/>
@@ -462,6 +630,7 @@
                         </Button>
                     </StackPanel>
                 </Grid>
+                <TextBlock x:Name="Quadrant2EmptyHint" Grid.Row="1" Text="{local:Loc Key=Quadrant_EmptyHint}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#66888888" FontSize="13" FontWeight="SemiBold" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <DataGrid Grid.Row="1" x:Name="task2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task2_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
@@ -489,7 +658,7 @@
         </Border>
 
         <!-- Quadrant 3: Not Important & Urgent -->
-        <Border Grid.Row="2" Grid.Column="0" Background="#33D9FFD9" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="3" Grid.Column="0" Background="#33D9FFD9" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -500,7 +669,7 @@
                     <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock x:Name="Quadrant3CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
                     </Border>
-                    <Button x:Name="AddNotImportantUrgentTaskButton" Content="+" Tag="2" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD9FFD9" BorderBrush="#88D9FFD9" Foreground="White">
+                    <Button x:Name="AddNotImportantUrgentTaskButton" Content="+" Tag="2" Click="AddQuickTask_Click" ToolTip="{local:Loc Key=Tooltip_AddTaskQuick}" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAD9FFD9" BorderBrush="#88D9FFD9" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="12.5"/>
@@ -508,6 +677,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
+                <TextBlock x:Name="Quadrant3EmptyHint" Grid.Row="1" Text="{local:Loc Key=Quadrant_EmptyHint}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#66888888" FontSize="13" FontWeight="SemiBold" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <DataGrid Grid.Row="1" x:Name="task3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task3_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">
@@ -535,7 +705,7 @@
         </Border>
 
         <!-- Quadrant 4: Not Important & Not Urgent -->
-        <Border Grid.Row="2" Grid.Column="1" Background="#33E0E0E0" CornerRadius="5" Padding="5" Margin="5">
+        <Border Grid.Row="3" Grid.Column="1" Background="#33E0E0E0" CornerRadius="5" Padding="5" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -546,7 +716,7 @@
                     <Border Background="#55FFFFFF" CornerRadius="10" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock x:Name="Quadrant4CountText" Text="0" Foreground="White" FontSize="11" FontWeight="Bold"/>
                     </Border>
-                    <Button x:Name="AddNotImportantNotUrgentTaskButton" Content="+" Tag="3" Click="AddQuickTask_Click" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAE0E0E0" BorderBrush="#88E0E0E0" Foreground="White">
+                    <Button x:Name="AddNotImportantNotUrgentTaskButton" Content="+" Tag="3" Click="AddQuickTask_Click" ToolTip="{local:Loc Key=Tooltip_AddTaskQuick}" Width="25" Height="25" FontSize="14" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Background="#AAE0E0E0" BorderBrush="#88E0E0E0" Foreground="White">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="12.5"/>
@@ -554,6 +724,7 @@
                         </Button.Resources>
                     </Button>
                 </StackPanel>
+                <TextBlock x:Name="Quadrant4EmptyHint" Grid.Row="1" Text="{local:Loc Key=Quadrant_EmptyHint}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#66888888" FontSize="13" FontWeight="SemiBold" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <DataGrid Grid.Row="1" x:Name="task4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectionChanged="task4_SelectionChanged" Background="Transparent" HeadersVisibility="None" RowStyle="{StaticResource StickyNoteRowStyle}" AutoGenerateColumns="False" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True" DragEnter="Task_DragEnter" DragOver="Task_DragOver" Drop="Quadrant_Drop" CellEditEnding="DataGrid_CellEditEnding" MouseDoubleClick="DataGrid_MouseDoubleClick_AddTask" PreviewMouseLeftButtonDown="DataGrid_PreviewMouseLeftButtonDown_BeginEdit" CanUserAddRows="False">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="{local:Loc Key=Task_Header}" Width="*" MaxWidth="325">

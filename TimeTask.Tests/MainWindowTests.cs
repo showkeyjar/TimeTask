@@ -12,7 +12,6 @@ namespace TimeTask.Tests
     public class MainWindowTests
     {
         private string _testDataPath;
-        private MainWindow _mainWindowInstance; // Keep a reference if needed for instance methods under test
 
         [TestInitialize]
         public void TestInitialize()
@@ -409,10 +408,12 @@ namespace TimeTask.Tests
         [TestMethod]
         public void ProcessTaskReorder_ValidMove_UpdatesOrderAndScores()
         {
-            // Arrange
-            var item1 = new ItemGrid { Task = "Task 1", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
-            var item2 = new ItemGrid { Task = "Task 2", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
-            var item3 = new ItemGrid { Task = "Task 3", Score = 0, CreatedDate = DateTime.Now, LastModifiedDate = DateTime.Now };
+            // Arrange（LastModifiedDate 显式取过去时间：DateTime.Now 分辨率约 1~15ms，
+            // 若 arrange 与 act 落在同一 tick，">" 断言会因时间戳相等而随机失败）
+            DateTime past = DateTime.Now.AddMinutes(-5);
+            var item1 = new ItemGrid { Task = "Task 1", Score = 0, CreatedDate = past, LastModifiedDate = past };
+            var item2 = new ItemGrid { Task = "Task 2", Score = 0, CreatedDate = past, LastModifiedDate = past };
+            var item3 = new ItemGrid { Task = "Task 3", Score = 0, CreatedDate = past, LastModifiedDate = past };
             var list = new List<ItemGrid> { item1, item2, item3 };
             DateTime originalLastModified = item1.LastModifiedDate;
 
@@ -550,7 +551,6 @@ namespace TimeTask.Tests
             var sourceList = new List<ItemGrid> { itemS1, itemS2 };
             var targetList = new List<ItemGrid> { itemT1 };
 
-            string sourceDataGridName = "task1"; // Not directly used by ProcessTaskDrop for logic, but for context
             string targetDataGridName = "task2";
 
             // Act

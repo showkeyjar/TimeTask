@@ -1349,4 +1349,7 @@ Please check logs: {0}</value>
   <data name="SkillTree_UnnamedTask" xml:space="preserve">
     <value>Unnamed Task</value>
   </data>
+  <data name="Tooltip_MarkTaskDone" xml:space="preserve">
+    <value>Mark as done</value>
+  </data>
 </root>

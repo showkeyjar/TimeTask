@@ -1,23 +1,24 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Threading;
 using System.Threading.Tasks; // For Task
 using Betalgo.Ranul.OpenAI.Interfaces; // For IOpenAIService
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels; // For ChatCompletionCreateRequest
 using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels; // For ChatCompletionCreateResponse, ChatChoiceResponse
-using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels; // For ResponseMessage
 using System.Collections.Generic; // For List
 using System.Text.Json; // For JsonException and JsonSerializer
 using System.Net.Http; // Required by IOpenAIService
 using System.Linq;
 using TimeTask; // Reference to the main project namespace
 
+#nullable enable
+
 namespace TimeTask.Tests
 {
     [TestClass]
     public class LlmServiceTests
     {
-        private LlmService _llmServiceInstanceForFormatTimeSpan; // Only needed for instance methods like FormatTimeSpan
+        private LlmService _llmServiceInstanceForFormatTimeSpan = LlmService.Create(); // Only needed for instance methods like FormatTimeSpan
 
         [TestInitialize]
         public void TestInitialize()
@@ -560,8 +561,14 @@ namespace TimeTask.Tests
         public IEmbeddingService Embeddings => throw new NotImplementedException();
         public IAudioService Audio => throw new NotImplementedException();
         public IModerationService Moderations => throw new NotImplementedException();
-        public ICompletionsService Completions => throw new NotImplementedException();
+        public ICompletionService Completions => throw new NotImplementedException();
         public IEditService Edits => throw new NotImplementedException();
+        public IFineTuningJobService FineTuningJob => throw new NotImplementedException();
+        public IModerationService Moderation => throw new NotImplementedException();
+        public IImageService Image => throw new NotImplementedException();
+        public IEditService Edit => throw new NotImplementedException();
+        public IBatchService Batch => throw new NotImplementedException();
+        public IBetaService Beta => throw new NotImplementedException();
         public HttpClient HttpClient => throw new NotImplementedException();
 
         public void SetDefaultModelId(string modelId) { /* Do nothing */ }
@@ -591,22 +598,21 @@ namespace TimeTask.Tests
                     throw new JsonException(ex.Message, ex.Path, ex.LineNumber, ex.BytePositionInLine, ex);
                 }
             }
-            // This part is for completeness if the mock was used to simulate success
+            // This part is for completeness if the mock was used to simulate success.
+            // Note: in Betalgo.Ranul.OpenAI v8.x, BaseResponse.Successful is computed (Error == null),
+            // ChatCompletionCreateResponse has no settable "Created", and ChatChoiceResponse.Message
+            // uses a ResponseMessage type we don't need to populate here (this branch is never reached
+            // by the JsonException tests, which throw before getting here).
             var successfulResponse = new ChatCompletionCreateResponse
             {
-                Successful = true,
-                Choices = new List<ChatChoiceResponse>
-                {
-                    new ChatChoiceResponse { Message = new ResponseMessage { Role = "assistant", Content = "Test content"} }
-                },
+                Choices = new(),
                 Model = modelId ?? "test-mock-model",
-                Id = "mock-completion-id",
-                Created = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                Id = "mock-completion-id"
             };
             return Task.FromResult(successfulResponse);
         }
 
-        public IAsyncEnumerable<ChatCompletionCreateResponse> CreateCompletionAsStream(ChatCompletionCreateRequest chatCompletionCreateRequest, string? modelId = null, CancellationToken cancellationToken = default)
+        public IAsyncEnumerable<ChatCompletionCreateResponse> CreateCompletionAsStream(ChatCompletionCreateRequest chatCompletionCreateRequest, string? modelId = null, bool justData = false, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -616,9 +622,13 @@ namespace TimeTask.Tests
     public class LlmServiceGoalDecompositionTests
     {
         // Helper to simulate the JSON parsing part of DecomposeGoalIntoDailyTasksAsync
-        private List<ProposedDailyTask> ParseGoalDecompositionJson(string jsonResponse)
+        private List<ProposedDailyTask> ParseGoalDecompositionJson(string? jsonResponse)
         {
-            if (string.IsNullOrWhiteSpace(jsonResponse) || jsonResponse.StartsWith("LLM dummy response") || jsonResponse.StartsWith("Error from LLM"))
+            if (string.IsNullOrWhiteSpace(jsonResponse))
+            {
+                return new List<ProposedDailyTask>();
+            }
+            if (jsonResponse.StartsWith("LLM dummy response") || jsonResponse.StartsWith("Error from LLM"))
             {
                 return new List<ProposedDailyTask>();
             }

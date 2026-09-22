@@ -48,7 +48,7 @@ namespace TimeTask
         private List<ItemGrid> GetAllTasks()
         {
             var allTasks = new List<ItemGrid>();
-            string dataPath = Path.Combine(_currentPath, "data");
+            string dataPath = AppPaths.DataDir;
 
             // 读取所有象限的CSV文件
             for (int i = 1; i <= 4; i++)

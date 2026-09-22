@@ -55,7 +55,12 @@ namespace TimeTask
             // Load existing App.config settings
             try
             {
-                ApiKeyTextBox.Text = ConfigurationManager.AppSettings["OpenAIApiKey"] ?? string.Empty;
+                // Key 的有效来源是加密存储（DPAPI）；配置里只剩迁移标记或初始占位符。
+                string configKey = ConfigurationManager.AppSettings["OpenAIApiKey"] ?? string.Empty;
+                string secureKey = SecureApiKeyStore.Load();
+                ApiKeyTextBox.Text = !string.IsNullOrWhiteSpace(secureKey)
+                    ? secureKey
+                    : (configKey == "(migrated-to-secure-store)" ? string.Empty : configKey);
                 ApiBaseUrlTextBox.Text = ConfigurationManager.AppSettings["LlmApiBaseUrl"] ?? string.Empty;
                 ModelNameTextBox.Text = ConfigurationManager.AppSettings["LlmModelName"] ?? "gpt-3.5-turbo";
 
@@ -238,11 +243,22 @@ namespace TimeTask
                 Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 AppSettingsSection appSettings = config.AppSettings;
 
-                // Add or update App.config settings
-                if (appSettings.Settings["OpenAIApiKey"] == null)
-                    appSettings.Settings.Add("OpenAIApiKey", ApiKeyTextBox.Text);
+                // API Key 只写入 DPAPI 加密存储；配置里留一个标记值，避免明文落盘。
+                // （设置界面是用户改 Key 的唯一入口，这里必须与 LoadLlmConfig 的读取优先级配套）
+                string newKey = ApiKeyTextBox.Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(newKey))
+                {
+                    SecureApiKeyStore.Save(newKey);
+                }
                 else
-                    appSettings.Settings["OpenAIApiKey"].Value = ApiKeyTextBox.Text;
+                {
+                    SecureApiKeyStore.Delete();
+                }
+
+                if (appSettings.Settings["OpenAIApiKey"] == null)
+                    appSettings.Settings.Add("OpenAIApiKey", "(migrated-to-secure-store)");
+                else
+                    appSettings.Settings["OpenAIApiKey"].Value = "(migrated-to-secure-store)";
 
                 if (appSettings.Settings["LlmApiBaseUrl"] == null)
                     appSettings.Settings.Add("LlmApiBaseUrl", ApiBaseUrlTextBox.Text);

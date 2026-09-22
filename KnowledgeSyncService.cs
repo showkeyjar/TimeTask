@@ -215,7 +215,7 @@ namespace TimeTask
 
         private static TaskDraft BuildDraft(ExtractedTaskCandidate candidate)
         {
-            string reminderHint = candidate.DueAt.HasValue ? $"截止 {candidate.DueAt.Value:yyyy-MM-dd}" : null;
+            string reminderHint = candidate.DueAt.HasValue ? $"鎴 {candidate.DueAt.Value:yyyy-MM-dd}" : null;
             return new TaskDraft
             {
                 RawText = $"{candidate.Title} [{candidate.SourcePath}]",
@@ -308,13 +308,7 @@ namespace TimeTask
         {
             try
             {
-                if (!File.Exists(_options.StateFilePath))
-                {
-                    return new KnowledgeSyncState();
-                }
-
-                string json = File.ReadAllText(_options.StateFilePath);
-                var state = JsonSerializer.Deserialize<KnowledgeSyncState>(json);
+                var state = JsonStore.Load(_options.StateFilePath, json => JsonSerializer.Deserialize<KnowledgeSyncState>(json));
                 return state ?? new KnowledgeSyncState();
             }
             catch
@@ -334,7 +328,7 @@ namespace TimeTask
                 }
 
                 string json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_options.StateFilePath, json);
+                AtomicFile.WriteAllText(_options.StateFilePath, json);
             }
             catch
             {

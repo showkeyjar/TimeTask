@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TimeTask 修复报告 — 会话隔离与录音管线硬化 · 2026-09-22</title>
+<style>
+  :root{
+    --bg:#f5f6f4;
+    --surface:#fcfcfb;
+    --ink:#191c1e;
+    --ink-2:#3d4448;
+    --muted:#6b7276;
+    --hairline:#d8dddd;
+    --hairline-soft:#e8ebea;
+    --accent:#0d5c63;
+    --code-bg:#eff1ef;
+    --font-sans:"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans SC","Hiragino Sans GB",sans-serif;
+    --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",monospace;
+    --nav-width:clamp(200px,16vw,236px);
+    --canvas:clamp(960px,90vw,1100px);
+    --measure:66ch;
+    --gutter:clamp(20px,3.5vw,52px);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--font-sans);font-size:15px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(13,92,99,.35);}
+  a:hover{border-bottom-color:var(--accent);}
+  code,pre,kbd{font-family:var(--font-mono);}
+  code{font-size:.86em;background:var(--code-bg);padding:.1em .35em;border-radius:3px;}
+  pre{
+    background:var(--surface);border:1px solid var(--hairline);border-radius:3px;
+    padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.55;color:var(--ink-2);
+  }
+  pre code{background:none;padding:0;font-size:inherit;}
+
+  /* ---------- Branching layout ---------- */
+  .layout-branching{display:grid;grid-template-columns:var(--nav-width) minmax(0,1fr);min-height:100vh;}
+  .sidebar{
+    position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    border-right:1px solid var(--hairline-soft);background:var(--bg);
+    padding:28px 20px 24px 24px;
+  }
+  .sidebar .brand{font-weight:600;font-size:14px;letter-spacing:.01em;}
+  .sidebar .brand-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);
+    letter-spacing:.08em;text-transform:uppercase;margin-top:4px;}
+  .sidebar nav{margin-top:26px;}
+  .sidebar nav a{
+    display:block;color:var(--ink-2);border-bottom:none;font-size:12.5px;
+    padding:5px 0 5px 0;line-height:1.35;
+  }
+  .sidebar nav a .no{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-right:8px;}
+  .sidebar nav a:hover{color:var(--accent);}
+  .sidebar .foot{
+    margin-top:30px;padding-top:14px;border-top:1px solid var(--hairline-soft);
+    font-family:var(--font-mono);font-size:10.5px;color:var(--muted);line-height:1.7;
+  }
+  main{min-width:0;}
+  .canvas{max-width:var(--canvas);margin-inline:auto;padding-inline:var(--gutter);}
+
+  /* ---------- Cover ---------- */
+  .cover{padding:64px 0 34px;border-bottom:1px solid var(--hairline);}
+  .kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);}
+  h1{
+    font-size:clamp(30px,3.6vw,42px);line-height:1.14;font-weight:600;
+    letter-spacing:-.02em;margin:14px 0 16px;
+  }
+  .lede{font-size:16.5px;color:var(--ink-2);max-width:var(--measure);margin:0 0 26px;}
+  .meta-row{
+    display:flex;flex-wrap:wrap;gap:10px 28px;font-family:var(--font-mono);
+    font-size:11.5px;color:var(--muted);
+  }
+  .meta-row b{color:var(--ink-2);font-weight:500;}
+
+  /* ---------- Sections ---------- */
+  section{padding:42px 0 8px;}
+  .sec-kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--muted);}
+  .sec-kicker .n{color:var(--accent);}
+  h2{font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.012em;margin:10px 0 14px;}
+  h3{font-size:16.5px;font-weight:600;margin:26px 0 8px;}
+  .prose{max-width:var(--measure);}
+  .prose p{margin:0 0 14px;color:var(--ink-2);}
+  .prose ul{margin:6px 0 14px;padding-left:20px;color:var(--ink-2);}
+  .prose li{margin:4px 0;}
+  .prose li b, .prose p b{color:var(--ink);}
+  .rule{height:1px;border:0;background:var(--hairline-soft);margin:34px 0 0;}
+
+  /* ---------- Tables ---------- */
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:16px 0 6px;}
+  th{
+    text-align:left;font-family:var(--font-mono);font-size:10.5px;font-weight:500;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--hairline);padding:8px 12px 8px 0;
+  }
+  td{border-bottom:1px solid var(--hairline-soft);padding:9px 12px 9px 0;vertical-align:top;color:var(--ink-2);}
+  td:first-child{color:var(--ink);white-space:nowrap;}
+  .num{font-family:var(--font-mono);font-size:12px;}
+  .ok{font-family:var(--font-mono);font-size:12px;color:var(--ink);}
+  .skip{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+
+  /* ---------- Figure ---------- */
+  figure{margin:22px 0 8px;}
+  figure svg{width:100%;height:auto;display:block;}
+  figcaption{
+    margin-top:10px;font-size:12px;color:var(--muted);
+    padding-left:14px;border-left:2px solid var(--hairline);
+  }
+
+  /* ---------- Footer ---------- */
+  .colophon{
+    margin:60px 0 0;padding:22px 0 56px;border-top:1px solid var(--hairline);
+    font-size:12px;color:var(--muted);max-width:var(--measure);
+  }
+
+  @media (max-width:980px){
+    .layout-branching{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="layout-branching">
+
+  <aside class="sidebar">
+    <div class="brand">TimeTask · 修复报告</div>
+    <div class="brand-sub">2026-09-22 · Debug</div>
+    <nav>
+      <a href="#s0"><span class="no">00</span>摘要与变更总览</a>
+      <a href="#s1"><span class="no">01</span>第二次录音无转写（高危）</a>
+      <a href="#s2"><span class="no">02</span>会话隔离硬化</a>
+      <a href="#s3"><span class="no">03</span>录音目录落点</a>
+      <a href="#s4"><span class="no">04</span>会议助手面板显隐</a>
+      <a href="#s5"><span class="no">05</span>验证记录</a>
+      <a href="#s6"><span class="no">06</span>变更文件与下一步</a>
+    </nav>
+    <div class="foot">
+      Build: MSBuild (VS 18) · Debug<br>
+      Test: vstest · 133 项<br>
+      结果: 131 过 / 2 跳过 / 0 失败
+    </div>
+  </aside>
+
+  <main>
+    <div class="canvas">
+
+      <!-- ============ COVER ============ -->
+      <header class="cover">
+        <div class="kicker">Fix Report · 录音会话生命周期</div>
+        <h1>会话隔离与录音管线硬化</h1>
+        <p class="lede">
+          本轮在打通完整编译与测试链的基础上，修复了一个会让「第二次录音开始永远没有实时转写」的高危缺陷，
+          并完成录音会话隔离、录音目录落点、会议助手面板三组硬化。本报告全部结论依据真实构建与测试运行结果编写。
+        </p>
+        <div class="meta-row">
+          <span><b>日期</b>　2026-09-22</span>
+          <span><b>范围</b>　ConversationCaptureService / AppPaths / AudioCaptureService / MainWindow</span>
+          <span><b>验证</b>　MSBuild Debug · vstest 133 项</span>
+        </div>
+      </header>
+
+      <!-- ============ 00 摘要 ============ -->
+      <section id="s0">
+        <div class="sec-kicker"><span class="n">00</span> · 摘要与变更总览</div>
+        <h2>四组修复，一条主线：让「每场录音」都独立、完整、可落盘</h2>
+        <div class="prose">
+          <p>
+            核心问题出自同一根线：录音会话（session）与 Vosk 识别器之间存在<strong>生命周期错配</strong>——
+            识别器一生只创建一次，却在每场录音结束时就交走置空，于是从第二场起实时转写静默消失，收件箱随之恒空。
+            修复的同时，把「停止 → 立即再开录」这条容易互相踩踏的路径做了彻底隔离。
+          </p>
+        </div>
+        <table>
+          <thead>
+            <tr><th>#</th><th>类别</th><th>概述</th><th>用户可见影响</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">01</td><td>缺陷修复（高危）</td>
+              <td>识别器改为每会话重建（<code>TryCreateSessionRecognizer</code>）</td>
+              <td>第二次起录音不再丢失转写；收件箱不再恒空</td>
+            </tr>
+            <tr>
+              <td class="num">02</td><td>并发硬化</td>
+              <td>Stop 同步快照 · 每会话独立 ASR 泵 · 会话代际守卫 · Vosk 调用串行化</td>
+              <td>「停止后立即再录」不再互踩；退出时 WAV 收尾完整</td>
+            </tr>
+            <tr>
+              <td class="num">03</td><td>路径修正</td>
+              <td>录音目录统一走 <code>AppPaths.RecordingsDir</code>（便携 / 漫游同策略）</td>
+              <td>安装到只读目录（如 Program Files）也能正常录音</td>
+            </tr>
+            <tr>
+              <td class="num">04</td><td>UI 修复</td>
+              <td>会议助手面板由录音状态统一驱动；修正文案括号</td>
+              <td>热键 / 托盘开录也会出现「会议实时要点」面板</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 01 ============ -->
+      <section id="s1">
+        <div class="sec-kicker"><span class="n">01</span> · 缺陷 / 高危</div>
+        <h2>第二次录音开始，实时转写永远消失</h2>
+        <div class="prose">
+          <p>
+            <b>根因：</b>Vosk 识别器只在「模型首次加载完成」的异步回调里创建一次；
+            而每次「停止」的收尾都会把 <code>_voskRecognizer</code> 置空、<code>_voskReady</code> 置 false（交后台做末句收尾并释放）。
+            第二次开始录音时，初始化入口因 <code>_initStarted</code> 标记直接返回——<strong>没有任何代码再创建识别器</strong>。
+            结果是：第二场起音频照常落盘，但实时转写恒缺，行动收件箱恒空。
+          </p>
+        </div>
+<pre><code>// 旧实现（问题所在）：
+// ① 识别器只在“模型首次加载完成”的回调里创建一次
+_bootstrapTask.ContinueWith(t => {
+    ...
+    _voskRecognizer = new VoskRecognizer(_voskModel, 16000f);
+    _voskReady = true;
+});
+
+// ② 每次 Stop 的收尾都会把它交走、置空
+_voskRecognizer = null;
+_voskReady = false;
+
+// ③ 第二次 Start 时 InitRecognizerBackground() 因 _initStarted 为 true 直接 return
+//    → 识别器永远不会再被创建 → 收件箱恒空</code></pre>
+        <div class="prose">
+          <p>
+            <b>修复：</b>抽出 <code>TryCreateSessionRecognizer()</code>——模型常驻复用、识别器<strong>每会话一个</strong>：
+            初始化入口每次会话都会尝试补建；模型加载完成的回调也复用它（内部保证「先识别器、后 ready」的赋值顺序）。
+            会话识别器在收尾完成 <code>FinalResult()</code> 后立即 <code>Dispose()</code>，原生句柄不再积压到下一场。
+          </p>
+        </div>
+<pre><code>private void TryCreateSessionRecognizer()
+{
+    lock (_lock)
+    {
+        if (_voskModel == null) return;       // 模型仍未就绪：等 bootstrap 完成时再建
+        if (_voskRecognizer != null) return;  // 本会话已有识别器
+        _voskRecognizer = new VoskRecognizer(_voskModel, 16000f);
+        _voskReady = true;
+    }
+    RaiseStatus();
+    _asrSignal.Set(); // 唤醒泵线程回灌 pending 缓冲
+}</code></pre>
+
+        <figure>
+          <svg viewBox="0 0 900 322" role="img" aria-label="识别器生命周期：修复前 vs 修复后">
+            <defs>
+              <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0.6 L7.4,4 L0,7.4 z" fill="#b7bec0"/>
+              </marker>
+            </defs>
+            <!-- Lane A label -->
+            <text x="16" y="30" font-size="11" letter-spacing="1.6" fill="#6b7276" font-family="Cascadia Mono,Consolas,monospace">修复前 · BEFORE</text>
+            <!-- Lane A nodes: x = 16, 191, 366, 541, 716 ; w=150 h=44 y=44 -->
+            <g font-size="11">
+              <rect x="16"  y="44" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="191" y="44" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="366" y="44" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="541" y="44" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="716" y="44" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0" stroke-dasharray="4 3"/>
+            </g>
+            <g font-size="11.5" fill="#191c1e" font-weight="600">
+              <text x="26"  y="63">应用启动</text>
+              <text x="201" y="63">模型就绪</text>
+              <text x="376" y="63">会话 1</text>
+              <text x="551" y="63">停止收尾</text>
+              <text x="726" y="63">会话 2</text>
+            </g>
+            <g font-size="10.5" fill="#6b7276">
+              <text x="26"  y="79">构建时初始化</text>
+              <text x="201" y="79">创建“唯一”识别器</text>
+              <text x="376" y="79">转写正常 ✓</text>
+              <text x="551" y="79">识别器置 null</text>
+              <text x="726" y="79" fill="#3d4448">✕ 无识别器可建</text>
+            </g>
+            <!-- arrows lane A -->
+            <g stroke="#b7bec0" stroke-width="1.2">
+              <line x1="166" y1="66" x2="186" y2="66"/>
+              <line x1="341" y1="66" x2="361" y2="66"/>
+              <line x1="516" y1="66" x2="536" y2="66"/>
+              <line x1="691" y1="66" x2="711" y2="66"/>
+            </g>
+            <text x="16" y="118" font-size="11" fill="#3d4448">识别器不会再被创建 → 第二场起音频照常落盘，但收件箱恒空</text>
+
+            <!-- divider -->
+            <line x1="16" y1="150" x2="884" y2="150" stroke="#e2e6e5" stroke-width="1"/>
+
+            <!-- Lane B label -->
+            <text x="16" y="182" font-size="11" letter-spacing="1.6" fill="#0d5c63" font-family="Cascadia Mono,Consolas,monospace">修复后 · AFTER</text>
+            <!-- Lane B nodes y=196 -->
+            <g>
+              <rect x="16"  y="196" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="191" y="196" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="366" y="196" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="541" y="196" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#c8ced0"/>
+              <rect x="716" y="196" width="150" height="44" rx="2.5" fill="#fcfcfb" stroke="#0d5c63"/>
+            </g>
+            <g font-size="11.5" fill="#191c1e" font-weight="600">
+              <text x="26"  y="215">应用启动</text>
+              <text x="201" y="215">模型常驻</text>
+              <text x="376" y="215">会话 1</text>
+              <text x="551" y="215">停止收尾</text>
+              <text x="726" y="215">会话 2</text>
+            </g>
+            <g font-size="10.5" fill="#6b7276">
+              <text x="26"  y="231">后台引导模型</text>
+              <text x="201" y="231">Recognizer 每会话一个</text>
+              <text x="376" y="231">创建 → 转写 ✓</text>
+              <text x="551" y="231">FinalResult → Dispose</text>
+              <text x="726" y="231" fill="#0d5c63">重建 → 转写 ✓</text>
+            </g>
+            <g stroke="#b7bec0" stroke-width="1.2">
+              <line x1="166" y1="218" x2="186" y2="218"/>
+              <line x1="341" y1="218" x2="361" y2="218"/>
+              <line x1="516" y1="218" x2="536" y2="218"/>
+              <line x1="691" y1="218" x2="711" y2="218"/>
+            </g>
+            <text x="16" y="270" font-size="11" fill="#3d4448">每轮新会话自动重建识别器 → 每一场录音都有实时转写与行动项</text>
+          </svg>
+          <figcaption>识别器生命周期对比：修复前（上）识别器在首场之后永久缺失；修复后（下）Model 常驻、Recognizer 每会话创建与释放。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 02 ============ -->
+      <section id="s2">
+        <div class="sec-kicker"><span class="n">02</span> · 并发硬化</div>
+        <h2>「停止后立即再开录」：会话之间严格隔离</h2>
+        <div class="prose">
+          <p>
+            旧结构里，停止的<strong>资源快照发生在后台线程</strong>，而「停止 → 再开录」只需要两次操作、间隔可以很短。
+            一旦新会话在后台快照之前启动，快照就可能把<strong>新会话的资源当成旧会话抓走</strong>；
+            共享的 ASR 泵旗标也可能让旧收尾把新泵误关。修复把三类交叠全部堵死：
+          </p>
+          <ul>
+            <li><b>同步快照</b>——<code>Stop()</code> 在同一把锁内完成状态翻转与资源快照（设备 / 写入器 / 识别器 / 泵 / 会议状态 / 会话代数），后台收尾只认快照里的旧资源。</li>
+            <li><b>每会话独立 ASR 泵</b>——<code>AsrPump{ Stop, Thread }</code> 随会话创建与移交；新会话永远建新泵，旧收尾只 <code>Join</code> 自己的泵。</li>
+            <li><b>会话代际守卫</b>——每次 <code>Start</code> 递增 <code>_sessionGen</code>；会议状态的异步更新与收尾写回先核对代数，过期结果一律丢弃，新旧会话的 LLM 状态绝不串台。</li>
+            <li><b>Vosk 调用串行化</b>——<code>AcceptWaveform / FinalResult / Dispose</code> 统一经 <code>_voskIoLock</code>（纵深防御）；收尾用 <code>Monitor.TryEnter(…, 3000)</code> 有界等待，极端卡死也不拖死停止流程。</li>
+            <li><b>退出收尾有界等待</b>——<code>Dispose()</code> 等待收尾任务至多 5 秒：退出场景下 WAV 头（RIFF 长度）写完整、识别器不被半途释放。</li>
+          </ul>
+        </div>
+<pre><code>private void Stop(bool raiseEvent)
+{
+    SessionSnapshot snap;
+    lock (_lock)
+    {
+        if (!_recording) return;
+        _recording = false;
+        _watchdog.Stop();
+        _refineTimer?.Stop();
+        snap = TakeSessionSnapshotLocked(); // 同步冻结旧会话，新会话与后台收尾零交叠
+    }
+    ...
+    var task = Task.Run(async () =&gt; await StopInternal(snap, raiseEvent));
+    lock (_lock) { _stopTask = task; }
+}</code></pre>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 03 ============ -->
+      <section id="s3">
+        <div class="sec-kicker"><span class="n">03</span> · 路径修正</div>
+        <h2>录音目录：便携与安装两种场景都写对了</h2>
+        <div class="prose">
+          <p>
+            数据文件此前已统一收口到 <code>AppPaths</code>（便携 = exe 旁 <code>data\</code>，否则 <code>%AppData%</code>），
+            但<strong>录音目录仍是两处写死的 exe 目录拼接</strong>（<code>ConversationCaptureService</code> 与 <code>AudioCaptureService</code>）。
+            安装到 <code>Program Files</code> 等只读位置时会静默写失败。现已新增并统一切换：
+          </p>
+        </div>
+<pre><code>// AppPaths：与数据目录同策略
+// 便携模式（exe 旁有 data\）  → exe 旁 Recordings\（沿用历史布局）
+// 漫游模式（安装到只读位置） → %AppData%\TimeTask\Recordings
+public static string RecordingsDir =&gt; _recordingsDir.Value;</code></pre>
+        <div class="prose">
+          <p>现有用户的录音文件位置不发生迁移；新写入自动落在正确一侧的目录。</p>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 04 ============ -->
+      <section id="s4">
+        <div class="sec-kicker"><span class="n">04</span> · UI 修复</div>
+        <h2>会议助手面板：三种入口行为归一</h2>
+        <div class="prose">
+          <p>
+            此前「会议实时要点」面板只在<strong>点主窗口按钮</strong>开录时出现——用全局热键（Ctrl+Alt+R）或托盘开录时不会显示。
+            现改为由录音状态统一驱动：<code>ApplyRecordingUiState(recording)</code> 在按钮 / 热键 / 托盘三条路径上表现一致，
+            且主窗口的 1 秒刷新会顺带自愈校正（窗口在录音中途被打开也能正确显示）。另修正一处文案括号残缺
+            （「…可忽略<b>）</b>」）。
+          </p>
+        </div>
+<pre><code>// 状态事件可能来自后台线程（如超时自动停止），统一切回 UI 线程
+private void OnCaptureStatusChangedForButton()
+{
+    if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(...); return; }
+    RefreshRecordButton();
+    ApplyRecordingUiState(svc != null &amp;&amp; svc.IsRecording);
+}</code></pre>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 05 ============ -->
+      <section id="s5">
+        <div class="sec-kicker"><span class="n">05</span> · 验证记录</div>
+        <h2>真实构建与测试结果</h2>
+        <table>
+          <thead>
+            <tr><th>检查项</th><th>方式</th><th>结果</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>主工程构建</td>
+              <td class="num">msbuild TimeTask.csproj /p:Configuration=Debug</td>
+              <td class="ok">0 错误 / 0 警告</td>
+            </tr>
+            <tr>
+              <td>测试工程构建</td>
+              <td class="num">msbuild TimeTask.Tests.csproj（注入 dotnet SDK 环境）</td>
+              <td class="ok">0 错误</td>
+            </tr>
+            <tr>
+              <td>单元测试</td>
+              <td class="num">vstest TimeTask.Tests.dll（133 项）</td>
+              <td class="ok">131 通过 <span class="skip">/ 2 跳过 / 0 失败 · 7.3s</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="prose">
+          <p>
+            2 项跳过为需要真实 LLM Key 的联网用例，属预期；其余全部通过，含数据韧性（AtomicFile / JsonStore / CSV 回退）
+            与 QuadrantStore 语义契约测试。本轮未做桌面 UI 交互实测，建议按下列顺序验收：
+          </p>
+          <ul>
+            <li><b>连录两场</b>：开录 → 停止 → 立即再开录 → 停止。第二场收件箱应出现转写与行动项（核心回归点）。</li>
+            <li><b>热键入口</b>：Ctrl+Alt+R 开录，主窗口「会议实时要点」面板应出现；停止后自动收起。</li>
+            <li><b>快速连点</b>：连续快速点击「记录 / 停止」，状态、按钮、托盘与收件箱时序均正常。</li>
+          </ul>
+        </div>
+      </section>
+
+      <hr class="rule">
+
+      <!-- ============ 06 ============ -->
+      <section id="s6">
+        <div class="sec-kicker"><span class="n">06</span> · 变更文件与下一步</div>
+        <h2>变更文件</h2>
+        <table>
+          <thead>
+            <tr><th>文件</th><th>变更</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">ConversationCaptureService.cs</td>
+              <td>每会话识别器重建；Stop 同步快照；独立 ASR 泵；会话代际守卫；Vosk IO 锁；Dispose 有界等待；录音目录走 AppPaths</td>
+            </tr>
+            <tr>
+              <td class="num">AppPaths.cs</td>
+              <td>新增 <code>RecordingsDir</code>（便携 / 漫游同策略）</td>
+            </tr>
+            <tr>
+              <td class="num">AudioCaptureService.cs</td>
+              <td><code>GetRecordingDir</code> 切换至 <code>AppPaths.RecordingsDir</code></td>
+            </tr>
+            <tr>
+              <td class="num">MainWindow.xaml.cs</td>
+              <td>会议助手面板统一状态驱动 + 线程切换 + 文案修复</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>下一步建议</h3>
+        <div class="prose">
+          <ul>
+            <li><b>提交检查点</b>：工作区已累积约五个月的未提交改动，建议在本轮修复验收后做一次整体提交，避免丢失。</li>
+            <li><b>CI 测试</b>：流水线目前仅手动触发跑测试；本机实测 131/133 全绿后，可考虑把测试恢复为默认执行。</li>
+            <li><b>后续方向</b>（历史审查清单中仍开放）：MainWindow 定时器收敛为 Reminder / Sync 两个宿主；三条音频管线合并为单一入口；i18n 字符串收口。</li>
+          </ul>
+        </div>
+      </section>
+
+      <footer class="colophon">
+        本报告由 2026-09-22 会话生成，所有数字来自本机真实构建与测试输出；灰色项为该环境下无法覆盖的部分（桌面 UI 交互实测）。
+      </footer>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

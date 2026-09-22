@@ -76,16 +76,8 @@ namespace TimeTask
 
         private static SpeakerProfile LoadProfile(string path)
         {
-            try
-            {
-                if (!File.Exists(path)) return null;
-                string json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<SpeakerProfile>(json);
-            }
-            catch
-            {
-                return null;
-            }
+            // JsonStore：主文件损坏时自动回退 .bak（声纹档案重建成本高，更不能丢）
+            return JsonStore.Load(path, json => JsonSerializer.Deserialize<SpeakerProfile>(json));
         }
 
         private SpeakerProfile LoadProfile()
@@ -98,7 +90,7 @@ namespace TimeTask
             try
             {
                 string json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_profilePath, json);
+                AtomicFile.WriteAllText(_profilePath, json);
             }
             catch { }
         }

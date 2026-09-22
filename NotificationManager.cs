@@ -12,14 +12,18 @@ using notifyIcon = System.Windows.Forms.NotifyIcon;
 namespace TimeTask
 {
     /// <summary>
-    /// 通知管理器
+    /// 通知管理器（唯一托盘图标）
     /// - 静默通知：托盘图标闪烁
     /// - Toast 通知：Windows 系统通知
+    /// - 交流/会议录音状态实时展示（与草稿提醒共用同一个图标）
     /// - 恰到好处的触发策略
     /// </summary>
     public class NotificationManager : IDisposable
     {
         private readonly TaskDraftManager _draftManager;
+        private readonly ConversationCaptureService _capture;
+        private readonly Action _openInbox;
+        private readonly string _hotkeyHint;
         private notifyIcon _notifyIcon;
         private DispatcherTimer _checkTimer;
         private int _blinkCount = 0;
@@ -37,12 +41,21 @@ namespace TimeTask
         private DateTime _lastDraftNotificationTime = DateTime.MinValue;
         private int _lastNotifiedDraftCount = 0;
 
-        public NotificationManager(TaskDraftManager draftManager)
+        public NotificationManager(TaskDraftManager draftManager, ConversationCaptureService capture = null, Action openInbox = null, string hotkeyHint = "Ctrl+Alt+R")
         {
             _draftManager = draftManager ?? throw new ArgumentNullException(nameof(draftManager));
+            _capture = capture;
+            _openInbox = openInbox;
+            _hotkeyHint = hotkeyHint;
 
             InitializeNotifyIcon();
             StartMonitoring();
+            UpdateTooltip(_draftManager?.UnprocessedCount ?? 0); // 立即反映初始 ASR 状态（如“模型加载中…”）
+
+            if (_capture != null)
+            {
+                _capture.StatusChanged += OnCaptureStatusChanged;
+            }
         }
 
         private void InitializeNotifyIcon()
@@ -60,14 +73,18 @@ namespace TimeTask
 
                 _notifyIcon.ContextMenuStrip = new System.Windows.Forms.ContextMenuStrip();
                 _notifyIcon.ContextMenuStrip.Items.Add("显示主窗口", null, (s, e) => ShowMainWindow());
-                _notifyIcon.ContextMenuStrip.Items.Add("查看任务草稿", null, (s, e) => ShowDraftsWindow());
+                if (_capture != null)
+                {
+                    _notifyIcon.ContextMenuStrip.Items.Add($"开始/停止记录 ({_hotkeyHint})", null, (s, e) => _capture.Toggle());
+                    _notifyIcon.ContextMenuStrip.Items.Add("查看行动收件箱", null, (s, e) => _openInbox?.Invoke());
+                }
                 _notifyIcon.ContextMenuStrip.Items.Add("-");
                 _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (s, e) => ExitApplication());
 
                 // 双击打开主窗口
                 _notifyIcon.DoubleClick += (s, e) => ShowMainWindow();
 
-                Console.WriteLine("[NotificationManager] NotifyIcon initialized.");
+                Console.WriteLine("[NotificationManager] NotifyIcon initialized (single tray icon).");
             }
             catch (Exception ex)
             {
@@ -213,12 +230,52 @@ namespace TimeTask
             blinkTimer.Start();
         }
 
+        private void OnCaptureStatusChanged()
+        {
+            var app = System.Windows.Application.Current;
+            if (app?.Dispatcher != null && !app.Dispatcher.CheckAccess())
+            {
+                try { app.Dispatcher.BeginInvoke(new Action(RefreshTooltip)); return; }
+                catch { }
+            }
+            RefreshTooltip();
+        }
+
+        private void RefreshTooltip()
+        {
+            int draftCount = _draftManager?.UnprocessedCount ?? 0;
+            UpdateTooltip(draftCount);
+        }
+
         private void UpdateTooltip(int draftCount)
         {
             if (_notifyIcon == null) return;
 
-            string status = draftCount > 0 ? $"({draftCount} 个草稿)" : "运行中";
-            _notifyIcon.Text = $"TimeTask - {status}";
+            string text;
+            if (_capture != null && _capture.IsRecording)
+            {
+                string mode = _capture.CurrentMode == ConversationCaptureService.CaptureMode.Meeting ? "会议"
+                            : _capture.CurrentMode == ConversationCaptureService.CaptureMode.Quick ? "口述" : "交流";
+                string mmss = _capture.Elapsed.ToString(@"mm\:ss");
+                string mic = _capture.MicActive ? "麦克风✓" : "麦克风·";
+                string sys = _capture.SystemActive ? "系统✓" : "系统·";
+                text = $"● 录音中 {mmss} · {mode} · {mic} · {sys}";
+            }
+            else
+            {
+                if (draftCount > 0)
+                    text = $"TimeTask - ({draftCount} 个草稿)";
+                else if (_capture != null && !_capture.AsrAvailable)
+                    text = $"TimeTask - {_capture.AsrStatusText}";
+                else
+                    text = "TimeTask - 运行中";
+            }
+
+            try
+            {
+                _notifyIcon.Text = text.Length > 127 ? text.Substring(0, 127) : text;
+            }
+            catch { }
         }
 
         private void ShowMainWindow()
@@ -241,26 +298,32 @@ namespace TimeTask
             }
         }
 
-        private void ShowDraftsWindow()
-        {
-            // TODO: 创建草稿查看窗口
-            // 目前只显示提示
-            int count = _draftManager?.UnprocessedCount ?? 0;
-            System.Windows.MessageBox.Show(
-                $"当前有 {count} 个未处理的任务草稿。\n\n请在主窗口中查看并添加任务。\n\n(草稿查看功能即将推出)",
-                "任务草稿",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information
-            );
-        }
-
         private void ExitApplication()
         {
             System.Windows.Application.Current.Shutdown();
         }
 
+        /// <summary>
+        /// 弹出托盘气泡，用于全局快捷键切录音状态时的轻量反馈。
+        /// </summary>
+        public void ShowBalloon(string title, string text, ToolTipIcon icon = ToolTipIcon.Info)
+        {
+            if (_notifyIcon == null) return;
+            try { _notifyIcon.ShowBalloonTip(3000, title, text, icon); }
+            catch { }
+        }
+
         public void Dispose()
         {
+            try
+            {
+                if (_capture != null)
+                {
+                    _capture.StatusChanged -= OnCaptureStatusChanged;
+                }
+            }
+            catch { }
+
             try
             {
                 _checkTimer?.Stop();

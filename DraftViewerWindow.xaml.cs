@@ -72,7 +72,7 @@ namespace TimeTask
 
             var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string dataDir = System.IO.Path.Combine(baseDir, "data");
+            string dataDir = AppPaths.DataDir;
             System.IO.Directory.CreateDirectory(dataDir);
 
             foreach (var draft in drafts)
@@ -134,7 +134,7 @@ namespace TimeTask
             string q = draft.EstimatedQuadrant?.Trim();
             if (string.Equals(q, "重要且紧急", StringComparison.OrdinalIgnoreCase)) return 0;
             if (string.Equals(q, "重要不紧急", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(q, "不重要紧急", StringComparison.OrdinalIgnoreCase)) return 2;
+            if (string.Equals(q, "不重要但紧急", StringComparison.OrdinalIgnoreCase)) return 2;
             if (string.Equals(q, "不重要不紧急", StringComparison.OrdinalIgnoreCase)) return 3;
             if (string.Equals(q, "Important & Urgent", StringComparison.OrdinalIgnoreCase)) return 0;
             if (string.Equals(q, "Important & Not Urgent", StringComparison.OrdinalIgnoreCase)) return 1;
