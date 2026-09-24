@@ -1352,4 +1352,187 @@ Please check logs: {0}</value>
   <data name="Tooltip_MarkTaskDone" xml:space="preserve">
     <value>Mark as done</value>
   </data>
+  <data name="SetLearningPlan_WindowTitle" xml:space="preserve">
+    <value>Create Learning Plan</value>
+  </data>
+  <data name="SetLearningPlan_LabelSubject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="SetLearningPlan_LabelGoal" xml:space="preserve">
+    <value>Goal</value>
+  </data>
+  <data name="SetLearningPlan_LabelDuration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="SetLearningPlan_LabelStartDate" xml:space="preserve">
+    <value>Start Date</value>
+  </data>
+  <data name="SetLearningPlan_Hint" xml:space="preserve">
+    <value>Tip: staged learning plans will be generated automatically from your learning goal</value>
+  </data>
+  <data name="SetLearningPlan_ButtonCreate" xml:space="preserve">
+    <value>Create Plan</value>
+  </data>
+  <data name="SetLearningPlan_ErrorSubject" xml:space="preserve">
+    <value>Please enter a subject.</value>
+  </data>
+  <data name="SetLearningPlan_ErrorGoal" xml:space="preserve">
+    <value>Please enter a learning goal.</value>
+  </data>
+  <data name="SetLearningPlan_ErrorDuration" xml:space="preserve">
+    <value>Please enter the duration.</value>
+  </data>
+  <data name="SetLearningPlan_ErrorStartDate" xml:space="preserve">
+    <value>Please choose a start date.</value>
+  </data>
+  <data name="TaskStats_WindowTitle" xml:space="preserve">
+    <value>Task Statistics</value>
+  </data>
+  <data name="TaskStats_Title" xml:space="preserve">
+    <value>Task Statistics &amp;&amp; Analysis</value>
+  </data>
+  <data name="TaskStats_Range7Days" xml:space="preserve">
+    <value>Last 7 Days</value>
+  </data>
+  <data name="TaskStats_Range30Days" xml:space="preserve">
+    <value>Last 30 Days</value>
+  </data>
+  <data name="TaskStats_Range90Days" xml:space="preserve">
+    <value>Last 90 Days</value>
+  </data>
+  <data name="TaskStats_RangeAll" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="TaskStats_TabOverview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="TaskStats_TabTrend" xml:space="preserve">
+    <value>Trends</value>
+  </data>
+  <data name="TaskStats_TabEfficiency" xml:space="preserve">
+    <value>Efficiency</value>
+  </data>
+  <data name="TaskStats_TotalTasks" xml:space="preserve">
+    <value>Total Tasks</value>
+  </data>
+  <data name="TaskStats_Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="TaskStats_Active" xml:space="preserve">
+    <value>In Progress</value>
+  </data>
+  <data name="TaskStats_CompletionRate" xml:space="preserve">
+    <value>Completion Rate</value>
+  </data>
+  <data name="TaskStats_QuadrantDistribution" xml:space="preserve">
+    <value>Quadrant Distribution</value>
+  </data>
+  <data name="TaskStats_RecentActivity" xml:space="preserve">
+    <value>Recent Activity</value>
+  </data>
+  <data name="TaskStats_EfficiencyMetrics" xml:space="preserve">
+    <value>Efficiency Metrics</value>
+  </data>
+  <data name="TaskStats_TaskTypeAnalysis" xml:space="preserve">
+    <value>Task Type Analysis</value>
+  </data>
+  <data name="TaskStats_TrendPlaceholder" xml:space="preserve">
+    <value>Trend charts will appear here</value>
+  </data>
+  <data name="TaskStats_AvgCompletionTime" xml:space="preserve">
+    <value>Avg. Completion Time</value>
+  </data>
+  <data name="TaskStats_MostProductiveTime" xml:space="preserve">
+    <value>Most Productive Hour</value>
+  </data>
+  <data name="TaskStats_DelayRate" xml:space="preserve">
+    <value>Delay Rate</value>
+  </data>
+  <data name="TaskStats_Recommendation" xml:space="preserve">
+    <value>Recommendations</value>
+  </data>
+  <data name="TaskStats_Calculating" xml:space="preserve">
+    <value>Calculating...</value>
+  </data>
+  <data name="TaskStats_Analyzing" xml:space="preserve">
+    <value>Analyzing...</value>
+  </data>
+  <data name="TaskStats_ButtonExport" xml:space="preserve">
+    <value>Export Report</value>
+  </data>
+  <data name="TaskStats_QuadrantCountFormat" xml:space="preserve">
+    <value>{0}: {1} ({2}%)</value>
+  </data>
+  <data name="TaskStats_DaysFormat" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="TaskStats_NoCompleted" xml:space="preserve">
+    <value>No completed tasks</value>
+  </data>
+  <data name="TaskStats_ProductiveHourFormat" xml:space="preserve">
+    <value>{0}:00 ({1} tasks completed)</value>
+  </data>
+  <data name="TaskStats_RecommendHigh" xml:space="preserve">
+    <value>High delay rate - consider re-evaluating priorities and scheduling.</value>
+  </data>
+  <data name="TaskStats_RecommendMedium" xml:space="preserve">
+    <value>Moderate delay rate - some scheduling improvements may help.</value>
+  </data>
+  <data name="TaskStats_RecommendLow" xml:space="preserve">
+    <value>Low delay rate - keep up the good habits!</value>
+  </data>
+  <data name="TaskStats_ErrorLoadFormat" xml:space="preserve">
+    <value>Failed to load statistics: {0}</value>
+  </data>
+  <data name="TaskStats_ExportSuccess" xml:space="preserve">
+    <value>Report exported successfully.</value>
+  </data>
+  <data name="TaskStats_ExportSuccessTitle" xml:space="preserve">
+    <value>Export Succeeded</value>
+  </data>
+  <data name="TaskStats_ExportErrorFormat" xml:space="preserve">
+    <value>Failed to export the report: {0}</value>
+  </data>
+  <data name="TaskStats_ExportErrorTitle" xml:space="preserve">
+    <value>Export Error</value>
+  </data>
+  <data name="TaskStats_ExportFilter" xml:space="preserve">
+    <value>Text files|*.txt|All files|*.*</value>
+  </data>
+  <data name="TaskStats_ReportTitle" xml:space="preserve">
+    <value>Task Statistics Report</value>
+  </data>
+  <data name="TaskStats_ReportGeneratedAtFormat" xml:space="preserve">
+    <value>Generated at: {0}</value>
+  </data>
+  <data name="TaskStats_ReportOverviewSection" xml:space="preserve">
+    <value>=== Overview ===</value>
+  </data>
+  <data name="TaskStats_ReportTotalFormat" xml:space="preserve">
+    <value>Total tasks: {0}</value>
+  </data>
+  <data name="TaskStats_ReportCompletedFormat" xml:space="preserve">
+    <value>Completed: {0}</value>
+  </data>
+  <data name="TaskStats_ReportActiveFormat" xml:space="preserve">
+    <value>In progress: {0}</value>
+  </data>
+  <data name="TaskStats_ReportCompletionRateFormat" xml:space="preserve">
+    <value>Completion rate: {0}%</value>
+  </data>
+  <data name="TaskStats_ReportQuadrantSection" xml:space="preserve">
+    <value>=== Quadrant Distribution ===</value>
+  </data>
+  <data name="TaskStats_ReportEfficiencySection" xml:space="preserve">
+    <value>=== Efficiency Analysis ===</value>
+  </data>
+  <data name="TaskStats_ReportAvgTimeFormat" xml:space="preserve">
+    <value>Avg. completion time: {0} days</value>
+  </data>
+  <data name="TaskStats_ReportAvgTimeNone" xml:space="preserve">
+    <value>Avg. completion time: no completed tasks</value>
+  </data>
+  <data name="TaskStats_ReportDelayRateFormat" xml:space="preserve">
+    <value>Delay rate: {0}%</value>
+  </data>
 </root>

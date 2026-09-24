@@ -1454,4 +1454,187 @@
   <data name="Tooltip_MarkTaskDone" xml:space="preserve">
     <value>标记为已完成</value>
   </data>
+  <data name="SetLearningPlan_WindowTitle" xml:space="preserve">
+    <value>创建学习计划</value>
+  </data>
+  <data name="SetLearningPlan_LabelSubject" xml:space="preserve">
+    <value>学习科目</value>
+  </data>
+  <data name="SetLearningPlan_LabelGoal" xml:space="preserve">
+    <value>学习目标</value>
+  </data>
+  <data name="SetLearningPlan_LabelDuration" xml:space="preserve">
+    <value>学习时长</value>
+  </data>
+  <data name="SetLearningPlan_LabelStartDate" xml:space="preserve">
+    <value>开始日期</value>
+  </data>
+  <data name="SetLearningPlan_Hint" xml:space="preserve">
+    <value>提示：系统将根据您的学习目标自动生成阶段性学习计划</value>
+  </data>
+  <data name="SetLearningPlan_ButtonCreate" xml:space="preserve">
+    <value>创建计划</value>
+  </data>
+  <data name="SetLearningPlan_ErrorSubject" xml:space="preserve">
+    <value>请输入学习科目</value>
+  </data>
+  <data name="SetLearningPlan_ErrorGoal" xml:space="preserve">
+    <value>请输入学习目标</value>
+  </data>
+  <data name="SetLearningPlan_ErrorDuration" xml:space="preserve">
+    <value>请输入学习时长</value>
+  </data>
+  <data name="SetLearningPlan_ErrorStartDate" xml:space="preserve">
+    <value>请选择开始日期</value>
+  </data>
+  <data name="TaskStats_WindowTitle" xml:space="preserve">
+    <value>任务统计</value>
+  </data>
+  <data name="TaskStats_Title" xml:space="preserve">
+    <value>任务统计分析</value>
+  </data>
+  <data name="TaskStats_Range7Days" xml:space="preserve">
+    <value>最近7天</value>
+  </data>
+  <data name="TaskStats_Range30Days" xml:space="preserve">
+    <value>最近30天</value>
+  </data>
+  <data name="TaskStats_Range90Days" xml:space="preserve">
+    <value>最近90天</value>
+  </data>
+  <data name="TaskStats_RangeAll" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="TaskStats_TabOverview" xml:space="preserve">
+    <value>概览</value>
+  </data>
+  <data name="TaskStats_TabTrend" xml:space="preserve">
+    <value>趋势分析</value>
+  </data>
+  <data name="TaskStats_TabEfficiency" xml:space="preserve">
+    <value>效率分析</value>
+  </data>
+  <data name="TaskStats_TotalTasks" xml:space="preserve">
+    <value>总任务数</value>
+  </data>
+  <data name="TaskStats_Completed" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="TaskStats_Active" xml:space="preserve">
+    <value>进行中</value>
+  </data>
+  <data name="TaskStats_CompletionRate" xml:space="preserve">
+    <value>完成率</value>
+  </data>
+  <data name="TaskStats_QuadrantDistribution" xml:space="preserve">
+    <value>象限任务分布</value>
+  </data>
+  <data name="TaskStats_RecentActivity" xml:space="preserve">
+    <value>最近活动</value>
+  </data>
+  <data name="TaskStats_EfficiencyMetrics" xml:space="preserve">
+    <value>工作效率指标</value>
+  </data>
+  <data name="TaskStats_TaskTypeAnalysis" xml:space="preserve">
+    <value>任务类型分析</value>
+  </data>
+  <data name="TaskStats_TrendPlaceholder" xml:space="preserve">
+    <value>趋势图表将在此处显示</value>
+  </data>
+  <data name="TaskStats_AvgCompletionTime" xml:space="preserve">
+    <value>平均完成时间</value>
+  </data>
+  <data name="TaskStats_MostProductiveTime" xml:space="preserve">
+    <value>最高效时段</value>
+  </data>
+  <data name="TaskStats_DelayRate" xml:space="preserve">
+    <value>任务延期率</value>
+  </data>
+  <data name="TaskStats_Recommendation" xml:space="preserve">
+    <value>推荐改进</value>
+  </data>
+  <data name="TaskStats_Calculating" xml:space="preserve">
+    <value>计算中...</value>
+  </data>
+  <data name="TaskStats_Analyzing" xml:space="preserve">
+    <value>分析中...</value>
+  </data>
+  <data name="TaskStats_ButtonExport" xml:space="preserve">
+    <value>导出报告</value>
+  </data>
+  <data name="TaskStats_QuadrantCountFormat" xml:space="preserve">
+    <value>{0}: {1} ({2}%)</value>
+  </data>
+  <data name="TaskStats_DaysFormat" xml:space="preserve">
+    <value>{0} 天</value>
+  </data>
+  <data name="TaskStats_NoCompleted" xml:space="preserve">
+    <value>无完成任务</value>
+  </data>
+  <data name="TaskStats_ProductiveHourFormat" xml:space="preserve">
+    <value>{0} 点 (完成 {1} 个任务)</value>
+  </data>
+  <data name="TaskStats_RecommendHigh" xml:space="preserve">
+    <value>任务延期率较高，建议重新评估任务优先级和时间安排</value>
+  </data>
+  <data name="TaskStats_RecommendMedium" xml:space="preserve">
+    <value>任务延期率适中，可适当优化时间管理</value>
+  </data>
+  <data name="TaskStats_RecommendLow" xml:space="preserve">
+    <value>任务延期率较低，继续保持良好习惯</value>
+  </data>
+  <data name="TaskStats_ErrorLoadFormat" xml:space="preserve">
+    <value>加载统计数据时发生错误: {0}</value>
+  </data>
+  <data name="TaskStats_ExportSuccess" xml:space="preserve">
+    <value>统计报告已成功导出！</value>
+  </data>
+  <data name="TaskStats_ExportSuccessTitle" xml:space="preserve">
+    <value>导出成功</value>
+  </data>
+  <data name="TaskStats_ExportErrorFormat" xml:space="preserve">
+    <value>导出统计报告时发生错误: {0}</value>
+  </data>
+  <data name="TaskStats_ExportErrorTitle" xml:space="preserve">
+    <value>导出错误</value>
+  </data>
+  <data name="TaskStats_ExportFilter" xml:space="preserve">
+    <value>文本文件|*.txt|所有文件|*.*</value>
+  </data>
+  <data name="TaskStats_ReportTitle" xml:space="preserve">
+    <value>任务统计报告</value>
+  </data>
+  <data name="TaskStats_ReportGeneratedAtFormat" xml:space="preserve">
+    <value>生成时间: {0}</value>
+  </data>
+  <data name="TaskStats_ReportOverviewSection" xml:space="preserve">
+    <value>=== 概览统计 ===</value>
+  </data>
+  <data name="TaskStats_ReportTotalFormat" xml:space="preserve">
+    <value>总任务数: {0}</value>
+  </data>
+  <data name="TaskStats_ReportCompletedFormat" xml:space="preserve">
+    <value>已完成: {0}</value>
+  </data>
+  <data name="TaskStats_ReportActiveFormat" xml:space="preserve">
+    <value>进行中: {0}</value>
+  </data>
+  <data name="TaskStats_ReportCompletionRateFormat" xml:space="preserve">
+    <value>完成率: {0}%</value>
+  </data>
+  <data name="TaskStats_ReportQuadrantSection" xml:space="preserve">
+    <value>=== 象限分布 ===</value>
+  </data>
+  <data name="TaskStats_ReportEfficiencySection" xml:space="preserve">
+    <value>=== 效率分析 ===</value>
+  </data>
+  <data name="TaskStats_ReportAvgTimeFormat" xml:space="preserve">
+    <value>平均完成时间: {0} 天</value>
+  </data>
+  <data name="TaskStats_ReportAvgTimeNone" xml:space="preserve">
+    <value>平均完成时间: 无完成任务</value>
+  </data>
+  <data name="TaskStats_ReportDelayRateFormat" xml:space="preserve">
+    <value>任务延期率: {0}%</value>
+  </data>
 </root>

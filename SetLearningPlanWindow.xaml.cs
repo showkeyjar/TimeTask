@@ -20,28 +20,28 @@ namespace TimeTask
         {
             if (string.IsNullOrWhiteSpace(SubjectTextBox.Text))
             {
-                MessageBox.Show("请输入学习科目", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SetLearningPlan_ErrorSubject"), I18n.T("SetGoal_TitleInputError"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 SubjectTextBox.Focus();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(GoalTextBox.Text))
             {
-                MessageBox.Show("请输入学习目标", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SetLearningPlan_ErrorGoal"), I18n.T("SetGoal_TitleInputError"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 GoalTextBox.Focus();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(DurationTextBox.Text))
             {
-                MessageBox.Show("请输入学习时长", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SetLearningPlan_ErrorDuration"), I18n.T("SetGoal_TitleInputError"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 DurationTextBox.Focus();
                 return;
             }
 
             if (!StartDatePicker.SelectedDate.HasValue)
             {
-                MessageBox.Show("请选择开始日期", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(I18n.T("SetLearningPlan_ErrorStartDate"), I18n.T("SetGoal_TitleInputError"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 StartDatePicker.Focus();
                 return;
             }

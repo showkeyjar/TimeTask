@@ -1,5 +1,24 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-24 ~17:30 +08:00] i18n 真迁移第一批：两个窗口全 loc 化（75 → 34）
+- 本批迁移（XAML 全部硬编码中文 → {loc:Loc} + 双语 resx，代码后置消息同步 I18n.T/Tf）：
+  - SetLearningPlanWindow：8 处 XAML + 5 条校验消息；复用 Button_Cancel/SetGoal_TitleInputError。
+  - TaskStatisticsWindow（最大户 33 处）：XAML 全量 + DetermineQuadrant 重构为返回象限号
+    1..4（原中文字符串当字典键，与展示耦合），象限名复用既有 Quadrant_* 键；导出报告/
+    推荐/报错文案全部走资源键；顺手修除零（UpdateTaskTypeAnalysis 空任务列表直接返回）。
+  - 新增 61 个资源键 × 双语（resx 443 → 504）。
+- 新增 LocalizedWindowSmokeTests：STA 线程真实实例化两个窗口（BAML 加载 + LocExtension
+  ProvideValue + 构造器数据装载全链路），并断言标题解析为资源值而非键名回退。
+  踩坑：窗口归 STA 线程所有，标题必须在 STA 线程内读出（跨线程访问 DispatcherObject
+  抛 InvalidOperationException，首版即栽在此）。
+- 修复预存损坏：resx 文件双重 BOM（此前某轮编辑把 U+FEFF 字符与编码器 BOM 叠加，
+  strict XmlDocument.Load 直接报 Line 1 无效——默认 zh-CN 下 ResourceManager 从未走到
+  英文资源所以无人发现；英文包此前是否受影响待 UI 验证，现已结构性修复）。
+- 验证：dev_check 全绿（**210 项 / 208 过 / 0 败 / 2 跳过**，含 2 项新窗口冒烟）；
+  编码门 0 错；i18n 棘轮 75 → 34（LearningPlanManager 17 / ActionInbox 12 / MainWindow 5）。
+- 教训：PowerShell `script | Select-Object -First N` 会提前终止上游脚本——棘轮块在
+  脚本末尾时会被截断跳过（本次基线没更新差点溜进提交），管道截取一律先存变量再筛选。
+
 ## [2026-09-24 ~15:20 +08:00] 自动化第三轮：i18n 审计棘轮 + 孤儿文件清理
 - 1) scripts/check_i18n.ps1：XAML 硬编码中文审计器（ROADMAP「i18n 覆盖到全部对话框」的可度量落地）。
   发现现状：代码后置 I18n.T() 覆盖广（250+ 处），但 XAML 层 {loc:} 标记扩展 0 使用——

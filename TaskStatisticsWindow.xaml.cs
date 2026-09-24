@@ -41,7 +41,7 @@ namespace TimeTask
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载统计数据时发生错误: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("TaskStats_ErrorLoadFormat", ex.Message), I18n.T("Title_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -82,49 +82,56 @@ namespace TimeTask
 
         private void UpdateQuadrantDistribution(List<ItemGrid> allTasks)
         {
-            // 由于我们无法直接知道每个任务属于哪个象限，我们需要从UI获取信息
-            // 或者根据重要性和紧急性推断象限
-            var quadrantCounts = new Dictionary<string, int>
-            {
-                {"重要且紧急", 0},
-                {"重要不紧急", 0},
-                {"不重要但紧急", 0},
-                {"不重要不紧急", 0}
-            };
+            // 象限编号 1..4（展示名复用 Quadrant_* 资源键，与四象限主界面口径一致）
+            var quadrantCounts = new int[5];
 
             foreach (var task in allTasks)
             {
-                string quadrant = DetermineQuadrant(task.Importance, task.Urgency);
+                int quadrant = DetermineQuadrant(task.Importance, task.Urgency);
                 quadrantCounts[quadrant]++;
             }
 
             int totalTasks = allTasks.Count;
-            double q1Percent = totalTasks > 0 ? (double)quadrantCounts["重要且紧急"] / totalTasks * 100 : 0;
-            double q2Percent = totalTasks > 0 ? (double)quadrantCounts["重要不紧急"] / totalTasks * 100 : 0;
-            double q3Percent = totalTasks > 0 ? (double)quadrantCounts["不重要但紧急"] / totalTasks * 100 : 0;
-            double q4Percent = totalTasks > 0 ? (double)quadrantCounts["不重要不紧急"] / totalTasks * 100 : 0;
+            var labelNames = new[]
+            {
+                I18n.T("Quadrant_ImportantUrgent"),
+                I18n.T("Quadrant_ImportantNotUrgent"),
+                I18n.T("Quadrant_NotImportantUrgent"),
+                I18n.T("Quadrant_NotImportantNotUrgent")
+            };
 
-            Q1Label.Text = $"重要且紧急: {quadrantCounts["重要且紧急"]} ({q1Percent:F1}%)";
-            Q2Label.Text = $"重要不紧急: {quadrantCounts["重要不紧急"]} ({q2Percent:F1}%)";
-            Q3Label.Text = $"不重要但紧急: {quadrantCounts["不重要但紧急"]} ({q3Percent:F1}%)";
-            Q4Label.Text = $"不重要不紧急: {quadrantCounts["不重要不紧急"]} ({q4Percent:F1}%)";
+            Q1Label.Text = I18n.Tf("TaskStats_QuadrantCountFormat", labelNames[0], quadrantCounts[1], FormatPercent(quadrantCounts[1], totalTasks));
+            Q2Label.Text = I18n.Tf("TaskStats_QuadrantCountFormat", labelNames[1], quadrantCounts[2], FormatPercent(quadrantCounts[2], totalTasks));
+            Q3Label.Text = I18n.Tf("TaskStats_QuadrantCountFormat", labelNames[2], quadrantCounts[3], FormatPercent(quadrantCounts[3], totalTasks));
+            Q4Label.Text = I18n.Tf("TaskStats_QuadrantCountFormat", labelNames[3], quadrantCounts[4], FormatPercent(quadrantCounts[4], totalTasks));
 
             // 设置进度条的宽度（通过绑定到实际宽度）
-            Q1ProgressBar.Width = Q1ProgressBar.ActualWidth * q1Percent / 100;
-            Q2ProgressBar.Width = Q2ProgressBar.ActualWidth * q2Percent / 100;
-            Q3ProgressBar.Width = Q3ProgressBar.ActualWidth * q3Percent / 100;
-            Q4ProgressBar.Width = Q4ProgressBar.ActualWidth * q4Percent / 100;
+            Q1ProgressBar.Width = Q1ProgressBar.ActualWidth * PercentOf(quadrantCounts[1], totalTasks) / 100;
+            Q2ProgressBar.Width = Q2ProgressBar.ActualWidth * PercentOf(quadrantCounts[2], totalTasks) / 100;
+            Q3ProgressBar.Width = Q3ProgressBar.ActualWidth * PercentOf(quadrantCounts[3], totalTasks) / 100;
+            Q4ProgressBar.Width = Q4ProgressBar.ActualWidth * PercentOf(quadrantCounts[4], totalTasks) / 100;
         }
 
-        private string DetermineQuadrant(string importance, string urgency)
+        private static double PercentOf(int count, int total)
+        {
+            return total > 0 ? (double)count / total * 100 : 0;
+        }
+
+        private static string FormatPercent(int count, int total)
+        {
+            return PercentOf(count, total).ToString("F1");
+        }
+
+        /// <summary>按重要/紧急推断象限编号（1..4），展示名走资源键。</summary>
+        private int DetermineQuadrant(string importance, string urgency)
         {
             bool isImportant = importance?.ToLower() == "high" || importance?.ToLower() == "important";
             bool isUrgent = urgency?.ToLower() == "high" || urgency?.ToLower() == "urgent";
 
-            if (isImportant && isUrgent) return "重要且紧急";
-            if (isImportant && !isUrgent) return "重要不紧急";
-            if (!isImportant && isUrgent) return "不重要但紧急";
-            return "不重要不紧急";
+            if (isImportant && isUrgent) return 1;
+            if (isImportant && !isUrgent) return 2;
+            if (!isImportant && isUrgent) return 3;
+            return 4;
         }
 
         private void UpdateRecentActivity(List<ItemGrid> allTasks)
@@ -154,11 +161,11 @@ namespace TimeTask
             if (completedTasks.Any())
             {
                 var avgCompletionTime = completedTasks.Average(t => (t.CompletionTime.Value - t.CreatedDate).TotalDays);
-                AvgCompletionTimeText.Text = $"{avgCompletionTime:F1} 天";
+                AvgCompletionTimeText.Text = I18n.Tf("TaskStats_DaysFormat", avgCompletionTime.ToString("F1"));
             }
             else
             {
-                AvgCompletionTimeText.Text = "无完成任务";
+                AvgCompletionTimeText.Text = I18n.T("TaskStats_NoCompleted");
             }
 
             // 找出最高效的时段（基于完成任务的时间段）
@@ -169,11 +176,11 @@ namespace TimeTask
 
             if (completedHours != null)
             {
-                MostProductiveTimeText.Text = $"{completedHours.Key} 点 (完成 {completedHours.Count()} 个任务)";
+                MostProductiveTimeText.Text = I18n.Tf("TaskStats_ProductiveHourFormat", completedHours.Key, completedHours.Count());
             }
             else
             {
-                MostProductiveTimeText.Text = "无完成任务";
+                MostProductiveTimeText.Text = I18n.T("TaskStats_NoCompleted");
             }
 
             // 计算延期率
@@ -184,15 +191,15 @@ namespace TimeTask
             // 推荐改进意见
             if (delayRate > 30)
             {
-                RecommendationText.Text = "任务延期率较高，建议重新评估任务优先级和时间安排";
+                RecommendationText.Text = I18n.T("TaskStats_RecommendHigh");
             }
             else if (delayRate > 10)
             {
-                RecommendationText.Text = "任务延期率适中，可适当优化时间管理";
+                RecommendationText.Text = I18n.T("TaskStats_RecommendMedium");
             }
             else
             {
-                RecommendationText.Text = "任务延期率较低，继续保持良好习惯";
+                RecommendationText.Text = I18n.T("TaskStats_RecommendLow");
             }
 
             // 任务类型分析
@@ -202,6 +209,10 @@ namespace TimeTask
         private void UpdateTaskTypeAnalysis(List<ItemGrid> allTasks)
         {
             TaskTypeAnalysisListBox.Items.Clear();
+            if (allTasks.Count == 0)
+            {
+                return;
+            }
 
             var typeGroups = allTasks
                 .GroupBy(t => t.Importance ?? "Unknown")
@@ -231,7 +242,7 @@ namespace TimeTask
                 var saveFileDialog = new Microsoft.Win32.SaveFileDialog
                 {
                     FileName = $"TaskStatistics_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
-                    Filter = "文本文件|*.txt|所有文件|*.*"
+                    Filter = I18n.T("TaskStats_ExportFilter")
                 };
 
                 if (saveFileDialog.ShowDialog() == true)
@@ -241,12 +252,12 @@ namespace TimeTask
                     var report = GenerateStatisticsReport(allTasks);
                     File.WriteAllText(saveFileDialog.FileName, report);
                     
-                    MessageBox.Show("统计报告已成功导出！", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(I18n.T("TaskStats_ExportSuccess"), I18n.T("TaskStats_ExportSuccessTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"导出统计报告时发生错误: {ex.Message}", "导出错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(I18n.Tf("TaskStats_ExportErrorFormat", ex.Message), I18n.T("TaskStats_ExportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -254,57 +265,58 @@ namespace TimeTask
         {
             var report = new System.Text.StringBuilder();
             
-            report.AppendLine("任务统计报告");
-            report.AppendLine($"生成时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            report.AppendLine(I18n.T("TaskStats_ReportTitle"));
+            report.AppendLine(I18n.Tf("TaskStats_ReportGeneratedAtFormat", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
             report.AppendLine();
 
             // 概览统计
-            report.AppendLine("=== 概览统计 ===");
-            report.AppendLine($"总任务数: {allTasks.Count}");
-            report.AppendLine($"已完成: {allTasks.Count(t => !t.IsActive)}");
-            report.AppendLine($"进行中: {allTasks.Count(t => t.IsActive)}");
-            report.AppendLine("完成率: " + (allTasks.Count > 0 ? ((double)allTasks.Count(t => !t.IsActive) / allTasks.Count * 100).ToString("F1") : 0) + "%");
+            report.AppendLine(I18n.T("TaskStats_ReportOverviewSection"));
+            report.AppendLine(I18n.Tf("TaskStats_ReportTotalFormat", allTasks.Count));
+            report.AppendLine(I18n.Tf("TaskStats_ReportCompletedFormat", allTasks.Count(t => !t.IsActive)));
+            report.AppendLine(I18n.Tf("TaskStats_ReportActiveFormat", allTasks.Count(t => t.IsActive)));
+            report.AppendLine(I18n.Tf("TaskStats_ReportCompletionRateFormat", allTasks.Count > 0 ? ((double)allTasks.Count(t => !t.IsActive) / allTasks.Count * 100).ToString("F1") : "0"));
             report.AppendLine();
 
             // 象限分布
-            report.AppendLine("=== 象限分布 ===");
-            var quadrantCounts = new Dictionary<string, int>
-            {
-                {"重要且紧急", 0},
-                {"重要不紧急", 0},
-                {"不重要但紧急", 0},
-                {"不重要不紧急", 0}
-            };
+            report.AppendLine(I18n.T("TaskStats_ReportQuadrantSection"));
+            var quadrantCounts = new int[5];
 
             foreach (var task in allTasks)
             {
-                string quadrant = DetermineQuadrant(task.Importance, task.Urgency);
+                int quadrant = DetermineQuadrant(task.Importance, task.Urgency);
                 quadrantCounts[quadrant]++;
             }
 
             int totalTasks = allTasks.Count;
-            report.AppendLine("重要且紧急: " + quadrantCounts["重要且紧急"] + " (" + (totalTasks > 0 ? ((double)quadrantCounts["重要且紧急"] / totalTasks * 100).ToString("F1") : 0) + "%)");
-            report.AppendLine("重要不紧急: " + quadrantCounts["重要不紧急"] + " (" + (totalTasks > 0 ? ((double)quadrantCounts["重要不紧急"] / totalTasks * 100).ToString("F1") : 0) + "%)");
-            report.AppendLine("不重要但紧急: " + quadrantCounts["不重要但紧急"] + " (" + (totalTasks > 0 ? ((double)quadrantCounts["不重要但紧急"] / totalTasks * 100).ToString("F1") : 0) + "%)");
-            report.AppendLine("不重要不紧急: " + quadrantCounts["不重要不紧急"] + " (" + (totalTasks > 0 ? ((double)quadrantCounts["不重要不紧急"] / totalTasks * 100).ToString("F1") : 0) + "%)");
+            var labelNames = new[]
+            {
+                I18n.T("Quadrant_ImportantUrgent"),
+                I18n.T("Quadrant_ImportantNotUrgent"),
+                I18n.T("Quadrant_NotImportantUrgent"),
+                I18n.T("Quadrant_NotImportantNotUrgent")
+            };
+            for (int q = 1; q <= 4; q++)
+            {
+                report.AppendLine(I18n.Tf("TaskStats_QuadrantCountFormat", labelNames[q - 1], quadrantCounts[q], FormatPercent(quadrantCounts[q], totalTasks)));
+            }
             report.AppendLine();
 
             // 效率分析
-            report.AppendLine("=== 效率分析 ===");
+            report.AppendLine(I18n.T("TaskStats_ReportEfficiencySection"));
             var completedTasks = allTasks.Where(t => !t.IsActive && t.CompletionTime.HasValue);
             if (completedTasks.Any())
             {
                 var avgCompletionTime = completedTasks.Average(t => (t.CompletionTime.Value - t.CreatedDate).TotalDays);
-                report.AppendLine("平均完成时间: " + avgCompletionTime.ToString("F1") + " 天");
+                report.AppendLine(I18n.Tf("TaskStats_ReportAvgTimeFormat", avgCompletionTime.ToString("F1")));
             }
             else
             {
-                report.AppendLine("平均完成时间: 无完成任务");
+                report.AppendLine(I18n.T("TaskStats_ReportAvgTimeNone"));
             }
 
             int overdueTasks = allTasks.Count(t => t.IsActive && t.ReminderTime.HasValue && t.ReminderTime.Value < DateTime.Now);
             double delayRate = allTasks.Count > 0 ? (double)overdueTasks / allTasks.Count * 100 : 0;
-            report.AppendLine("任务延期率: " + delayRate.ToString("F1") + "%");
+            report.AppendLine(I18n.Tf("TaskStats_ReportDelayRateFormat", delayRate.ToString("F1")));
             report.AppendLine();
 
             return report.ToString();
