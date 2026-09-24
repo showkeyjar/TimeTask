@@ -1,8 +1,15 @@
 name: TimeTask Auto Release
 
+# 发布改为纯 tag 驱动（ROADMAP：Stabilize release packaging for every tag (v*)）：
+#   - push master 只跑 CI（dotnet-desktop.yml），不再每次 push 都发一版
+#     （旧机制产生的 v x.y.z-build.N 噪音版本会干扰应用内自动更新）
+#   - 打 tag v* 时：校验 tag 与 AssemblyFileVersion 一致 -> 构建 -> 打包 zip ->
+#     创建 Release -> 自动把本版提交清单追加进 CHANGELOG.md（带 [skip ci]）
+# 发版操作：scripts/set_version.ps1 x.y.z 升版本 -> commit -> git tag vx.y.z -> push --tags
+
 on:
   push:
-    branches: [ "master", "main" ]
+    tags: [ "v*" ]
   workflow_dispatch:
 
 permissions:
@@ -17,8 +24,10 @@ jobs:
       Build_Platform: AnyCPU
 
     steps:
-      - name: Checkout
+      - name: Checkout (full history for changelog)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup MSBuild.exe
         uses: microsoft/setup-msbuild@v2
@@ -29,7 +38,7 @@ jobs:
       - name: Build
         run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform /m
 
-      - name: Resolve version and release metadata
+      - name: Resolve version and validate tag
         id: meta
         shell: pwsh
         run: |
@@ -45,11 +54,17 @@ jobs:
           }
 
           $baseVersion = $versionMatch.Groups['v'].Value
-          $buildNo = "${{ github.run_number }}"
+          $tagName = "${{ github.ref_name }}"
+
+          # tag 驱动发布：tag 必须与程序集版本一致（vx.y.z == AssemblyFileVersion x.y.z），
+          # 防止「忘了升版本」发出一个与代码不符的包。
+          if ($tagName -notmatch "^v$baseVersion$") {
+            throw "Tag $tagName does not match assembly version $baseVersion. Bump Properties/AssemblyInfo.cs (scripts/set_version.ps1 $baseVersion) or fix the tag."
+          }
+
           $shortSha = "${{ github.sha }}".Substring(0, 7)
-          $tagName = "v$baseVersion-build.$buildNo"
-          $releaseName = "TimeTask $baseVersion (build $buildNo)"
-          $assetName = "TimeTask-win-x64-$baseVersion-build.$buildNo-$shortSha.zip"
+          $releaseName = "TimeTask $baseVersion ($shortSha)"
+          $assetName = "TimeTask-win-x64-$baseVersion-$shortSha.zip"
 
           "base_version=$baseVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag_name=$tagName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -83,3 +98,41 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           files: ${{ steps.package.outputs.zip_path }}
           generate_release_notes: true
+
+      # 注意：发布与资产上传成功后才执行；CHANGELOG 回写失败（如 master 已前移）不应把整个发布标红
+      - name: Append CHANGELOG.md from commits since previous tag
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $tag = "${{ steps.meta.outputs.tag_name }}"
+          $version = "${{ steps.meta.outputs.base_version }}"
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE "CHANGELOG.md"
+
+          # 上一版 tag（按版本排序取最大者）
+          $prevTag = git tag --list "v*" | Where-Object { $_ -ne $tag } | Sort-Object { try { [version]($_.TrimStart('v') -replace '-.*$','') } catch { [version]"0.0.1" } } | Select-Object -Last 1
+
+          $range = if ($prevTag) { "$prevTag..$tag" } else { $tag }
+          $logLines = git log --pretty=format:"- %s (%h)" --no-merges $range
+          $today = Get-Date -Format "yyyy-MM-dd"
+
+          $section = "## $tag - $today`n`n"
+          if ($logLines) { $section += ($logLines -join "`n") + "`n" } else { $section += "- Release $tag`n" }
+
+          $cl = Get-Content $changelogPath -Raw -Encoding UTF8
+          if ($cl -match [regex]::Escape("## $tag ")) {
+            Write-Host "CHANGELOG.md already has a $tag section - skip."
+            exit 0
+          }
+          $anchor = [regex]::Match($cl, "(?m)^## ")
+          if ($anchor.Success) {
+            $newCl = $cl.Substring(0, $anchor.Index) + $section + "`n" + $cl.Substring($anchor.Index)
+          } else {
+            $newCl = $cl.TrimEnd() + "`n`n" + $section
+          }
+          [System.IO.File]::WriteAllText($changelogPath, $newCl, (New-Object System.Text.UTF8Encoding($false)))
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for $tag [skip ci]"
+          git push origin HEAD:master

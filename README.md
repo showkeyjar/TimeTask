@@ -17,7 +17,7 @@ English | [简体中文](README.zh-CN.md)
 
 ## Download In 30 Seconds
 1. Go to [Latest Release](https://github.com/showkeyjar/TimeTask/releases/latest).
-2. Download `TimeTask-win-x64.zip`.
+2. Download the `TimeTask-win-x64-*.zip` asset.
 3. Unzip and run `TimeTask.exe`.
 
 If this project is useful, please star it to help more users find it.

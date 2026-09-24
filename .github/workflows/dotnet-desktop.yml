@@ -6,19 +6,18 @@ on:
   pull_request:
     branches: [ "master", "main" ]
   workflow_dispatch:
-    inputs:
-      run_tests:
-        description: "Run unit tests (off by default to avoid unstable desktop test failures)"
-        required: false
-        default: false
-        type: boolean
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-test:
     runs-on: windows-latest
     env:
       Solution_Name: TimeTask.sln
       Main_Project_Path: TimeTask.csproj
+      Test_Project_Path: TimeTask.Tests/TimeTask.Tests.csproj
       Build_Configuration: Release
       Build_Platform: AnyCPU
     steps:
@@ -28,12 +27,29 @@ jobs:
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
 
+    - name: Setup .NET SDK (test project toolchain)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
     - name: Restore main project
       run: msbuild $env:Main_Project_Path /t:Restore /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform
 
     - name: Build main project
       run: msbuild $env:Main_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform=$env:Build_Platform /m
 
-    - name: Execute unit tests (optional)
-      if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_tests == true }}
-      run: dotnet test TimeTask.Tests/TimeTask.Tests.csproj -c $env:Build_Configuration
+    - name: Restore test project
+      run: msbuild $env:Test_Project_Path /t:Restore /p:Configuration=$env:Build_Configuration
+
+    - name: Build test project
+      run: msbuild $env:Test_Project_Path /p:Configuration=$env:Build_Configuration /p:Platform="AnyCPU" /m
+
+    - name: Run unit tests
+      run: dotnet test $env:Test_Project_Path -c $env:Build_Configuration --no-build --logger "console;verbosity=normal"
+
+    # 编码门禁：拦截 U+FFFD 乱码 / 非法 UTF-8 / bat 中文 / ps1 缺 BOM（本项目历史顽疾）
+    - name: Encoding guard (full repo scan)
+      shell: pwsh
+      run: |
+        $enc = Join-Path $env:GITHUB_WORKSPACE 'scripts\check_encoding.ps1'
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $enc -Mode full -TreatWarningAsError

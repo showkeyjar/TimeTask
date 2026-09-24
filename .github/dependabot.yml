@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # GitHub Actions 版本自动更新（checkout/setup-msbuild/setup-dotnet/gh-release 等）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-request-limit: 5
+    labels:
+      - dependencies
+      - ci

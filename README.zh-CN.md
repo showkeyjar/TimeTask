@@ -18,7 +18,7 @@
 
 ## 30 秒开始使用
 
-1. 打开 [Releases](https://github.com/showkeyjar/TimeTask/releases/latest) 下载 `TimeTask-win-x64.zip`。
+1. 打开 [Releases](https://github.com/showkeyjar/TimeTask/releases/latest) 下载 `TimeTask-win-x64-*.zip` 资产。
 2. 解压后运行 `TimeTask.exe`。
 3. 首次启动后按需开启提醒、语音或 LLM 功能。
 
