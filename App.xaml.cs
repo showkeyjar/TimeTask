@@ -118,12 +118,22 @@ namespace TimeTask
 
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey == PlaceholderApiKey || apiKey == "(migrated-to-secure-store)")
             {
-                System.Windows.MessageBox.Show(
-                    I18n.T("App_ApiKeyWarningText"),
-                    I18n.T("App_ApiKeyWarningTitle"),
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning
-                );
+                // 只在首次提醒一次：用户明确关闭后不再每次启动都弹窗打扰。
+                // （若之后配置了 Key，会清掉“已提醒”标记——将来 Key 再丢失还能再提醒一次）
+                if (!IsApiKeyWarningDismissed())
+                {
+                    System.Windows.MessageBox.Show(
+                        I18n.T("App_ApiKeyWarningText"),
+                        I18n.T("App_ApiKeyWarningTitle"),
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning
+                    );
+                    MarkApiKeyWarningDismissed();
+                }
+            }
+            else
+            {
+                ClearApiKeyWarningDismissed();
             }
 
             // 初始化草稿管理器
@@ -331,6 +341,68 @@ namespace TimeTask
             catch
             {
                 return fallback;
+            }
+        }
+
+        /// <summary>
+        /// “API Key 未配置”提醒是否已被用户知悉（弹出过一次即标记，不再重复打扰）。
+        /// 标记写在 exe 同侧的 App.config（ApiKeyWarningDismissed），与其它配置同一存放处。
+        /// </summary>
+        private static bool IsApiKeyWarningDismissed()
+        {
+            try
+            {
+                return string.Equals(
+                    ConfigurationManager.AppSettings["ApiKeyWarningDismissed"],
+                    "true", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void MarkApiKeyWarningDismissed()
+        {
+            WriteAppSetting("ApiKeyWarningDismissed", "true");
+        }
+
+        private static void ClearApiKeyWarningDismissed()
+        {
+            // 已配置了 Key：清掉标记，将来 Key 再丢失时还能重新提醒一次
+            if (IsApiKeyWarningDismissed())
+            {
+                WriteAppSetting("ApiKeyWarningDismissed", null);
+            }
+        }
+
+        /// <summary>
+        /// 向 exe 同侧 App.config 写入一个 appSettings 键；value 为 null 时删除该键。
+        /// 写入失败只记日志，不影响启动流程。
+        /// </summary>
+        private static void WriteAppSetting(string key, string value)
+        {
+            try
+            {
+                var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+                if (value == null)
+                {
+                    config.AppSettings.Settings.Remove(key);
+                }
+                else if (config.AppSettings.Settings[key] == null)
+                {
+                    config.AppSettings.Settings.Add(key, value);
+                }
+                else
+                {
+                    config.AppSettings.Settings[key].Value = value;
+                }
+                config.Save(ConfigurationSaveMode.Modified);
+                ConfigurationManager.RefreshSection("appSettings");
+            }
+            catch (Exception ex)
+            {
+                VoiceRuntimeLog.Warn($"写入配置项 {key} 失败。", ex);
             }
         }
 

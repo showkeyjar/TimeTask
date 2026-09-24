@@ -317,6 +317,7 @@
     <EmbeddedResource Include="Properties\Resources.en-US.resx">
       <DependentUpon>Resources.resx</DependentUpon>
     </EmbeddedResource>
+    <Resource Include="Assets\TimeTaskTray.ico" />
     <None Include="autorun.reg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

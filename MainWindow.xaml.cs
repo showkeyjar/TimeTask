@@ -714,6 +714,8 @@ namespace TimeTask
             I18n.LanguageChanged += I18n_LanguageChanged;
             InitializeVoiceStatusIndicator();
             this.Closed += MainWindow_Closed;
+            // 关闭时通知“显示桌面”保护线程退出
+            this.Closing += MainWindow_Closing;
             
             // 初始化用户体验改进功能
             UXImprovements.Initialize(this);
@@ -4399,7 +4401,8 @@ namespace TimeTask
             //this.DragMove();
             if (e.ButtonState == MouseButtonState.Pressed)
             {
-                this.DragMove();
+                try { this.DragMove(); }
+                catch { /* 拖动瞬间窗口状态切换可能抛 InvalidOperationException，忽略 */ }
             }
         }
 
@@ -4412,17 +4415,271 @@ namespace TimeTask
 
         [DllImport("user32.dll")]
         static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")]
+        static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        static extern bool IsIconic(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+        [DllImport("user32.dll")]
+        static extern bool GetWindowRect(IntPtr hWnd, out WINRECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WINRECT
+        {
+            public int Left, Top, Right, Bottom;
+        }
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
         private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+        private const int SW_SHOWNOACTIVATE = 4;
+        private const int SW_RESTORE = 9;
+        private const uint GW_HWNDPREV = 3;
+
+        // 拦截最小化 / 隐藏命令（显示桌面 / Win+D / 系统菜单“最小化”等）所需常量。
+        private const int WM_SYSCOMMAND = 0x0112;
+        private const int SC_MINIMIZE = 0xF020;
+        private const int WM_SHOWWINDOW = 0x0018;
+        private const int WM_SIZE = 0x0005;
+        private const int SIZE_MINIMIZED = 1;
+        // 诊断用：与显示/隐藏/位置/层级相关的消息常量。
+        private const int WM_MOVE = 0x0003;
+        private const int WM_ACTIVATE = 0x0006;
+        private const int WM_ACTIVATEAPP = 0x001C;
+        private const int WM_WINDOWPOSCHANGING = 0x0046;
+        private const int WM_WINDOWPOSCHANGED = 0x0047;
+        private const int WM_STYLECHANGING = 0x007C;
+        private const int WM_STYLECHANGED = 0x007D;
+        private HwndSource _mainWindowHwndSource;
+        private volatile bool _isClosing;
+        // ===== “显示桌面”保护（多层防御，全部运行在后台线程）=====
+        // 机理：本窗口是无边框透明桌面挂件（工具窗口），“显示桌面/Win+D”会把被点击
+        // 激活过的这类窗口从 DWM 合成中隐去——不可见、非最小化、无消息、事后无法恢复。
+        // 防御层（实验验证）：
+        // 1) 稳态钉底：窗口非激活时每 200ms 重申 Z 序底层，消除“被抬升+后台”这一死亡面；
+        // 2) reveal 检测：前台变为桌面/任务栏，且满足其一——上个前台是自己刚失活 /
+        //    上个前台窗口已被最小化 / 桌面态持续 150ms（兜底）；
+        // 3) 跃迁：专用线程 SetWindowPos(HWND_TOPMOST) 反复试到贴上（置顶带不在隐藏名单）；
+        // 4) 延迟降级：前台离开桌面满 300ms 后落回底层。
+        // 注意：绝不能在窗口被重新激活的瞬间立刻落回底层——那会毒化下一次跃迁（实验证实）。
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private System.Threading.Thread _sdGuardThread;
+        private volatile bool _sdJumped;
+        private IntPtr _sdLastNonDesktopFg;
+        private int _sdNotDesktopMs;
+        private int _sdDesktopMs;
+        private int _sdSincePinMs;
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             IntPtr tWnd = new WindowInteropHelper(this).Handle;
-            
+
+            // 挂载消息钩子：拦截最小化命令（挂件无任务栏按钮，最小化即“消失”）。
+            _mainWindowHwndSource = HwndSource.FromHwnd(tWnd);
+            if (_mainWindowHwndSource != null)
+            {
+                _mainWindowHwndSource.AddHook(MainWindow_WndProc);
+            }
+
+            _sdGuardThread = new System.Threading.Thread(ShowDesktopGuardLoop)
+            {
+                IsBackground = true,
+                Name = "ShowDesktopGuard"
+            };
+            _sdGuardThread.Start();
+            VoiceRuntimeLog.Info($"MainWindow: 显示桌面保护已启用 hwnd=0x{tWnd.ToInt64():X}。");
+
             // 设置窗口为最底层（桌面之上，其他窗口之下）
             // 不再将窗口设置为桌面子窗口，避免桌面刷新时消失
-            SetWindowPos(tWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            PinToDesktopBottom();
+        }
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]
+        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll")]
+        static extern bool GetCursorPos(out POINT lpPoint);
+        [DllImport("user32.dll")]
+        static extern short GetAsyncKeyState(int vKey);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        /// <summary>
+        /// 鼠标左键当前是否被按住（点击/拖动期间暂停一切钉底，避免与激活抬升竞速）。
+        /// </summary>
+        private static bool IsMouseLeftHeld()
+        {
+            return (GetAsyncKeyState(0x01) & 0x8000) != 0;
+        }
+
+        /// <summary>
+        /// 光标是否悬停在本窗口范围内（即将交互，同样暂停钉底）。
+        /// </summary>
+        private bool IsCursorOverSelf(IntPtr selfHwnd)
+        {
+            POINT p;
+            if (!GetCursorPos(out p)) return false;
+            WINRECT r;
+            if (!GetWindowRect(selfHwnd, out r)) return false;
+            return p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom;
+        }
+
+        /// <summary>
+        /// 指定窗口是否属于桌面/任务栏一类（Progman / WorkerW / Shell_TrayWnd）。
+        /// </summary>
+        private static bool IsDesktopClassWindow(IntPtr h)
+        {
+            if (h == IntPtr.Zero) return true; // 无前台窗口按桌面态处理
+            var sb = new System.Text.StringBuilder(64);
+            if (GetClassName(h, sb, 64) <= 0) return false;
+            string cls = sb.ToString();
+            return cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd";
+        }
+
+        /// <summary>
+        /// 显示桌面保护主循环（后台线程，10ms 一拍，不依赖 UI 线程）。
+        /// </summary>
+        private void ShowDesktopGuardLoop()
+        {
+            IntPtr selfHwnd = (_mainWindowHwndSource != null) ? _mainWindowHwndSource.Handle : IntPtr.Zero;
+            while (!_isClosing)
+            {
+                try
+                {
+                    System.Threading.Thread.Sleep(10);
+                    if (selfHwnd == IntPtr.Zero && _mainWindowHwndSource != null) selfHwnd = _mainWindowHwndSource.Handle;
+                    if (selfHwnd == IntPtr.Zero) continue;
+
+                    IntPtr fg = GetForegroundWindow();
+                    if (fg == IntPtr.Zero)
+                    {
+                        // 前台未知（窗口切换的过渡瞬间）：跳过本拍，
+                        // 避免把切换误判成“桌面态”造成错误跃迁
+                        continue;
+                    }
+
+                    if (!IsDesktopClassWindow(fg))
+                    {
+                        _sdLastNonDesktopFg = fg;
+                        _sdDesktopMs = 0;
+
+                        if (fg == selfHwnd)
+                        {
+                            // 用户正在使用本窗口：不钉底、不降级
+                            _sdNotDesktopMs = 0;
+                            continue;
+                        }
+
+                        if (_sdJumped)
+                        {
+                            // 已跃迁置顶，等桌面显示结束（前台离开桌面满 300ms）再落回
+                            _sdNotDesktopMs += 10;
+                            if (_sdNotDesktopMs >= 300)
+                            {
+                                _sdJumped = false;
+                                SetWindowPos(selfHwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                                VoiceRuntimeLog.Info("ShowDesktopGuard: 桌面显示已结束，窗口已落回 Z 序底层。");
+                            }
+                            continue;
+                        }
+
+                        // 稳态钉底：非激活且前台是普通窗口时，周期性重申底层。
+                        // 鼠标按住（点击/拖动中）或光标悬停在本窗口上时暂停——
+                        // 否则会与“点击激活时的抬升”竞速，把刚抬起的窗口踹回
+                        // 其它窗口之下，看起来就像界面消失了。
+                        if (IsMouseLeftHeld() || IsCursorOverSelf(selfHwnd))
+                        {
+                            _sdSincePinMs = 0;
+                            continue;
+                        }
+                        _sdSincePinMs += 10;
+                        if (_sdSincePinMs >= 200)
+                        {
+                            _sdSincePinMs = 0;
+                            SetWindowPos(selfHwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                        }
+                        continue;
+                    }
+
+                    // ---- 前台是桌面/任务栏：判断是否“显示桌面” ----
+                    _sdNotDesktopMs = 0;
+                    _sdSincePinMs = 0;
+                    if (_sdJumped) continue;
+
+                    _sdDesktopMs += 10;
+                    bool reveal = false;
+                    string why = null;
+                    if (_sdLastNonDesktopFg == selfHwnd) { reveal = true; why = "self-was-fg"; }
+                    else if (_sdLastNonDesktopFg != IntPtr.Zero && IsIconic(_sdLastNonDesktopFg)) { reveal = true; why = "lastfg-iconic"; }
+                    else if (_sdDesktopMs >= 150) { reveal = true; why = "desktopish-150ms"; }
+
+                    if (!reveal) continue;
+
+                    _sdJumped = true;
+                    VoiceRuntimeLog.Info($"ShowDesktopGuard: 检测到“显示桌面”({why})，跃迁到置顶带。");
+                    for (int i = 0; i < 200 && !_isClosing; i++)
+                    {
+                        SetWindowPos(selfHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                        if ((GetWindowLong(selfHwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0)
+                        {
+                            VoiceRuntimeLog.Info($"ShowDesktopGuard: 已跃迁到置顶带，逃离“显示桌面”隐藏。iter={i}");
+                            break;
+                        }
+                        System.Threading.Thread.Sleep(10);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    VoiceRuntimeLog.Error("ShowDesktopGuard: 保护循环异常。", ex);
+                    try { System.Threading.Thread.Sleep(500); } catch { }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 记录窗口正在关闭：保护线程通过 _isClosing 自行退出。
+        /// </summary>
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            _isClosing = true;
+            _sdJumped = false;
+        }
+
+        /// <summary>
+        /// 消息级处理：拦截最小化命令（挂件无任务栏按钮，最小化即“消失”）。
+        /// “显示桌面”保护由后台线程 ShowDesktopGuardLoop 全权负责，不依赖本钩子。
+        /// </summary>
+        private IntPtr MainWindow_WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_SYSCOMMAND && ((int)wParam & 0xFFF0) == SC_MINIMIZE)
+            {
+                VoiceRuntimeLog.Info("MainWindow: 拦截 SC_MINIMIZE。");
+                handled = true;
+                return IntPtr.Zero;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// 将窗口钉到 Z 序最底层（桌面之上、其它窗口之下），且不抢占焦点。
+        /// </summary>
+        private void PinToDesktopBottom()
+        {
+            if (_mainWindowHwndSource == null) return;
+            SetWindowPos(_mainWindowHwndSource.Handle, HWND_BOTTOM, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
 
         private void location_Save(object sender, EventArgs e)

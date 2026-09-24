@@ -64,7 +64,7 @@ namespace TimeTask
             {
                 _notifyIcon = new notifyIcon
                 {
-                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(
+                    Icon = LoadTrayIcon() ?? System.Drawing.Icon.ExtractAssociatedIcon(
                         System.Reflection.Assembly.GetExecutingAssembly().Location
                     ),
                     Text = "TimeTask - 任务管理助手",
@@ -89,6 +89,30 @@ namespace TimeTask
             catch (Exception ex)
             {
                 Console.WriteLine($"[NotificationManager] Failed to initialize NotifyIcon: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 加载自定义托盘图标（四色象限时钟：蓝/红/绿/黄对应四象限，白色指针呼应“时间管理”）。
+        /// 图标以 WPF Resource 嵌入（Assets/TimeTaskTray.ico，含 256/48/32/16 四帧）；
+        /// 托盘取 16px 帧最锐利；加载失败时回退到程序图标。
+        /// </summary>
+        private static System.Drawing.Icon LoadTrayIcon()
+        {
+            try
+            {
+                var uri = new Uri("pack://application:,,,/Assets/TimeTaskTray.ico", UriKind.Absolute);
+                var resource = System.Windows.Application.GetResourceStream(uri);
+                if (resource == null) return null;
+                using (var stream = resource.Stream)
+                {
+                    return new System.Drawing.Icon(stream, new System.Drawing.Size(16, 16));
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NotificationManager] Custom tray icon load failed: {ex.Message}");
+                return null;
             }
         }
 
