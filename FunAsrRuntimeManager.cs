@@ -892,7 +892,7 @@ namespace TimeTask
                 }
                 catch (OperationCanceledException)
                 {
-                    // 取消等待时必须主动杀进���树：Dispose 不会终止还在跑的进程，
+                    // 取消等待时必须主动杀进程树：Dispose 不会终止还在跑的进程，
                     // pip/torch 的子孙进程会变孤儿，后续重试会越积越多
                     ProcessUtils.KillTree(process, "bootstrap-cancelled");
                     throw;

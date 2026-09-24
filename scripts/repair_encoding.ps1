@@ -1,4 +1,4 @@
-# 修复编码事故：用 git HEAD 参照修复被双重编码+吸收损坏的字节序列
+﻿# 修复编码事故：用 git HEAD 参照修复被双重编码+吸收损坏的字节序列
 # 损坏模式：原 [3字节汉字][ASCII] 经 GBK 误解码后变成 [前2字节][0x3F]
 param(
     [Parameter(Mandatory = $true)][string]$Target,

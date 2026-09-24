@@ -1,4 +1,4 @@
-# Manual semantic repairs for remaining encoding damage (explicit UTF-8 I/O only!)
+﻿# Manual semantic repairs for remaining encoding damage (explicit UTF-8 I/O only!)
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $path = Join-Path (Get-Location) 'MainWindow.xaml.cs'

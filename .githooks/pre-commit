@@ -1,0 +1,17 @@
+#!/bin/sh
+# TimeTask pre-commit: commit-time encoding guard.
+# Blocks a commit when tracked changes contain U+FFFD mojibake, invalid UTF-8,
+# CJK bytes inside .bat/.cmd, or BOM-less non-ASCII .ps1 (breaks Windows PowerShell 5.1).
+# Install once with: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install_hooks.ps1
+
+# Use powershell.exe when available (Windows PowerShell 5.1), else pwsh.
+if command -v powershell.exe >/dev/null 2>&1; then
+    PS=powershell.exe
+elif command -v pwsh.exe >/dev/null 2>&1; then
+    PS=pwsh.exe
+else
+    echo "[pre-commit] No PowerShell found - skipping encoding guard."
+    exit 0
+fi
+
+exec "$PS" -NoProfile -ExecutionPolicy Bypass -File "scripts/check_encoding.ps1" -Mode changed
