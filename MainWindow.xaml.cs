@@ -992,7 +992,7 @@ namespace TimeTask
                 if (svc == null || !svc.IsRecording)
                 {
                     RecordToggleIcon.Text = "⏺";
-                    RecordToggleText.Text = "记录";
+                    RecordToggleText.Text = I18n.T("Main_Record");
                     RecordToggleButton.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
                     RecordToggleButton.Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
                     RecordToggleButton.BorderBrush = new SolidColorBrush(Color.FromRgb(0x90, 0xCA, 0xF9));
@@ -1000,7 +1000,7 @@ namespace TimeTask
                 else
                 {
                     RecordToggleIcon.Text = "■";
-                    RecordToggleText.Text = "停止 " + svc.Elapsed.ToString(@"mm\:ss");
+                    RecordToggleText.Text = I18n.Tf("Main_RecordingStopFormat", svc.Elapsed.ToString(@"mm\:ss"));
                     RecordToggleButton.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0xE0));
                     RecordToggleButton.Foreground = new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
                     RecordToggleButton.BorderBrush = new SolidColorBrush(Color.FromRgb(0xEF, 0x9A, 0x9A));

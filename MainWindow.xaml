@@ -117,7 +117,7 @@
                     FontSize="12"
                     FontWeight="SemiBold"
                     Click="RecordToggleButton_Click"
-                    ToolTip="开始/停止记录（Ctrl+Alt+R）">
+                    ToolTip="{local:Loc Key=Main_RecordToggleTooltip}">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="15"/>
@@ -141,7 +141,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="RecordToggleIcon" Text="⏺" Grid.Column="0" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="RecordToggleText" Text="记录" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="RecordToggleText" Text="{local:Loc Key=Main_Record}" Grid.Column="1" VerticalAlignment="Center"/>
                 </Grid>
             </Button>
             <Button x:Name="VoiceStatusButton"
@@ -442,13 +442,13 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="🤖 会议实时要点" FontWeight="Bold" FontSize="13" Foreground="#0B6E8F"/>
+                        <TextBlock Text="{local:Loc Key=Main_MeetingLiveTitle}" FontWeight="Bold" FontSize="13" Foreground="#0B6E8F"/>
                         <TextBlock x:Name="MeetingAssistantStatus" Margin="10,0,0,0" Foreground="#8A8A8A" FontSize="11" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Button x:Name="MaTopicToggle" Grid.Column="1" Content="＋ 主题（可选）"
+                    <Button x:Name="MaTopicToggle" Grid.Column="1" Content="{local:Loc Key=Main_TopicToggle}"
                             Height="24" FontSize="11" Padding="8,0"
                             Foreground="#0B6E8F" Background="#E8F6FB" BorderBrush="#BFE0EE"
-                            ToolTip="点开可补充会议主题/术语，提升识别准确率（不填也完全可用）"
+                            ToolTip="{local:Loc Key=Main_TopicToggleTooltip}"
                             Click="MaTopicToggle_Click">
                         <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="12"/></Style></Button.Resources>
                     </Button>
@@ -461,10 +461,10 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="MaTopicBox" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontSize="11"
                              Margin="0,0,8,0" KeyDown="MaTopicBox_KeyDown" LostFocus="MaTopicBox_LostFocus"
-                             ToolTip="会议主题/术语（可选）：补充后回车或点别处即生效，用于提升同音词/专有名词识别。">
+                             ToolTip="{local:Loc Key=Main_TopicBoxTooltip}">
                         <TextBox.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="13"/></Style></TextBox.Resources>
                     </TextBox>
-                    <TextBlock Grid.Column="1" Text="回车生效" FontSize="10" Foreground="#9A9A9A" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    <TextBlock Grid.Column="1" Text="{local:Loc Key=Main_TopicEnterHint}" FontSize="10" Foreground="#9A9A9A" VerticalAlignment="Center" IsHitTestVisible="False"/>
                 </Grid>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -475,7 +475,7 @@
                     </Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
                         <StackPanel>
-                            <TextBlock Text="💡 新概念" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <TextBlock Text="{local:Loc Key=Main_MaConcepts}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
                             <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="MaConcepts">
                                     <ItemsControl.ItemTemplate>
@@ -492,7 +492,7 @@
                     </Border>
                     <Border Grid.Column="1" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
                         <StackPanel>
-                            <TextBlock Text="❓ 待讨论" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <TextBlock Text="{local:Loc Key=Main_MaQuestions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
                             <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="MaQuestions">
                                     <ItemsControl.ItemTemplate>
@@ -520,7 +520,7 @@
                     </Border>
                     <Border Grid.Column="2" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,6,0">
                         <StackPanel>
-                            <TextBlock Text="✅ 决策" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <TextBlock Text="{local:Loc Key=Main_MaDecisions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
                             <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="MaDecisions">
                                     <ItemsControl.ItemTemplate>
@@ -534,7 +534,7 @@
                     </Border>
                     <Border Grid.Column="3" Background="#FFFFFF" BorderBrush="#E6EEF2" BorderThickness="1" CornerRadius="8" Padding="8,6">
                         <StackPanel>
-                            <TextBlock Text="📌 行动项" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
+                            <TextBlock Text="{local:Loc Key=Main_MaActions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,4" FontSize="11"/>
                             <ScrollViewer MaxHeight="92" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="MaActions">
                                     <ItemsControl.ItemTemplate>

@@ -1637,4 +1637,270 @@
   <data name="TaskStats_ReportDelayRateFormat" xml:space="preserve">
     <value>任务延期率: {0}%</value>
   </data>
+  <data name="ActionInbox_WindowTitle" xml:space="preserve">
+    <value>录音整理</value>
+  </data>
+  <data name="ActionInbox_TitleDefault" xml:space="preserve">
+    <value>这段录音整理好了</value>
+  </data>
+  <data name="ActionInbox_Hint" xml:space="preserve">
+    <value>勾掉不需要的，剩下的点下面绿色按钮就会加进任务列表（默认已按重要/紧急分好类，不满意可以改）：</value>
+  </data>
+  <data name="ActionInbox_ColumnAccept" xml:space="preserve">
+    <value>加入</value>
+  </data>
+  <data name="ActionInbox_ColumnItem" xml:space="preserve">
+    <value>事项</value>
+  </data>
+  <data name="ActionInbox_ColumnQuadrant" xml:space="preserve">
+    <value>放到哪</value>
+  </data>
+  <data name="ActionInbox_ColumnReminder" xml:space="preserve">
+    <value>提醒我</value>
+  </data>
+  <data name="ActionInbox_ReminderTooltip" xml:space="preserve">
+    <value>留空 = 不提醒</value>
+  </data>
+  <data name="ActionInbox_EmptyListen" xml:space="preserve">
+    <value>▶ 听一听录音</value>
+  </data>
+  <data name="ActionInbox_EmptyManual" xml:space="preserve">
+    <value>✍ 手动补记几句话</value>
+  </data>
+  <data name="ActionInbox_Accept" xml:space="preserve">
+    <value>✓ 加入任务列表</value>
+  </data>
+  <data name="ActionInbox_Dismiss" xml:space="preserve">
+    <value>本次不加了</value>
+  </data>
+  <data name="ActionInbox_AudioHeader" xml:space="preserve">
+    <value>▶ 听录音 / 找录音文件</value>
+  </data>
+  <data name="ActionInbox_PlayMic" xml:space="preserve">
+    <value>▶ 播放人声（麦克风）</value>
+  </data>
+  <data name="ActionInbox_PlaySystem" xml:space="preserve">
+    <value>▶ 播放对方声音</value>
+  </data>
+  <data name="ActionInbox_StopPlay" xml:space="preserve">
+    <value>■ 停止</value>
+  </data>
+  <data name="ActionInbox_OpenFolder" xml:space="preserve">
+    <value>打开文件夹</value>
+  </data>
+  <data name="ActionInbox_TranscriptHeader" xml:space="preserve">
+    <value>▶ 文字都说了什么（全文）</value>
+  </data>
+  <data name="ActionInbox_ManualHeader" xml:space="preserve">
+    <value>✍ 没有自动文字？回放后把听到的话敲进来，一样能提取</value>
+  </data>
+  <data name="ActionInbox_ExtractFromText" xml:space="preserve">
+    <value>从这些文字提取事项</value>
+  </data>
+  <data name="ActionInbox_ClearManual" xml:space="preserve">
+    <value>清空</value>
+  </data>
+  <data name="ActionInbox_MinutesHeader" xml:space="preserve">
+    <value>▶ 会议纪要（聊到的新概念 / 待讨论 / 做出的决定）</value>
+  </data>
+  <data name="ActionInbox_MinConcepts" xml:space="preserve">
+    <value>💡 新概念</value>
+  </data>
+  <data name="ActionInbox_MinQuestions" xml:space="preserve">
+    <value>❓ 待讨论</value>
+  </data>
+  <data name="ActionInbox_MinDecisions" xml:space="preserve">
+    <value>✅ 决定</value>
+  </data>
+  <data name="ActionInbox_MinActions" xml:space="preserve">
+    <value>📌 要做的事</value>
+  </data>
+  <data name="ActionInbox_TitleMeeting" xml:space="preserve">
+    <value>✅ 这场会议整理好了</value>
+  </data>
+  <data name="ActionInbox_TitleRecording" xml:space="preserve">
+    <value>✅ 这段录音整理好了</value>
+  </data>
+  <data name="ActionInbox_SpeechConverted" xml:space="preserve">
+    <value>语音已转成文字</value>
+  </data>
+  <data name="ActionInbox_SpeechNotConverted" xml:space="preserve">
+    <value>没能自动转成文字</value>
+  </data>
+  <data name="ActionInbox_MetaFormat" xml:space="preserve">
+    <value>时长 {0} 分钟 · {1} · 找到 {2} 件可跟进的事</value>
+  </data>
+  <data name="ActionInbox_EmptyReasonAsr" xml:space="preserve">
+    <value>没有听出有效的内容。可能麦克风被静音了，或者这一段没有说话。</value>
+  </data>
+  <data name="ActionInbox_EmptyReasonNoAsr" xml:space="preserve">
+    <value>这场录音没能自动转成文字。录音本身已完整保存：可以听一下回放，把要点敲进来，一样能提取成待办。</value>
+  </data>
+  <data name="ActionInbox_SavedAtFormat" xml:space="preserve">
+    <value>
+录音保存在：{0}</value>
+  </data>
+  <data name="ActionInbox_RetentionFormat" xml:space="preserve">
+    <value>录音保存在本机，{0} 天后会自动清理释放空间（保留期可在配置 ConversationCaptureRetentionDays 调整，0 = 永久保留）。</value>
+  </data>
+  <data name="ActionInbox_RetentionDisabled" xml:space="preserve">
+    <value>录音保存在本机（未启用自动清理）。</value>
+  </data>
+  <data name="ActionInbox_MinutesEmpty" xml:space="preserve">
+    <value>（本次没有提炼出要点）</value>
+  </data>
+  <data name="ActionInbox_MinutesUnavailable" xml:space="preserve">
+    <value>（本次没有实时提炼；可在录音前配置智能服务启用）</value>
+  </data>
+  <data name="ActionInbox_AcceptCountFormat" xml:space="preserve">
+    <value>✓ 把 {0} 件事加入任务列表</value>
+  </data>
+  <data name="ActionInbox_PlayNotFound" xml:space="preserve">
+    <value>找不到对应的录音文件。</value>
+  </data>
+  <data name="ActionInbox_PlayEnded" xml:space="preserve">
+    <value>播放结束。</value>
+  </data>
+  <data name="ActionInbox_PlayingFormat" xml:space="preserve">
+    <value>正在播放：{0}</value>
+  </data>
+  <data name="ActionInbox_PlayErrorFormat" xml:space="preserve">
+    <value>播放失败：{0}</value>
+  </data>
+  <data name="ActionInbox_ExtractNeedText" xml:space="preserve">
+    <value>请先输入或粘贴转写文本</value>
+  </data>
+  <data name="ActionInbox_ExtractNoneFound" xml:space="preserve">
+    <value>未从文本中识别出可抽取的行动项。可尝试按“一句一行”输入更明确的待办描述。</value>
+  </data>
+  <data name="ActionInbox_ExtractedCountFormat" xml:space="preserve">
+    <value>已从你补记的文字里提取 {0} 件，勾选后点绿色按钮加入。</value>
+  </data>
+  <data name="ActionInbox_AcceptFailed" xml:space="preserve">
+    <value>加入任务列表失败了，详情见日志（data\logs）。</value>
+  </data>
+  <data name="Lpm_WindowTitle" xml:space="preserve">
+    <value>学习计划管理</value>
+  </data>
+  <data name="Lpm_CompletedProgress" xml:space="preserve">
+    <value>完成进度</value>
+  </data>
+  <data name="Lpm_Milestones" xml:space="preserve">
+    <value>学习里程碑</value>
+  </data>
+  <data name="Lpm_MilestoneCountZero" xml:space="preserve">
+    <value>0 个里程碑</value>
+  </data>
+  <data name="Lpm_StagesInitial" xml:space="preserve">
+    <value>0/0 阶段</value>
+  </data>
+  <data name="Lpm_ColumnStage" xml:space="preserve">
+    <value>阶段</value>
+  </data>
+  <data name="Lpm_ColumnStageName" xml:space="preserve">
+    <value>阶段名称</value>
+  </data>
+  <data name="Lpm_ColumnDescription" xml:space="preserve">
+    <value>描述</value>
+  </data>
+  <data name="Lpm_ColumnTargetDate" xml:space="preserve">
+    <value>目标日期</value>
+  </data>
+  <data name="Lpm_ColumnIsCompleted" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="Lpm_ColumnCompletedDate" xml:space="preserve">
+    <value>完成日期</value>
+  </data>
+  <data name="Lpm_ButtonActivate" xml:space="preserve">
+    <value>激活当前阶段</value>
+  </data>
+  <data name="Lpm_ButtonMarkComplete" xml:space="preserve">
+    <value>标记为完成</value>
+  </data>
+  <data name="Lpm_ButtonDelete" xml:space="preserve">
+    <value>删除计划</value>
+  </data>
+  <data name="Lpm_StatusHint" xml:space="preserve">
+    <value>提示：选中里程碑后点击'激活当前阶段'可将其添加到任务列表</value>
+  </data>
+  <data name="Lpm_DurationFormat" xml:space="preserve">
+    <value>学习时长: {0}</value>
+  </data>
+  <data name="Lpm_StagesFormat" xml:space="preserve">
+    <value>{0}/{1} 阶段</value>
+  </data>
+  <data name="Lpm_MilestoneCountFormat" xml:space="preserve">
+    <value>({0} 个里程碑)</value>
+  </data>
+  <data name="Lpm_SelectMilestoneFirst" xml:space="preserve">
+    <value>请先选择一个里程碑</value>
+  </data>
+  <data name="Lpm_AlreadyCompleted" xml:space="preserve">
+    <value>该里程碑已完成，无需再次激活</value>
+  </data>
+  <data name="Lpm_ActivateConfirmTitle" xml:space="preserve">
+    <value>确认激活</value>
+  </data>
+  <data name="Lpm_ActivateConfirmFormat" xml:space="preserve">
+    <value>是否将 '{0}' 添加到任务列表？
+
+描述: {1}</value>
+  </data>
+  <data name="Lpm_AddedFormat" xml:space="preserve">
+    <value>已将 '{0}' 添加到任务列表</value>
+  </data>
+  <data name="Lpm_MarkConfirmTitle" xml:space="preserve">
+    <value>确认完成</value>
+  </data>
+  <data name="Lpm_MarkConfirmFormat" xml:space="preserve">
+    <value>是否将 '{0}' 标记为已完成？</value>
+  </data>
+  <data name="Lpm_MarkedDoneFormat" xml:space="preserve">
+    <value>里程碑 '{0}' 已标记为完成！</value>
+  </data>
+  <data name="Lpm_DeleteConfirmTitle" xml:space="preserve">
+    <value>确认删除</value>
+  </data>
+  <data name="Lpm_DeleteConfirmFormat" xml:space="preserve">
+    <value>确定要删除学习计划 '{0}' 吗？
+
+此操作将删除该计划及其所有里程碑，且不可恢复。</value>
+  </data>
+  <data name="Main_RecordToggleTooltip" xml:space="preserve">
+    <value>开始/停止记录（Ctrl+Alt+R）</value>
+  </data>
+  <data name="Main_Record" xml:space="preserve">
+    <value>记录</value>
+  </data>
+  <data name="Main_RecordingStopFormat" xml:space="preserve">
+    <value>停止 {0}</value>
+  </data>
+  <data name="Main_MeetingLiveTitle" xml:space="preserve">
+    <value>🤖 会议实时要点</value>
+  </data>
+  <data name="Main_TopicToggle" xml:space="preserve">
+    <value>＋ 主题（可选）</value>
+  </data>
+  <data name="Main_TopicToggleTooltip" xml:space="preserve">
+    <value>点开可补充会议主题/术语，提升识别准确率（不填也完全可用）</value>
+  </data>
+  <data name="Main_TopicBoxTooltip" xml:space="preserve">
+    <value>会议主题/术语（可选）：补充后回车或点别处即生效，用于提升同音词/专有名词识别。</value>
+  </data>
+  <data name="Main_TopicEnterHint" xml:space="preserve">
+    <value>回车生效</value>
+  </data>
+  <data name="Main_MaConcepts" xml:space="preserve">
+    <value>💡 新概念</value>
+  </data>
+  <data name="Main_MaQuestions" xml:space="preserve">
+    <value>❓ 待讨论</value>
+  </data>
+  <data name="Main_MaDecisions" xml:space="preserve">
+    <value>✅ 决策</value>
+  </data>
+  <data name="Main_MaActions" xml:space="preserve">
+    <value>📌 行动项</value>
+  </data>
 </root>

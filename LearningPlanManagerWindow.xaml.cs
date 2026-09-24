@@ -31,12 +31,12 @@ namespace TimeTask
 
             SubjectTextBlock.Text = _currentPlan.Subject;
             GoalTextBlock.Text = _currentPlan.Description;
-            DurationTextBlock.Text = $"学习时长: {_currentPlan.TotalDuration}";
+            DurationTextBlock.Text = I18n.Tf("Lpm_DurationFormat", _currentPlan.TotalDuration);
 
             double progress = _currentPlan.ProgressPercentage;
             ProgressBar.Value = progress;
             ProgressTextBlock.Text = $"{progress:F1}%";
-            ProgressDetailTextBlock.Text = $"{_currentPlan.CompletedStages}/{_currentPlan.TotalStages} 阶段";
+            ProgressDetailTextBlock.Text = I18n.Tf("Lpm_StagesFormat", _currentPlan.CompletedStages, _currentPlan.TotalStages);
         }
 
         private void LoadMilestones()
@@ -59,14 +59,14 @@ namespace TimeTask
             }
 
             MilestonesDataGrid.ItemsSource = _milestones;
-            MilestoneCountTextBlock.Text = $"({_milestones.Count} 个里程碑)";
+            MilestoneCountTextBlock.Text = I18n.Tf("Lpm_MilestoneCountFormat", _milestones.Count);
         }
 
         private void ActivateButton_Click(object sender, RoutedEventArgs e)
         {
             if (MilestonesDataGrid.SelectedItem == null)
             {
-                MessageBox.Show("请先选择一个里程碑", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Lpm_SelectMilestoneFirst"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -75,13 +75,13 @@ namespace TimeTask
 
             if (selectedMilestone.IsCompleted)
             {
-                MessageBox.Show("该里程碑已完成，无需再次激活", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Lpm_AlreadyCompleted"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var result = MessageBox.Show(
-                $"是否将 '{selectedMilestone.StageName}' 添加到任务列表？\n\n描述: {selectedMilestone.Description}",
-                "确认激活",
+                I18n.Tf("Lpm_ActivateConfirmFormat", selectedMilestone.StageName, selectedMilestone.Description),
+                I18n.T("Lpm_ActivateConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -117,7 +117,7 @@ namespace TimeTask
             milestone.AssociatedTaskId = newTask.Task;
             SaveMilestones();
 
-            MessageBox.Show($"已将 '{milestone.StageName}' 添加到任务列表", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(I18n.Tf("Lpm_AddedFormat", milestone.StageName), I18n.T("Title_Done"), MessageBoxButton.OK, MessageBoxImage.Information);
             _dataChanged = true;
         }
 
@@ -125,7 +125,7 @@ namespace TimeTask
         {
             if (MilestonesDataGrid.SelectedItem == null)
             {
-                MessageBox.Show("请先选择一个里程碑", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.T("Lpm_SelectMilestoneFirst"), I18n.T("Title_Prompt"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -133,8 +133,8 @@ namespace TimeTask
             if (selectedMilestone == null) return;
 
             var result = MessageBox.Show(
-                $"是否将 '{selectedMilestone.StageName}' 标记为已完成？",
-                "确认完成",
+                I18n.Tf("Lpm_MarkConfirmFormat", selectedMilestone.StageName),
+                I18n.T("Lpm_MarkConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -150,7 +150,7 @@ namespace TimeTask
                 DisplayPlanInfo();
                 LoadMilestones();
 
-                MessageBox.Show($"里程碑 '{selectedMilestone.StageName}' 已标记为完成！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(I18n.Tf("Lpm_MarkedDoneFormat", selectedMilestone.StageName), I18n.T("Title_Done"), MessageBoxButton.OK, MessageBoxImage.Information);
                 _dataChanged = true;
             }
         }
@@ -158,8 +158,8 @@ namespace TimeTask
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
             var result = MessageBox.Show(
-                $"确定要删除学习计划 '{_currentPlan.Subject}' 吗？\n\n此操作将删除该计划及其所有里程碑，且不可恢复。",
-                "确认删除",
+                I18n.Tf("Lpm_DeleteConfirmFormat", _currentPlan.Subject),
+                I18n.T("Lpm_DeleteConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 

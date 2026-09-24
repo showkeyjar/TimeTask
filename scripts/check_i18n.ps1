@@ -62,11 +62,11 @@ foreach ($f in $xamlFiles) {
     foreach ($line in [System.IO.File]::ReadAllLines($f.FullName)) {
         $lineNo++
         $hit = $false
-        # 1) attribute value with CJK:  Foo="...cjk..."  (single-quoted variant too)
-        if ([regex]::IsMatch($line, ('\w+="' + $cjk))) { $hit = $true }
-        elseif ([regex]::IsMatch($line, ("\w+='" + $cjk))) { $hit = $true }
-        # 2) element inner text with CJK:  >...cjk...<
-        elseif ([regex]::IsMatch($line, ('>' + $cjk))) { $hit = $true }
+        # 1) attribute value with CJK anywhere:  Foo="...prefix<cjk>..."  (emoji-led values included)
+        if ([regex]::IsMatch($line, ('\w+\s*=\s*"[^"]*' + $cjk))) { $hit = $true }
+        elseif ([regex]::IsMatch($line, ("\w+\s*=\s*'[^']*" + $cjk))) { $hit = $true }
+        # 2) element inner text with CJK anywhere:  >...prefix<cjk>...<
+        elseif ([regex]::IsMatch($line, ('>[^<]*' + $cjk))) { $hit = $true }
 
         if ($hit) {
             # Exclude lines that are actually localized/dynamic bindings.

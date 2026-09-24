@@ -1,5 +1,27 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-24 ~17:50 +08:00] i18n 迁移第二批：全部窗口 loc 化清零（56 → 0，XAML 彻底无硬编码中文）
+- 本批迁移（ActionInbox 26 + LearningPlanManager 19 + MainWindow 11）：
+  - **ActionInboxWindow**：XAML 全量 + 代码后置 21 条文案；象限重构——VM 由「中文字符串」改为
+    **索引 0..3**（QuadrantIndex），下拉列 DataGridComboBoxColumn 用 SelectedValueBinding+
+    SelectedValuePath 绑索引、DisplayMemberPath 显本地化名；服务端 LLM 输出的中文象限名由
+    QuadrantNameToIndex 归一（数据语言 ≠ UI 语言，边界清晰）；Accept() 写四象限直接索引+1，
+    删掉两个按中文字符串 switch 的旧映射函数。时长显示补 Math.Max(0)（时钟回拨防负数）。
+  - **LearningPlanManagerWindow**：XAML 全量 + 代码后置 12 条消息（激活/完成/删除确认框全 loc）；
+    标签复用 SetLearningPlan_Label*，提示/成功/确认标题复用 Title_Prompt/Title_Done/Title_Confirm。
+  - **MainWindow**：11 处（含 6 处 emoji 前缀串）；RefreshRecordButton 的「记录/停止 mm:ss」
+    动态文案同步走 Main_Record/Main_RecordingStopFormat，否则切语言后被代码刷回中文。
+- 扫描器校准：原模式只匹配「属性值以 CJK 开头」，漏检 emoji 前缀（🤖 会议实时要点）与
+  括号/数字前缀（(0 个里程碑)、0/0 阶段）——改为值内任意位置 CJK（\w+="[^"]*CJK / >[^<]*CJK），
+  校准后真实存量为 56 而非 34；校准 + 迁移同批落地，基线直达 0，无需中间重置。
+- 冒烟测试扩展：ActionInbox 用伪造 ConversationCaptureResult（会议型/无音频目录/1 条行动项，
+  反射验证 VM 集合加载）；LearningPlanManager 用伪造 LongTermGoal + 临时目录（无 CSV 即空态）。
+  MainWindow 不做 STA 实例化（依赖 App 单例上下文），靠 BAML 编译 + 部署后实测兜底。
+- 验证：dev_check 全绿（**212 项 / 210 过 / 0 败 / 2 跳过**）；编码门 0 错；i18n 棘轮 **34 → 0**。
+- resx 新增 87 键 × 双语（504 → 591）；注入脚本修复双重 BOM 问题（解码后剥 U+FEFF 再回写）。
+- 遗留边界（记录在案）：.cs 内中文属数据/日志/LLM 提示词语言，不在 XAML 扫描范围（设计如此）；
+  en-US 运行时整包验证仍待 UI 实测（切语言实测列入清单）。
+
 ## [2026-09-24 ~17:30 +08:00] i18n 真迁移第一批：两个窗口全 loc 化（75 → 34）
 - 本批迁移（XAML 全部硬编码中文 → {loc:Loc} + 双语 resx，代码后置消息同步 I18n.T/Tf）：
   - SetLearningPlanWindow：8 处 XAML + 5 条校验消息；复用 Button_Cancel/SetGoal_TitleInputError。

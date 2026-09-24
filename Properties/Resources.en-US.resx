@@ -1535,4 +1535,270 @@ Please check logs: {0}</value>
   <data name="TaskStats_ReportDelayRateFormat" xml:space="preserve">
     <value>Delay rate: {0}%</value>
   </data>
+  <data name="ActionInbox_WindowTitle" xml:space="preserve">
+    <value>Recording Review</value>
+  </data>
+  <data name="ActionInbox_TitleDefault" xml:space="preserve">
+    <value>This recording is ready</value>
+  </data>
+  <data name="ActionInbox_Hint" xml:space="preserve">
+    <value>Uncheck anything you do not want, then click the green button below to add the rest to your task list (pre-sorted by importance/urgency - change it if you like):</value>
+  </data>
+  <data name="ActionInbox_ColumnAccept" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ActionInbox_ColumnItem" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="ActionInbox_ColumnQuadrant" xml:space="preserve">
+    <value>Quadrant</value>
+  </data>
+  <data name="ActionInbox_ColumnReminder" xml:space="preserve">
+    <value>Remind me</value>
+  </data>
+  <data name="ActionInbox_ReminderTooltip" xml:space="preserve">
+    <value>Leave empty = no reminder</value>
+  </data>
+  <data name="ActionInbox_EmptyListen" xml:space="preserve">
+    <value>▶ Listen to the recording</value>
+  </data>
+  <data name="ActionInbox_EmptyManual" xml:space="preserve">
+    <value>✍ Type a few notes yourself</value>
+  </data>
+  <data name="ActionInbox_Accept" xml:space="preserve">
+    <value>✓ Add to task list</value>
+  </data>
+  <data name="ActionInbox_Dismiss" xml:space="preserve">
+    <value>Not this time</value>
+  </data>
+  <data name="ActionInbox_AudioHeader" xml:space="preserve">
+    <value>▶ Listen / find the recording files</value>
+  </data>
+  <data name="ActionInbox_PlayMic" xml:space="preserve">
+    <value>▶ Play your voice (mic)</value>
+  </data>
+  <data name="ActionInbox_PlaySystem" xml:space="preserve">
+    <value>▶ Play the other side</value>
+  </data>
+  <data name="ActionInbox_StopPlay" xml:space="preserve">
+    <value>■ Stop</value>
+  </data>
+  <data name="ActionInbox_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="ActionInbox_TranscriptHeader" xml:space="preserve">
+    <value>▶ What was said (full transcript)</value>
+  </data>
+  <data name="ActionInbox_ManualHeader" xml:space="preserve">
+    <value>✍ No transcript? Play it back, type what you hear - extraction works the same</value>
+  </data>
+  <data name="ActionInbox_ExtractFromText" xml:space="preserve">
+    <value>Extract items from this text</value>
+  </data>
+  <data name="ActionInbox_ClearManual" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="ActionInbox_MinutesHeader" xml:space="preserve">
+    <value>▶ Meeting notes (new concepts / open questions / decisions)</value>
+  </data>
+  <data name="ActionInbox_MinConcepts" xml:space="preserve">
+    <value>💡 New concepts</value>
+  </data>
+  <data name="ActionInbox_MinQuestions" xml:space="preserve">
+    <value>❓ To discuss</value>
+  </data>
+  <data name="ActionInbox_MinDecisions" xml:space="preserve">
+    <value>✅ Decisions</value>
+  </data>
+  <data name="ActionInbox_MinActions" xml:space="preserve">
+    <value>📌 Things to do</value>
+  </data>
+  <data name="ActionInbox_TitleMeeting" xml:space="preserve">
+    <value>✅ This meeting is ready</value>
+  </data>
+  <data name="ActionInbox_TitleRecording" xml:space="preserve">
+    <value>✅ This recording is ready</value>
+  </data>
+  <data name="ActionInbox_SpeechConverted" xml:space="preserve">
+    <value>Speech was transcribed</value>
+  </data>
+  <data name="ActionInbox_SpeechNotConverted" xml:space="preserve">
+    <value>Automatic transcription was unavailable</value>
+  </data>
+  <data name="ActionInbox_MetaFormat" xml:space="preserve">
+    <value>{0} min · {1} · {2} follow-up items found</value>
+  </data>
+  <data name="ActionInbox_EmptyReasonAsr" xml:space="preserve">
+    <value>Nothing intelligible was heard. The microphone may be muted, or nobody spoke during this segment.</value>
+  </data>
+  <data name="ActionInbox_EmptyReasonNoAsr" xml:space="preserve">
+    <value>This recording could not be transcribed automatically. The audio itself is fully saved: play it back, type the key points, and they can still become to-dos.</value>
+  </data>
+  <data name="ActionInbox_SavedAtFormat" xml:space="preserve">
+    <value>
+Recording saved at: {0}</value>
+  </data>
+  <data name="ActionInbox_RetentionFormat" xml:space="preserve">
+    <value>Recordings stay on this machine and are cleaned up automatically after {0} days (adjustable via ConversationCaptureRetentionDays; 0 = keep forever).</value>
+  </data>
+  <data name="ActionInbox_RetentionDisabled" xml:space="preserve">
+    <value>Recordings stay on this machine (auto-cleanup disabled).</value>
+  </data>
+  <data name="ActionInbox_MinutesEmpty" xml:space="preserve">
+    <value>(No key points were distilled this time)</value>
+  </data>
+  <data name="ActionInbox_MinutesUnavailable" xml:space="preserve">
+    <value>(No live distillation this time; configure smart services before recording to enable it)</value>
+  </data>
+  <data name="ActionInbox_AcceptCountFormat" xml:space="preserve">
+    <value>✓ Add {0} items to the task list</value>
+  </data>
+  <data name="ActionInbox_PlayNotFound" xml:space="preserve">
+    <value>The recording file could not be found.</value>
+  </data>
+  <data name="ActionInbox_PlayEnded" xml:space="preserve">
+    <value>Playback finished.</value>
+  </data>
+  <data name="ActionInbox_PlayingFormat" xml:space="preserve">
+    <value>Playing: {0}</value>
+  </data>
+  <data name="ActionInbox_PlayErrorFormat" xml:space="preserve">
+    <value>Playback failed: {0}</value>
+  </data>
+  <data name="ActionInbox_ExtractNeedText" xml:space="preserve">
+    <value>Please type or paste some transcript text first</value>
+  </data>
+  <data name="ActionInbox_ExtractNoneFound" xml:space="preserve">
+    <value>No actionable items were recognized. Try writing one clear to-do per line.</value>
+  </data>
+  <data name="ActionInbox_ExtractedCountFormat" xml:space="preserve">
+    <value>Extracted {0} items from your notes - uncheck what you do not want, then click the green button.</value>
+  </data>
+  <data name="ActionInbox_AcceptFailed" xml:space="preserve">
+    <value>Failed to add items to the task list; see the log (data\logs) for details.</value>
+  </data>
+  <data name="Lpm_WindowTitle" xml:space="preserve">
+    <value>Learning Plan</value>
+  </data>
+  <data name="Lpm_CompletedProgress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="Lpm_Milestones" xml:space="preserve">
+    <value>Learning Milestones</value>
+  </data>
+  <data name="Lpm_MilestoneCountZero" xml:space="preserve">
+    <value>0 milestones</value>
+  </data>
+  <data name="Lpm_StagesInitial" xml:space="preserve">
+    <value>0/0 stages</value>
+  </data>
+  <data name="Lpm_ColumnStage" xml:space="preserve">
+    <value>Stage</value>
+  </data>
+  <data name="Lpm_ColumnStageName" xml:space="preserve">
+    <value>Stage Name</value>
+  </data>
+  <data name="Lpm_ColumnDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Lpm_ColumnTargetDate" xml:space="preserve">
+    <value>Target Date</value>
+  </data>
+  <data name="Lpm_ColumnIsCompleted" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Lpm_ColumnCompletedDate" xml:space="preserve">
+    <value>Completed On</value>
+  </data>
+  <data name="Lpm_ButtonActivate" xml:space="preserve">
+    <value>Activate Stage</value>
+  </data>
+  <data name="Lpm_ButtonMarkComplete" xml:space="preserve">
+    <value>Mark Complete</value>
+  </data>
+  <data name="Lpm_ButtonDelete" xml:space="preserve">
+    <value>Delete Plan</value>
+  </data>
+  <data name="Lpm_StatusHint" xml:space="preserve">
+    <value>Tip: select a milestone and click 'Activate Stage' to add it to your task list</value>
+  </data>
+  <data name="Lpm_DurationFormat" xml:space="preserve">
+    <value>Duration: {0}</value>
+  </data>
+  <data name="Lpm_StagesFormat" xml:space="preserve">
+    <value>{0}/{1} stages</value>
+  </data>
+  <data name="Lpm_MilestoneCountFormat" xml:space="preserve">
+    <value>({0} milestones)</value>
+  </data>
+  <data name="Lpm_SelectMilestoneFirst" xml:space="preserve">
+    <value>Please select a milestone first.</value>
+  </data>
+  <data name="Lpm_AlreadyCompleted" xml:space="preserve">
+    <value>This milestone is already completed.</value>
+  </data>
+  <data name="Lpm_ActivateConfirmTitle" xml:space="preserve">
+    <value>Confirm Activation</value>
+  </data>
+  <data name="Lpm_ActivateConfirmFormat" xml:space="preserve">
+    <value>Add '{0}' to your task list?
+
+Description: {1}</value>
+  </data>
+  <data name="Lpm_AddedFormat" xml:space="preserve">
+    <value>'{0}' has been added to your task list</value>
+  </data>
+  <data name="Lpm_MarkConfirmTitle" xml:space="preserve">
+    <value>Confirm Completion</value>
+  </data>
+  <data name="Lpm_MarkConfirmFormat" xml:space="preserve">
+    <value>Mark '{0}' as completed?</value>
+  </data>
+  <data name="Lpm_MarkedDoneFormat" xml:space="preserve">
+    <value>Milestone '{0}' marked as complete!</value>
+  </data>
+  <data name="Lpm_DeleteConfirmTitle" xml:space="preserve">
+    <value>Confirm Deletion</value>
+  </data>
+  <data name="Lpm_DeleteConfirmFormat" xml:space="preserve">
+    <value>Delete the learning plan '{0}'?
+
+This will remove the plan and all its milestones. This cannot be undone.</value>
+  </data>
+  <data name="Main_RecordToggleTooltip" xml:space="preserve">
+    <value>Start or stop recording (Ctrl+Alt+R)</value>
+  </data>
+  <data name="Main_Record" xml:space="preserve">
+    <value>Record</value>
+  </data>
+  <data name="Main_RecordingStopFormat" xml:space="preserve">
+    <value>Stop {0}</value>
+  </data>
+  <data name="Main_MeetingLiveTitle" xml:space="preserve">
+    <value>🤖 Live meeting notes</value>
+  </data>
+  <data name="Main_TopicToggle" xml:space="preserve">
+    <value>+ Topic (optional)</value>
+  </data>
+  <data name="Main_TopicToggleTooltip" xml:space="preserve">
+    <value>Optionally add the meeting topic or jargon to improve recognition accuracy (fine to leave empty)</value>
+  </data>
+  <data name="Main_TopicBoxTooltip" xml:space="preserve">
+    <value>Meeting topic/jargon (optional): press Enter or click elsewhere to apply. Helps recognize homophones and proper nouns.</value>
+  </data>
+  <data name="Main_TopicEnterHint" xml:space="preserve">
+    <value>Enter to apply</value>
+  </data>
+  <data name="Main_MaConcepts" xml:space="preserve">
+    <value>💡 New concepts</value>
+  </data>
+  <data name="Main_MaQuestions" xml:space="preserve">
+    <value>❓ To discuss</value>
+  </data>
+  <data name="Main_MaDecisions" xml:space="preserve">
+    <value>✅ Decisions</value>
+  </data>
+  <data name="Main_MaActions" xml:space="preserve">
+    <value>📌 Action items</value>
+  </data>
 </root>

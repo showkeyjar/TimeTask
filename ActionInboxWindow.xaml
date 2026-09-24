@@ -1,7 +1,8 @@
 <Window x:Class="TimeTask.ActionInboxWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="录音整理"
+        xmlns:loc="clr-namespace:TimeTask"
+        Title="{loc:Loc ActionInbox_WindowTitle}"
         Height="600" Width="720"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize">
@@ -24,13 +25,13 @@
 
         <!-- 0. 一句话结论 -->
         <StackPanel Grid.Row="0" Orientation="Vertical">
-            <TextBlock x:Name="TitleText" FontSize="19" FontWeight="Bold" Text="这段录音整理好了"/>
+            <TextBlock x:Name="TitleText" FontSize="19" FontWeight="Bold" Text="{loc:Loc ActionInbox_TitleDefault}"/>
             <TextBlock x:Name="MetaText" Foreground="#666" Margin="0,4,0,0" FontSize="13" TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- 1. 操作引导（有人话的下一步） -->
         <TextBlock x:Name="ActionHintText" Grid.Row="1" Margin="0,10,0,4" FontSize="13" Foreground="#333"
-                   Text="勾掉不需要的，剩下的点下面绿色按钮就会加进任务列表（默认已按重要/紧急分好类，不满意可以改）："/>
+                   Text="{loc:Loc ActionInbox_Hint}"/>
 
         <!-- 2. 行动项卡片 / 空态卡片 -->
         <Border x:Name="ActionsCard" Grid.Row="2" Background="#FDFEFD" BorderBrush="#D8E4D8"
@@ -40,14 +41,16 @@
                       HeadersVisibility="Column" BorderThickness="0" RowHeight="34"
                       GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEE">
                 <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="加入" Binding="{Binding Accepted, Mode=TwoWay}" Width="46"/>
-                    <DataGridTextColumn Header="事项" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
-                    <DataGridComboBoxColumn x:Name="QuadrantColumn" Header="放到哪" SelectedItemBinding="{Binding Quadrant, Mode=TwoWay}" Width="128"/>
-                    <DataGridTemplateColumn Header="提醒我" Width="112">
+                    <DataGridCheckBoxColumn Header="{loc:Loc ActionInbox_ColumnAccept}" Binding="{Binding Accepted, Mode=TwoWay}" Width="46"/>
+                    <DataGridTextColumn Header="{loc:Loc ActionInbox_ColumnItem}" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
+                    <DataGridComboBoxColumn x:Name="QuadrantColumn" Header="{loc:Loc ActionInbox_ColumnQuadrant}"
+                                            SelectedValueBinding="{Binding QuadrantIndex, Mode=TwoWay}"
+                                            SelectedValuePath="Index" DisplayMemberPath="Name" Width="128"/>
+                    <DataGridTemplateColumn Header="{loc:Loc ActionInbox_ColumnReminder}" Width="112">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DatePicker SelectedDate="{Binding Reminder, Mode=TwoWay}" BorderThickness="0"
-                                            ToolTip="留空 = 不提醒"/>
+                                            ToolTip="{loc:Loc ActionInbox_ReminderTooltip}"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -60,9 +63,9 @@
             <StackPanel>
                 <TextBlock x:Name="EmptyReasonText" FontSize="13" TextWrapping="Wrap" Foreground="#5A5245" LineHeight="22"/>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                    <Button x:Name="BtnEmptyListen" Content="▶ 听一听录音" Width="120" Height="32" Margin="0,0,10,0"
+                    <Button x:Name="BtnEmptyListen" Content="{loc:Loc ActionInbox_EmptyListen}" Width="120" Height="32" Margin="0,0,10,0"
                             Click="BtnEmptyListen_Click" Background="#FFFDF6" BorderBrush="#C9B98A"/>
-                    <Button x:Name="BtnEmptyManual" Content="✍ 手动补记几句话" Width="140" Height="32"
+                    <Button x:Name="BtnEmptyManual" Content="{loc:Loc ActionInbox_EmptyManual}" Width="140" Height="32"
                             Click="BtnEmptyManual_Click" Background="#FFFDF6" BorderBrush="#C9B98A"/>
                 </StackPanel>
             </StackPanel>
@@ -70,24 +73,24 @@
 
         <!-- 3. 主操作：一个绿色按钮收口 -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
-            <Button x:Name="BtnAcceptAll" Content="✓ 加入任务列表" Height="40" MinWidth="230" Padding="14,0"
+            <Button x:Name="BtnAcceptAll" Content="{loc:Loc ActionInbox_Accept}" Height="40" MinWidth="230" Padding="14,0"
                     Click="BtnAcceptAll_Click" Background="#2E7D32" Foreground="White" FontSize="14"
                     FontWeight="SemiBold" BorderBrush="#256428"/>
-            <Button x:Name="BtnDismiss" Content="本次不加了" Height="40" Margin="12,0,0,0" Padding="10,0"
+            <Button x:Name="BtnDismiss" Content="{loc:Loc ActionInbox_Dismiss}" Height="40" Margin="12,0,0,0" Padding="10,0"
                     Click="BtnDismiss_Click" Background="Transparent" Foreground="#777"
                     BorderThickness="0" FontSize="13"/>
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="14,0,0,0" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- 4. 折叠：听录音 / 找文件 -->
-        <Expander x:Name="AudioExpander" Grid.Row="4" Header="▶ 听录音 / 找录音文件" Margin="0,12,0,0" IsExpanded="False">
+        <Expander x:Name="AudioExpander" Grid.Row="4" Header="{loc:Loc ActionInbox_AudioHeader}" Margin="0,12,0,0" IsExpanded="False">
             <Border Background="#F4FAFE" BorderBrush="#CFE3F2" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,6,0,0">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnPlayMic" Content="▶ 播放人声（麦克风）" Width="150" Height="30" Margin="0,0,8,0" Click="BtnPlayMic_Click"/>
-                        <Button x:Name="BtnPlaySystem" Content="▶ 播放对方声音" Width="130" Height="30" Margin="0,0,8,0" Click="BtnPlaySystem_Click"/>
-                        <Button x:Name="BtnStopPlay" Content="■ 停止" Width="76" Height="30" Margin="0,0,8,0" Click="BtnStopPlay_Click" IsEnabled="False"/>
-                        <Button x:Name="BtnOpenFolder" Content="打开文件夹" Width="96" Height="30" Click="BtnOpenFolder_Click"/>
+                        <Button x:Name="BtnPlayMic" Content="{loc:Loc ActionInbox_PlayMic}" Width="150" Height="30" Margin="0,0,8,0" Click="BtnPlayMic_Click"/>
+                        <Button x:Name="BtnPlaySystem" Content="{loc:Loc ActionInbox_PlaySystem}" Width="130" Height="30" Margin="0,0,8,0" Click="BtnPlaySystem_Click"/>
+                        <Button x:Name="BtnStopPlay" Content="{loc:Loc ActionInbox_StopPlay}" Width="76" Height="30" Margin="0,0,8,0" Click="BtnStopPlay_Click" IsEnabled="False"/>
+                        <Button x:Name="BtnOpenFolder" Content="{loc:Loc ActionInbox_OpenFolder}" Width="96" Height="30" Click="BtnOpenFolder_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="PlayStatus" Foreground="#555" FontSize="11" Margin="0,4,0,0"/>
                     <TextBlock x:Name="RetentionNote" Foreground="#999" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
@@ -96,18 +99,18 @@
         </Expander>
 
         <!-- 5. 折叠：转写全文 + 手动补记兜底 -->
-        <Expander x:Name="TranscriptExpander" Grid.Row="5" Header="▶ 文字都说了什么（全文）" Margin="0,8,0,0" IsExpanded="False">
+        <Expander x:Name="TranscriptExpander" Grid.Row="5" Header="{loc:Loc ActionInbox_TranscriptHeader}" Margin="0,8,0,0" IsExpanded="False">
             <StackPanel>
                 <TextBox x:Name="TranscriptBox" Height="120" IsReadOnly="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" FontSize="12" Background="#F7F7F7" Margin="0,6,0,4"/>
                 <!-- 没能自动转成文字时的手动兜底：完全离线、不依赖任何模型 -->
-                <Expander x:Name="ManualExpander" Header="✍ 没有自动文字？回放后把听到的话敲进来，一样能提取" Margin="0,2,0,0" IsExpanded="False">
+                <Expander x:Name="ManualExpander" Header="{loc:Loc ActionInbox_ManualHeader}" Margin="0,2,0,0" IsExpanded="False">
                     <StackPanel Margin="0,6,0,0">
                         <TextBox x:Name="ManualTextBox" Height="90" TextWrapping="Wrap" AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto" FontSize="12"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button x:Name="BtnExtractFromText" Content="从这些文字提取事项" Width="150" Height="32" Click="BtnExtractFromText_Click" Background="#1565C0" Foreground="White"/>
-                            <Button x:Name="BtnClearManual" Content="清空" Width="70" Height="32" Margin="8,0,0,0" Click="BtnClearManual_Click"/>
+                            <Button x:Name="BtnExtractFromText" Content="{loc:Loc ActionInbox_ExtractFromText}" Width="150" Height="32" Click="BtnExtractFromText_Click" Background="#1565C0" Foreground="White"/>
+                            <Button x:Name="BtnClearManual" Content="{loc:Loc ActionInbox_ClearManual}" Width="70" Height="32" Margin="8,0,0,0" Click="BtnClearManual_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </Expander>
@@ -115,7 +118,7 @@
         </Expander>
 
         <!-- 6. 折叠：会议纪要 -->
-        <Expander x:Name="MinutesExpander" Grid.Row="6" Header="▶ 会议纪要（聊到的新概念 / 待讨论 / 做出的决定）" Margin="0,8,0,0" IsExpanded="False">
+        <Expander x:Name="MinutesExpander" Grid.Row="6" Header="{loc:Loc ActionInbox_MinutesHeader}" Margin="0,8,0,0" IsExpanded="False">
             <StackPanel>
                 <TextBlock x:Name="MinutesSummary" FontSize="12" TextWrapping="Wrap" Foreground="#444" Margin="0,6,0,6"/>
                 <Grid>
@@ -126,7 +129,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="💡 新概念" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="{loc:Loc ActionInbox_MinConcepts}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinConcepts">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -139,7 +142,7 @@
                         </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                        <TextBlock Text="❓ 待讨论" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="{loc:Loc ActionInbox_MinQuestions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinQuestions">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -163,7 +166,7 @@
                         </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                        <TextBlock Text="✅ 决定" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="{loc:Loc ActionInbox_MinDecisions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinDecisions">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -173,7 +176,7 @@
                         </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="3">
-                        <TextBlock Text="📌 要做的事" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
+                        <TextBlock Text="{loc:Loc ActionInbox_MinActions}" FontWeight="SemiBold" Foreground="#0B6E8F" Margin="0,0,0,3"/>
                         <ItemsControl x:Name="MinActions">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
