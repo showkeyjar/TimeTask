@@ -48,6 +48,15 @@ namespace TimeTask
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // 无 UI 自检模式（--diagnostics / --selfcheck，可选 --quiet）：
+            // 一条命令收集安装/配置问题的全部现场证据并落报告文件后退出。
+            // 放在单实例互斥之前——应用正在运行时也能随时执行诊断。
+            if (DiagnosticsSelfCheck.IsRequested(e.Args))
+            {
+                DiagnosticsSelfCheck.RunAndExit(e.Args);
+                return;
+            }
+
             Instance = this;
 
             // 单实例：双开会导致托盘图标重复、CSV/JSON 互相覆盖写（后写者赢，丢对方改动）。

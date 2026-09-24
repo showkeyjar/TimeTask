@@ -92,6 +92,7 @@
     <Compile Include="SyncScheduler.cs" />
     <Compile Include="SecureApiKeyStore.cs" />
     <Compile Include="AppPaths.cs" />
+    <Compile Include="DiagnosticsSelfCheck.cs" />
     <Compile Include="DecisionEngine.cs" />
     <Compile Include="FunAsrEngine.cs" />
     <Compile Include="GoalHierarchyEngine.cs" />
