@@ -53,3 +53,24 @@ jobs:
       run: |
         $enc = Join-Path $env:GITHUB_WORKSPACE 'scripts\check_encoding.ps1'
         & powershell -NoProfile -ExecutionPolicy Bypass -File $enc -Mode full -TreatWarningAsError
+
+    # i18n 棘轮：XAML 硬编码中文只许减少不许新增（基线 docs/i18n-baseline.txt）
+    - name: i18n ratchet (hardcoded CJK in XAML)
+      shell: pwsh
+      run: |
+        $i18n = Join-Path $env:GITHUB_WORKSPACE 'scripts\check_i18n.ps1'
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $i18n -Ratchet docs\i18n-baseline.txt
+        if ($LASTEXITCODE -ne 0) { exit 1 }
+        $baseline = Join-Path $env:GITHUB_WORKSPACE 'docs\i18n-baseline.txt'
+        if (git status --porcelain -- $baseline) {
+          if ("$env:GITHUB_EVENT_NAME" -eq 'push') {
+            "Baseline decreased - committing new baseline"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add $baseline
+            git commit -m "chore: lower i18n baseline [skip ci]"
+            git push
+          } else {
+            "Baseline decreased in PR - merge will update it via the push run."
+          }
+        }

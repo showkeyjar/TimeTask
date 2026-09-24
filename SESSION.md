@@ -1,5 +1,21 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-24 ~15:20 +08:00] 自动化第三轮：i18n 审计棘轮 + 孤儿文件清理
+- 1) scripts/check_i18n.ps1：XAML 硬编码中文审计器（ROADMAP「i18n 覆盖到全部对话框」的可度量落地）。
+  发现现状：代码后置 I18n.T() 覆盖广（250+ 处），但 XAML 层 {loc:} 标记扩展 0 使用——
+  XAML 里硬编码的中文永远不随语言切换。基线：**75 处 / 5 个文件**
+  （TaskStatisticsWindow 33、LearningPlanManagerWindow 17、ActionInboxWindow 12、
+  SetLearningPlanWindow 8、MainWindow 5）。脚本纯 ASCII（免 ps1 BOM 问题），只扫 XAML——
+  .cs 里大量中文是日志/LLM 提示词等有意为之，扫代码纯噪音。
+- 2) 棘轮机制（-Ratchet docs/i18n-baseline.txt）：数量只许降不许升，降了自动更新基线；
+  CI 接入后 push 事件自动回提新基线（[skip ci] 防循环；PR 事件只校验不回推）。
+  双向已测：74→75 FAIL（exit 1）、75==75 PASS。
+- 3) 清理孤儿文件 BackupManagerWindow.xaml：有 x:Class 但代码文件不存在、不在 csproj、
+  从未参与编译——git rm。
+- 下一步（真正的迁移工作，非本轮范围）：按窗口逐个把 75 处硬编码中文改 {loc:Key} +
+  双语 resx（TaskStatisticsWindow 收益最大）；迁移后跑 check_i18n.ps1 基线自动下降。
+- 验证：YAML 复验通过；棘轮升降双向行为正确；i18n 扫描 22 个 XAML 稳定输出。
+
 ## [2026-09-24 ~15:10 +08:00] 自动化第二轮：本地部署自动化 + 冒烟门 + 发布卫生 + 工具链修补
 - 1) scripts/deploy_local.ps1：自动化 2026-09-23 手工做的「部署新构建到 D:\tools\TimeTask」——
   构建 Release → 优雅停实例（CloseMainWindow→10s→强杀，数据全原子写故强杀安全）→
