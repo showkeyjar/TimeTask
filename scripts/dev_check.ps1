@@ -28,7 +28,10 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [switch]$SkipTests
+    [switch]$SkipTests,
+
+    # 构建产物冒烟：真实启动 exe --diagnostics --quiet，验证可启动且自检无 FAIL
+    [switch]$Smoke
 )
 
 $ErrorActionPreference = 'Continue'
@@ -156,6 +159,23 @@ try {
     $encScript = Join-Path $PSScriptRoot 'check_encoding.ps1'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $encScript -Mode full
     if ($LASTEXITCODE -ne 0) { $script:fail = 1 }
+
+    # ---------- 5.5) 冒烟（可选）：真实启动构建产物做 --diagnostics 自检 ----------
+    if ($Smoke -and $script:fail -eq 0) {
+        Write-Host "`n[5.5/6] 冒烟：启动构建产物 --diagnostics --quiet ..."
+        $smokeExe = Join-Path $repoRoot ("bin\$Configuration\TimeTask.exe")
+        if (-not (Test-Path $smokeExe)) {
+            Write-Host "  [WARN] 未找到 $smokeExe，跳过冒烟。" -ForegroundColor Yellow
+        }
+        else {
+            $proc = Start-Process -FilePath $smokeExe -ArgumentList '--diagnostics', '--quiet' -PassThru -Wait
+            if ($proc.ExitCode -eq 0) { Write-Host '  [OK] 冒烟通过（自检 0 FAIL）。' -ForegroundColor Green }
+            elseif ($proc.ExitCode -eq 2) {
+                Write-Host '  [WARN] 冒烟自检存在 FAIL（exit=2），详见 %AppData%\TimeTask\logs\diagnostics-*.txt。' -ForegroundColor Yellow
+            }
+            else { Write-Host "  [FAIL] 冒烟异常退出（exit=$($proc.ExitCode)）。" -ForegroundColor Red; $script:fail = 1 }
+        }
+    }
 
     # ---------- 6) 汇总 ----------
     Write-Host "`n[6/6] ========== 质量门汇总 =========="

@@ -85,6 +85,19 @@ jobs:
           New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
           Copy-Item -Path (Join-Path $outputDir "*") -Destination $stagingDir -Recurse -Force
 
+          # 发布卫生：剥离运行期用户数据（本地跑过 Release exe 会残留开发数据）与备份文件。
+          # 保留 csproj 从源码树拷贝的模板种子（如 data 下的模板 CSV）。
+          foreach ($dirty in @(
+              Join-Path $stagingDir 'data\strategy'
+              Join-Path $stagingDir 'data\adaptive'
+              Join-Path $stagingDir 'data\weekly_reviews'
+              Join-Path $stagingDir 'Recordings'
+              Join-Path $stagingDir 'logs'
+          )) {
+              if (Test-Path $dirty) { Remove-Item $dirty -Recurse -Force }
+          }
+          Get-ChildItem $stagingDir -Recurse -Filter '*.bak' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+
           $zipPath = Join-Path $env:GITHUB_WORKSPACE "${{ steps.meta.outputs.asset_name }}"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path (Join-Path $stagingDir "*") -DestinationPath $zipPath -Force

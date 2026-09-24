@@ -1,5 +1,24 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-24 ~15:10 +08:00] 自动化第二轮：本地部署自动化 + 冒烟门 + 发布卫生 + 工具链修补
+- 1) scripts/deploy_local.ps1：自动化 2026-09-23 手工做的「部署新构建到 D:\tools\TimeTask」——
+  构建 Release → 优雅停实例（CloseMainWindow→10s→强杀，数据全原子写故强杀安全）→
+  robocopy 合并拷贝（排除 data/Recordings/logs/TestResults，绝不删除目标文件）→ 重启 →
+  --diagnostics 自检验证。-DryRun/-NoBuild/-NoRestart 三开关；DryRun 已演练通过。
+- 2) dev_check.ps1 新增 -Smoke：质量门末尾真实启动构建产物跑 --diagnostics --quiet，
+  exit 0 才算过（已验证通过）——「能构建」与「能启动且自检干净」从此都是门禁。
+- 3) 发布卫生（release.yml）：打包时剥离 data\strategy、data\adaptive、data\weekly_reviews、
+  Recordings、logs 与全部 *.bak——本地跑过 Release exe 的开发数据（周回顾/画像/快照）
+  不再可能混进发布 zip。
+- 4) build_local.bat 修工具链探测（补 VS18 D:\tools 路径与常规 Program Files 路径，
+  原版只探测 ProgramFiles(x86) 在本机必失败）+ 指向 dev_check.ps1。
+- 5) 三个 workflow/dependabot YAML 已用 PyYAML 语法校验通过。
+- 发现待用户决策：D:\tools 实例当前运行的还是 09-23 构建（不含托盘图标/显示桌面保护/
+  --diagnostics），deploy_local.ps1 就绪但停-启实例需用户确认时机；本地提交未推送，
+  push 后新 CI（全量测试+编码门）首跑待观察。
+- 验证：dev_check -Smoke 全绿（208 项测试 / 206 过 / 0 败 / 2 跳过）；deploy DryRun 正常；
+  编码门 changed 模式 0 错。
+
 ## [2026-09-24 ~15:00 +08:00] 工程自动化轮：一键质量门 + 编码守卫 + tag 驱动发布 + --diagnostics 自检
 - 背景：用户要求「分析项目还有哪些工作可以自动化，尽量自动化」。审计发现每轮人工成本
   最高的四件事：①构建+测试+「U+FFFD 均为 0」+真实日志隔离验证（SESSION.md 每轮手工记录）；
