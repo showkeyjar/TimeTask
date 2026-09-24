@@ -1,5 +1,22 @@
 # 编译问题解决指南
 
+## ⚡ 一键构建 + 测试 + 质量门（推荐先跑）
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dev_check.ps1
+```
+
+该脚本自动探测 MSBuild/vstest（含 VS18 与常规 VS2022 路径），完成：主工程构建 →
+测试工程构建 → 全部单元测试 → 全仓编码守卫（U+FFFD/非法 UTF-8/bat 中文/ps1 缺 BOM）→
+真实日志隔离校验，任一环节失败即非零退出。也可用 `build_and_test.bat`（仅构建+测试）。
+
+其它自动化脚本：
+- `scripts\check_encoding.ps1`：编码守卫（`-Mode changed|full`），pre-commit 钩子复用；
+  首次克隆后执行 `scripts\install_hooks.ps1` 安装提交前检查。
+- `scripts\set_version.ps1 x.y.z [-Notes "说明"]`：一次改齐 AssemblyVersion/AssemblyFileVersion，
+  并在 CHANGELOG.md 插入草稿段（发 tag 版本前用）。
+- `TimeTask.exe --diagnostics --quiet`：无 UI 自检，报告写入 `%AppData%\TimeTask\logs\`。
+
 ## 🚨 当前编译问题
 
 遇到的MSBuild错误通常是由于.NET SDK版本不兼容导致的。以下是解决方案：

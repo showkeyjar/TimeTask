@@ -1,5 +1,39 @@
 # SESSION.md（追加式，每次更新只加不删）
 
+## [2026-09-24 ~15:00 +08:00] 工程自动化轮：一键质量门 + 编码守卫 + tag 驱动发布 + --diagnostics 自检
+- 背景：用户要求「分析项目还有哪些工作可以自动化，尽量自动化」。审计发现每轮人工成本
+  最高的四件事：①构建+测试+「U+FFFD 均为 0」+真实日志隔离验证（SESSION.md 每轮手工记录）；
+  ②编码乱码反复发生（EncodingRepair*.cs×3、manual_repair.ps1 的由来）；③CHANGELOG 停更
+  （2026-02-09）而 release 每次 push 都发版（build.N 噪音 tag 干扰应用内更新器）；
+  ④用户排障只能口述（ROADMAP 的「轻量诊断」一直未做）。
+- 1) scripts/check_encoding.ps1 编码守卫：U+FFFD / 非法 UTF-8 / bat 中文 / ps1 含中文缺 BOM
+  （PS 5.1 按 ANSI 误读解析失败，本轮实测复现两次）四类检查，-Mode changed|full。
+  首跑即抓到 4 处存量问题并已修复：FunAsrRuntimeManager.cs 注释「进程树」损坏×3、
+  build_test.bat 中文（cmd 代码页必乱码→改写为 ASCII）、repair_encoding/manual_repair.ps1 缺 BOM、
+  autorun.reg 旧键名 CCtrl→TimeTask。
+- 2) scripts/dev_check.ps1 一键质量门：自动探测工具链（VS18 专属路径+常规 VS2022，
+  可用 TIMETASK_MSBUILD/TIMETASK_VSTEST 覆盖）→ 构建主/测试工程（自动注入 DOTNET_ROOT）→
+  vstest 全跑并解析计数 → 编码守卫全仓 → 真实日志隔离校验（应用正在运行时自动跳过该
+  不变量——本轮发现用户 D:\tools\TimeTask 实例常驻写同一日志，旧检查在活机上必误报）。
+- 3) git 钩子（scripts/install_hooks.ps1 + .githooks/pre-commit，core.hooksPath 方式随仓库
+  版本化）：提交前自动跑编码守卫 changed 模式。
+- 4) 发布流水线重构（.github/workflows/release.yml）：纯 tag(v*) 驱动（ROADMAP 明确目标），
+  tag 与 AssemblyFileVersion 不一致拒发（防「忘升版本」发错包），发布后自动把
+  「上一 tag..本 tag」提交清单回写 CHANGELOG.md（[skip ci] 防死循环，回写失败不标红）。
+  CI（dotnet-desktop.yml）则默认跑全部测试+编码门（原测试默认关）。新增 dependabot.yml。
+- 5) scripts/set_version.ps1：一次改齐 AssemblyVersion/AssemblyFileVersion + CHANGELOG 草稿段。
+- 6) TimeTask.exe --diagnostics（可选 --quiet）：无 UI 自检（数据/录音目录可写、四象限 CSV
+  坏行、JSON 截断/乱码、磁盘空间、关键配置键、FunASR 预置包/python 探测），报告落
+  %AppData%\TimeTask\logs\diagnostics-*.txt；放在单实例互斥之前（应用运行中也可诊断）。
+  本机冒烟即抓到开发数据 Q1 CSV 坏行×1。新增 9 项契约测试。
+- 验证：dev_check.ps1 全链路 PASS——MSBuild 0 错；vstest 208 项 / 206 过 / 0 败 / 2 跳过；
+  编码门 changed+full 双模式 0 错；--diagnostics 真实冒烟输出完整报告。
+- 教训：①PS 5.1 无 BOM 的含中文 ps1 必乱码——编码守卫已把该情形定为 ERROR；
+  ②PS 的 foreach 不逐字符迭代字符串（整串算一个标量），计数字符必须用 [regex]::Matches；
+  ③$ErrorActionPreference='Stop' 下原生命令（git）stderr 警告会升级为终止错误，git 调用处需局部放宽。
+- 下一步建议：CI 全量测试首跑观察（历史上曾因「桌面测试不稳」默认关闭，本地 206 项稳定，
+  若 CI 复现不稳需按类过滤）；实际打一个 v* tag 验证发布链路端到端。
+
 ## [2026-09-22 ~20:45 +08:00] 可观测性与 UI 操作防护：Console Tee + 日志滚动 + UiSafe
 - 背景：审计发现全仓 315 处 Console.WriteLine 在 WPF（无控制台）下全部丢失——
   语音/LLM 排障最关键的诊断（EnhancedAudioCaptureService/ConversationRecorder/LlmService
